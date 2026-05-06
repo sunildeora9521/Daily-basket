@@ -438,64 +438,112 @@ function Splash({onDone, onCapSelect}) {
 function CustomerLogin({onLogin}) {
   const [name,  setName ] = useState('');
   const [phone, setPhone] = useState('');
+  const [otp,   setOtp  ] = useState('');
+  const [step,  setStep ] = useState('phone');
+  const [confirmObj, setConfirmObj] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [err,   setErr  ] = useState('');
 
-  const next=()=>{
+  const sendOTP = async () => {
     if(!name.trim()){setErr('Please enter your name');return;}
     if(phone.length!==10){setErr('Enter a valid 10-digit mobile number');return;}
     setErr('');
-    onLogin({name:name.trim(), phone});
+    setLoading(true);
+    try {
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        auth, 'recaptcha-container', {size:'invisible'}
+      );
+      const result = await signInWithPhoneNumber(
+        auth, '+91'+phone, window.recaptchaVerifier
+      );
+      setConfirmObj(result);
+      setStep('otp');
+    } catch(e) {
+      setErr('OTP send nahi hua: '+e.message);
+      if(window.recaptchaVerifier) window.recaptchaVerifier.clear();
+    }
+    setLoading(false);
+  };
+
+  const verifyOTP = async () => {
+    if(otp.length!==6){setErr('6 digit OTP daalo');return;}
+    setLoading(true);
+    setErr('');
+    try {
+      await confirmObj.confirm(otp);
+      onLogin({name:name.trim(), phone});
+    } catch(e) {
+      setErr('Galat OTP! Dobara try karo.');
+      setLoading(false);
+    }
   };
 
   return (
     <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 40% 20%,#0C1C0C,#070907)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
-      <div style={{position:'absolute',top:-80,right:-80,width:240,height:240,borderRadius:'50%',background:'radial-gradient(circle,rgba(61,255,122,.06),transparent 70%)',pointerEvents:'none'}}/>
       <SBar/>
       <div style={{flex:1,overflow:'auto',scrollbarWidth:'none',padding:'10px 28px 40px'}}>
-        {/* hero */}
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'20px 0 30px',animation:'fadeUp .6s ease both'}}>
           <div style={{fontSize:60,marginBottom:16,animation:'floatY 3s ease-in-out infinite'}}>🧺</div>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:800,textAlign:'center',background:'linear-gradient(135deg,#F0F4F0,#3DFF7A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Daily Basket</div>
           <div style={{fontSize:14,color:'var(--t3)',marginTop:6,textAlign:'center'}}>Fresh groceries delivered to your door</div>
         </div>
 
-        <div style={{animation:'fadeUp .6s ease .15s both'}}>
-          <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>Let's get started!</div>
-          <div style={{fontSize:13,color:'var(--t3)',marginBottom:28}}>Enter your details to continue</div>
+        {step==='phone' ? (
+          <div style={{animation:'fadeUp .6s ease .15s both'}}>
+            <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>Let's get started!</div>
+            <div style={{fontSize:13,color:'var(--t3)',marginBottom:28}}>Enter your details to continue</div>
 
-          {/* Name */}
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Your Name</div>
-            <div style={{position:'relative'}}>
-              <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)'}}><Ic n="user" s={16} c="#5A6A5A"/></div>
-              <input className="dbi" style={{paddingLeft:42}} placeholder="Enter your full name" value={name} onChange={e=>{setName(e.target.value);setErr('');}}/>
-            </div>
-          </div>
-
-          {/* Mobile */}
-          <div style={{marginBottom:20}}>
-            <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Mobile Number</div>
-            <div style={{position:'relative'}}>
-              <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',display:'flex',alignItems:'center',gap:6}}>
-                <Ic n="phone" s={16} c="#5A6A5A"/>
-                <span style={{fontSize:13,color:'#5A6A5A',fontWeight:600,borderRight:'1px solid rgba(255,255,255,.1)',paddingRight:8}}>+91</span>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Your Name</div>
+              <div style={{position:'relative'}}>
+                <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)'}}><Ic n="user" s={16} c="#5A6A5A"/></div>
+                <input className="dbi" style={{paddingLeft:42}} placeholder="Enter your full name" value={name} onChange={e=>{setName(e.target.value);setErr('');}}/>
               </div>
-              <input className="dbi" style={{paddingLeft:78}} type="tel" maxLength={10} placeholder="10-digit mobile" value={phone} onChange={e=>{setPhone(e.target.value.replace(/\D/g,''));setErr('');}}/>
             </div>
+
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Mobile Number</div>
+              <div style={{position:'relative'}}>
+                <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',display:'flex',alignItems:'center',gap:6}}>
+                  <Ic n="phone" s={16} c="#5A6A5A"/>
+                  <span style={{fontSize:13,color:'#5A6A5A',fontWeight:600,borderRight:'1px solid rgba(255,255,255,.1)',paddingRight:8}}>+91</span>
+                </div>
+                <input className="dbi" style={{paddingLeft:78}} type="tel" maxLength={10} placeholder="10-digit mobile" value={phone} onChange={e=>{setPhone(e.target.value.replace(/\D/g,''));setErr('');}}/>
+              </div>
+            </div>
+
+            <div id="recaptcha-container"></div>
+
+            {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',padding:'10px 14px',borderRadius:10,marginBottom:16}}>{err}</div>}
+
+            <button className="btn rip" onClick={sendOTP} disabled={loading} style={{width:'100%',padding:'17px',fontSize:16,marginTop:8}}>
+              {loading ? 'Sending OTP...' : 'Next — Get OTP →'}
+            </button>
           </div>
+        ) : (
+          <div style={{animation:'fadeUp .6s ease both'}}>
+            <div onClick={()=>setStep('phone')} style={{display:'flex',alignItems:'center',gap:8,marginBottom:24,cursor:'pointer'}}>
+              <Ic n="back" s={18} c="#8A9A8A"/>
+              <span style={{fontSize:14,color:'var(--t3)'}}>Back</span>
+            </div>
+            <div style={{textAlign:'center',marginBottom:28}}>
+              <div style={{fontSize:40,marginBottom:12}}>📱</div>
+              <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Verify OTP</div>
+              <div style={{fontSize:13,color:'var(--t3)'}}>We sent a 6-digit OTP to</div>
+              <div style={{fontSize:15,fontWeight:700,color:'var(--green)',marginTop:4}}>+91 {phone}</div>
+            </div>
 
-          {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',border:'1px solid rgba(255,107,107,.2)',borderRadius:10,padding:'8px 12px',marginBottom:16}}>{err}</div>}
+            <input className="dbi" type="tel" maxLength={6} placeholder="Enter 6-digit OTP" value={otp}
+              onChange={e=>{setOtp(e.target.value.replace(/\D/g,''));setErr('');}}
+              style={{textAlign:'center',fontSize:24,letterSpacing:12,marginBottom:16}}/>
 
-          <button className="btn rip" onClick={next} style={{width:'100%',padding:'17px',fontSize:16}}>
-            Next — Get OTP →
-          </button>
-        </div>
+            {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',padding:'10px 14px',borderRadius:10,marginBottom:16}}>{err}</div>}
 
-        {/* terms */}
-        <div style={{textAlign:'center',marginTop:20,fontSize:12,color:'#3A4A3A',lineHeight:1.6}}>
-          By continuing, you agree to our<br/>
-          <span style={{color:'#3DFF7A',cursor:'pointer'}}>Terms of Service</span> & <span style={{color:'#3DFF7A',cursor:'pointer'}}>Privacy Policy</span>
-        </div>
+            <button className="btn rip" onClick={verifyOTP} disabled={loading} style={{width:'100%',padding:'17px',fontSize:16}}>
+              {loading ? 'Verifying...' : 'Verify & Login ✓'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
