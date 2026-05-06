@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from "react";
-
+import { useState, useEffect } from "react";
+import { auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import Login from "./Login";
 /* ═══════════ GLOBAL CSS ═══════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap');
