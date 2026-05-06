@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import Login from "./Login";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 /* ═══════════ GLOBAL CSS ═══════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap');
@@ -246,7 +244,6 @@ const T = {
 /* ═══════════ DATA ═══════════ */
 const ADMIN_ID = 'Sunil14581';
 const ADMIN_PASS = 'Sunil@$14581';
-const DEMO_OTP = '123456';
 
 const mkData = () => ({
   products:[
