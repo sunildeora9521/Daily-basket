@@ -1464,7 +1464,7 @@ export default function DailyBasket() {
 
   const renderContent = () => {
     if(phase==='splash') return <Splash onDone={()=>setPhase('login')} onCapSelect={handleCapSelect}/>;
-    if(phase==='login')  return <CustomerLogin onLogin={u=>{setUser(u);setPhase('otp');}}/>;
+    if(phase==='login') return <CustomerLogin onLogin={u=>{setUser(u);setPhase('location');}}/>;
     if(phase==='otp')    return <OTPScreen phone={user&&user.phone} name={user&&user.name} onVerify={u=>{setUser(u);setPhase('location');}} onBack={()=>setPhase('login')}/>;
     if(phase==='location') return <LocationScreen user={user} onAllow={()=>setPhase('language')} onSkip={()=>setPhase('language')}/>;
     if(phase==='language') return <LanguageScreen user={user} onSelect={l=>{setLang(l);setPhase('app');}}/>;
