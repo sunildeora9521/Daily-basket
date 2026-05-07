@@ -786,7 +786,7 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [track,  setTrack ]=useState(false);
   const [catF,   setCatF  ]=useState('all');
   const [themeOpen, setThemeOpen]=useState(false);
-
+  const [payMethod, setPayMethod]=useState('cod');
   const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
   const place=()=>{setCart([]);setShCart(false);setTrack(true);};
@@ -854,24 +854,19 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
         </div>
         {cart.length>0&&<div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
   {/* Payment Method */}
-  {(() => {
-    const [pay, setPay] = useState('cod');
-    return (
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>💳 Payment Method</div>
-        <div style={{display:'flex',gap:8}}>
-          <div onClick={()=>setPay('cod')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${pay==='cod'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:pay==='cod'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
-            <div style={{fontSize:16}}>💵</div>
-            <div style={{fontSize:11,fontWeight:600,color:pay==='cod'?'#3DFF7A':'var(--t3)'}}>Cash on Delivery</div>
-          </div>
-          <div onClick={()=>setPay('upi')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${pay==='upi'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:pay==='upi'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
-            <div style={{fontSize:16}}>📱</div>
-            <div style={{fontSize:11,fontWeight:600,color:pay==='upi'?'#3DFF7A':'var(--t3)'}}>UPI</div>
-          </div>
-        </div>
+  <div style={{marginBottom:12}}>
+    <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>💳 Payment Method</div>
+    <div style={{display:'flex',gap:8}}>
+      <div onClick={()=>setPayMethod('cod')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='cod'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='cod'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+        <div style={{fontSize:16}}>💵</div>
+        <div style={{fontSize:11,fontWeight:600,color:payMethod==='cod'?'#3DFF7A':'var(--t3)'}}>Cash on Delivery</div>
       </div>
-    );
-  })()}
+      <div onClick={()=>setPayMethod('upi')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='upi'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='upi'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+        <div style={{fontSize:16}}>📱</div>
+        <div style={{fontSize:11,fontWeight:600,color:payMethod==='upi'?'#3DFF7A':'var(--t3)'}}>UPI</div>
+      </div>
+    </div>
+  </div>
   <button className="btn rip" onClick={place} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)}</button>
         </div>}
       </div>
