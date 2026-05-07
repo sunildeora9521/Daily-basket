@@ -820,9 +820,17 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
                   <div style={{width:52,height:52,borderRadius:14,background:'var(--card)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,border:'1px solid rgba(61,255,122,.07)'}}>{item.emoji}</div>
                   <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>{pName(item)}</div><div style={{fontSize:12,color:'var(--t3)'}}>{item.unit} × {item.qty}</div></div>
                   <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
-                    <div style={{fontSize:15,fontWeight:800,color:'#3DFF7A'}}>₹{item.price*item.qty}</div>
-                    <div onClick={()=>remC(item.id)} style={{cursor:'pointer',opacity:.5}}><Ic n="trash" s={14} c="#FF6B6B"/></div>
-                  </div>
+  <div style={{fontSize:15,fontWeight:800,color:'#3DFF7A'}}>₹{item.price*item.qty}</div>
+  <div style={{display:'flex',alignItems:'center',gap:8}}>
+    <div onClick={()=>remC(item.id)} style={{width:28,height:28,borderRadius:8,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
+      <Ic n="minus" s={14} c="#3DFF7A"/>
+    </div>
+    <span style={{fontSize:14,fontWeight:700,minWidth:20,textAlign:'center'}}>{item.qty}</span>
+    <div onClick={()=>addC(item)} style={{width:28,height:28,borderRadius:8,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}>
+      <Ic n="plus" s={14} c="#3DFF7A"/>
+    </div>
+  </div>
+</div>
                 </div>
               ))}
               {(()=>{const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);const del=sub>299?0:25;const tot=sub+del;return(
@@ -845,7 +853,26 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
           }
         </div>
         {cart.length>0&&<div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
-          <button className="btn rip" onClick={place} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)}</button>
+  {/* Payment Method */}
+  {(() => {
+    const [pay, setPay] = useState('cod');
+    return (
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>💳 Payment Method</div>
+        <div style={{display:'flex',gap:8}}>
+          <div onClick={()=>setPay('cod')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${pay==='cod'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:pay==='cod'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+            <div style={{fontSize:16}}>💵</div>
+            <div style={{fontSize:11,fontWeight:600,color:pay==='cod'?'#3DFF7A':'var(--t3)'}}>Cash on Delivery</div>
+          </div>
+          <div onClick={()=>setPay('upi')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${pay==='upi'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:pay==='upi'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+            <div style={{fontSize:16}}>📱</div>
+            <div style={{fontSize:11,fontWeight:600,color:pay==='upi'?'#3DFF7A':'var(--t3)'}}>UPI</div>
+          </div>
+        </div>
+      </div>
+    );
+  })()}
+  <button className="btn rip" onClick={place} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)}</button>
         </div>}
       </div>
     );
