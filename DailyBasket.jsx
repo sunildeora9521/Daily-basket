@@ -989,7 +989,7 @@ const place=async(addr)=>{
                   </div>
                   <div className="gc" style={{padding:16,marginBottom:80}}>
                     <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>{t.priceDetails}</div>
-                    {[{l:t.subtotal,v:`₹${sub}`},{l:t.delivery,v:del===0?t.free:`₹${del}`},{l:t.ecoPackaging,v:t.included}].map(r=>(
+                    {[{l:t.subtotal,v:`₹${sub}`},{l:t.delivery,v:del===0?t.free:`₹${del}`},{l:t.ecoPackaging,v:t.included},...(discount>0?[{l:'🏷️ Discount',v:`-₹${discount}`}]:[])].map(r=>(
                       <div key={r.l} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}><span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span><span style={{fontSize:13,fontWeight:600,color:r.v.includes('FREE')||r.v.includes('मुफ्त')||r.v.includes('♻️')?'#3DFF7A':'#fff'}}>{r.v}</span></div>
                     ))}
                     <div className="divr"/>
