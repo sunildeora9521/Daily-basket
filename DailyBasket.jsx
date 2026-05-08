@@ -1296,7 +1296,82 @@ function EcoScr({t,fam,isHi}) {
 }
 
 function ProfileScr({user,t,fam,lang,isHi}) {
-  const menu=[{i:'📦',l:t.myOrders,sub:isHi?'इस हफ्ते 3 ऑर्डर':'3 orders this week',c:'#3DFF7A'},{i:'🧺',l:t.myCombos,sub:isHi?'2 सक्रिय कॉम्बो':'2 active combos',c:'#00C44F'},{i:'📅',l:t.subscription,sub:isHi?'डेली प्लान · सक्रिय':'Daily plan · Active',c:'#D4AF37'},{i:'📍',l:t.addresses,sub:isHi?'2 सहेजे गए':'2 saved',c:'#3DFF7A'},{i:'💳',l:t.payment,sub:'UPI · Card',c:'#00C44F'},{i:'🌐',l:isHi?'भाषा':'Language',sub:lang==='hi'?'हिंदी':'English',c:'#3DFF7A'},{i:'⚙️',l:t.settings,sub:isHi?'सूचनाएं':'Notifications',c:'#8A9A8A'}];
+  const [showOrders, setShowOrders]=useState(false);
+  const [orders, setOrders]=useState([]);
+  const [loadingOrders, setLoadingOrders]=useState(false);
+
+  const fetchOrders=async()=>{
+    if(!auth.currentUser) return;
+    setLoadingOrders(true);
+    try{
+      const q=await getDocs(collection(db,'orders'));
+      const myOrders=q.docs
+        .map(d=>({id:d.id,...d.data()}))
+        .filter(o=>o.userId===auth.currentUser.uid)
+        .sort((a,b)=>b.createdAt?.seconds-a.createdAt?.seconds);
+      setOrders(myOrders);
+    }catch(e){console.log('Orders fetch error:',e);}
+    setLoadingOrders(false);
+  };
+
+  if(showOrders) return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+      <SBar/>
+      <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}>
+        <BBtn onClick={()=>setShowOrders(false)}/>
+        <div><div style={{fontSize:18,fontWeight:800}}>📦 {t.myOrders}</div><div style={{fontSize:12,color:'var(--t3)'}}>{orders.length} orders</div></div>
+      </div>
+      <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
+        {loadingOrders
+          ? <div style={{textAlign:'center',padding:40,color:'var(--t3)'}}>Loading...</div>
+          : orders.length===0
+            ? <div style={{textAlign:'center',padding:40}}>
+                <div style={{fontSize:48,marginBottom:12}}>📭</div>
+                <div style={{fontSize:16,fontWeight:700}}>No orders yet</div>
+                <div style={{fontSize:13,color:'var(--t3)',marginTop:6}}>Start shopping!</div>
+              </div>
+            : orders.map((o,i)=>(
+              <div key={o.id} className="gc" style={{padding:16,marginBottom:12,animation:`fadeUp .4s ease ${i*.06}s both`}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                  <div style={{fontSize:12,color:'var(--t3)'}}>
+                    {o.createdAt?.seconds ? new Date(o.createdAt.seconds*1000).toLocaleDateString('en-IN') : 'Recent'}
+                  </div>
+                  <div style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:50,
+                    background:o.status==='delivered'?'rgba(61,255,122,.15)':'rgba(212,175,55,.15)',
+                    color:o.status==='delivered'?'#3DFF7A':'#D4AF37',
+                    border:`1px solid ${o.status==='delivered'?'rgba(61,255,122,.3)':'rgba(212,175,55,.3)'}`}}>
+                    {o.status==='delivered'?'✅ Delivered':'🚴 Processing'}
+                  </div>
+                </div>
+                <div style={{marginBottom:8}}>
+                  {o.items?.map((item,j)=>(
+                    <div key={j} style={{fontSize:13,color:'var(--t2)',marginBottom:2}}>
+                      • {item.name} × {item.qty} — ₹{item.price*item.qty}
+                    </div>
+                  ))}
+                </div>
+                {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>📍 {o.address}</div>}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>💳 {o.payMethod==='cod'?'Cash on Delivery':'UPI'}</div>
+                  <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
+                </div>
+              </div>
+            ))
+        }
+      </div>
+    </div>
+  );
+
+  const menu=[
+    {i:'📦',l:t.myOrders,sub:`${orders.length||0} orders`,c:'#3DFF7A',action:()=>{fetchOrders();setShowOrders(true);}},
+    {i:'🧺',l:t.myCombos,sub:isHi?'2 सक्रिय कॉम्बो':'2 active combos',c:'#00C44F'},
+    {i:'📅',l:t.subscription,sub:isHi?'डेली प्लान · सक्रिय':'Daily plan · Active',c:'#D4AF37'},
+    {i:'📍',l:t.addresses,sub:isHi?'2 सहेजे गए':'2 saved',c:'#3DFF7A'},
+    {i:'💳',l:t.payment,sub:'UPI · Card',c:'#00C44F'},
+    {i:'🌐',l:isHi?'भाषा':'Language',sub:lang==='hi'?'हिंदी':'English',c:'#3DFF7A'},
+    {i:'⚙️',l:t.settings,sub:isHi?'सूचनाएं':'Notifications',c:'#8A9A8A'}
+  ];
+
   return (
     <div style={{paddingBottom:100,fontFamily:fam}}>
       <SBar/>
@@ -1308,7 +1383,7 @@ function ProfileScr({user,t,fam,lang,isHi}) {
             <div><div style={{fontSize:18,fontWeight:800}}>{(user&&user.name)||'User'}</div><div style={{fontSize:13,color:'var(--t2)'}}>+91 {(user&&user.phone)||'XXXXXXXXXX'}</div><span style={{background:'rgba(212,175,55,.14)',border:'1px solid rgba(212,175,55,.3)',color:'#D4AF37',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:50,marginTop:5,display:'inline-block'}}>🥈 {isHi?'सिल्वर सदस्य':'Silver Member'}</span></div>
           </div>
           <div style={{display:'flex',gap:12,padding:12,background:'rgba(0,0,0,.2)',borderRadius:14}}>
-            {[{v:'2.45kg',l:isHi?'बचाया':'Saved',c:'#3DFF7A'},{v:'312',l:isHi?'अंक':'Points',c:'#D4AF37'},{v:'7',l:isHi?'ऑर्डर':'Orders',c:'#3DFF7A'}].map((s,i)=>(
+            {[{v:'2.45kg',l:isHi?'बचाया':'Saved',c:'#3DFF7A'},{v:'312',l:isHi?'अंक':'Points',c:'#D4AF37'},{v:orders.length||'0',l:isHi?'ऑर्डर':'Orders',c:'#3DFF7A'}].map((s,i)=>(
               <div key={i} style={{flex:1,textAlign:'center'}}><div style={{fontSize:15,fontWeight:800,color:s.c}}>{s.v}</div><div style={{fontSize:10,color:'var(--t3)',fontFamily:fam}}>{s.l}</div></div>
             ))}
           </div>
@@ -1316,7 +1391,7 @@ function ProfileScr({user,t,fam,lang,isHi}) {
       </div>
       <div style={{padding:'0 20px',display:'flex',flexDirection:'column',gap:8}}>
         {menu.map((item,i)=>(
-          <div key={i} className="gc" style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',animation:`fadeUp .4s ease ${i*.06}s both`}}>
+          <div key={i} className="gc" onClick={item.action} style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',animation:`fadeUp .4s ease ${i*.06}s both`}}>
             <div style={{width:40,height:40,borderRadius:12,background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{item.i}</div>
             <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,fontFamily:fam}}>{item.l}</div><div style={{fontSize:12,color:'var(--t3)',fontFamily:fam}}>{item.sub}</div></div>
             <Ic n="arrow" s={16} c="#3A4A3A"/>
