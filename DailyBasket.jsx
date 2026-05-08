@@ -554,8 +554,17 @@ function CustomerLogin({onLogin}) {
     setLoading(true);
     setErr('');
     try {
-      await confirmObj.confirm(otp);
-      onLogin({name:name.trim(), phone});
+      const result = await confirmObj.confirm(otp);
+      const uid = result.user.uid;
+      try {
+        await addDoc(collection(db,'users'), {
+          uid,
+          name: name.trim(),
+          phone,
+          createdAt: serverTimestamp()
+        });
+      } catch(e) { console.log('Profile save:',e); }
+      onLogin({name:name.trim(), phone, uid});
     } catch(e) {
       setErr('Galat OTP! Dobara try karo.');
       setLoading(false);
