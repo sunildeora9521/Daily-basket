@@ -434,6 +434,91 @@ function Splash({onDone, onCapSelect}) {
 }
 
 /* ═══════════ CUSTOMER LOGIN ═══════════ */
+function AddressScreen({onBack, onConfirm, userId}) {
+  const [flat, setFlat]=useState('');
+  const [area, setArea]=useState('');
+  const [city, setCity]=useState('Bhopalgarh');
+  const [type, setType]=useState('home');
+  const [loading, setLoading]=useState(false);
+  const [gpsLoading, setGpsLoading]=useState(false);
+
+  const getGPS=()=>{
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      try{
+        const {latitude,longitude}=pos.coords;
+        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+        const data=await res.json();
+        const addr=data.address;
+        setFlat(addr.road||addr.suburb||'');
+        setArea(addr.suburb||addr.neighbourhood||addr.village||'');
+        setCity(addr.city||addr.town||addr.village||'Bhopalgarh');
+      }catch(e){alert('Location fetch failed');}
+      setGpsLoading(false);
+    },err=>{alert('GPS permission denied');setGpsLoading(false);});
+  };
+
+  const save=async()=>{
+    if(!flat.trim()){alert('Flat/House number daalo');return;}
+    if(!area.trim()){alert('Area/Mohalla daalo');return;}
+    setLoading(true);
+    const addrObj={flat,area,city,type,full:`${flat}, ${area}, ${city}`};
+    try{
+      if(userId) await addDoc(collection(db,'users',userId,'addresses'),{...addrObj,createdAt:serverTimestamp()});
+    }catch(e){console.log('Address save error:',e);}
+    setLoading(false);
+    onConfirm(addrObj.full);
+  };
+
+  return(
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',background:'var(--bg)'}}>
+      <SBar/>
+      <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}>
+        <BBtn onClick={onBack}/>
+        <div><div style={{fontSize:18,fontWeight:800}}>🗺️ Delivery Address</div><div style={{fontSize:12,color:'var(--t3)'}}>Where should we deliver?</div></div>
+      </div>
+      <div className="scr" style={{position:'relative',padding:'0 20px 100px'}}>
+        <button onClick={getGPS} disabled={gpsLoading} style={{width:'100%',padding:'14px',borderRadius:14,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:14,cursor:'pointer',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+          {gpsLoading?'📡 Getting location...':'📍 Use Current Location (GPS)'}
+        </button>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>Address Type</div>
+          <div style={{display:'flex',gap:8}}>
+            {[{id:'home',icon:'🏠',label:'Home'},{id:'work',icon:'💼',label:'Work'},{id:'other',icon:'📍',label:'Other'}].map(tp=>(
+              <div key={tp.id} onClick={()=>setType(tp.id)} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${type===tp.id?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:type===tp.id?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+                <div style={{fontSize:18}}>{tp.icon}</div>
+                <div style={{fontSize:11,fontWeight:600,color:type===tp.id?'#3DFF7A':'var(--t3)',marginTop:4}}>{tp.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Flat / House No.</div>
+          <input className="dbi" placeholder="e.g. House No. 12, Near Temple" value={flat} onChange={e=>setFlat(e.target.value)}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Area / Mohalla</div>
+          <input className="dbi" placeholder="e.g. Shastri Nagar" value={area} onChange={e=>setArea(e.target.value)}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>City</div>
+          <input className="dbi" placeholder="e.g. Bhopalgarh" value={city} onChange={e=>setCity(e.target.value)}/>
+        </div>
+        {flat&&area&&(
+          <div style={{padding:'12px 14px',borderRadius:12,background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.15)',marginBottom:14}}>
+            <div style={{fontSize:11,color:'var(--t3)',marginBottom:4}}>📦 Delivery to:</div>
+            <div style={{fontSize:13,fontWeight:600,color:'#3DFF7A'}}>{flat}, {area}, {city}</div>
+          </div>
+        )}
+      </div>
+      <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
+        <button className="btn rip" onClick={save} disabled={loading} style={{width:'100%',padding:17,fontSize:16}}>
+          {loading?'Saving...':'✅ Confirm Address & Place Order'}
+        </button>
+      </div>
+    </div>
+  );
+}
 function CustomerLogin({onLogin}) {
   const [name,  setName ] = useState('');
   const [phone, setPhone] = useState('');
