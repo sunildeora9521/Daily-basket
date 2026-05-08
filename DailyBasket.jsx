@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { auth, messaging, requestNotificationPermission, onMessage } from "./firebase";
+import { auth, db, messaging, requestNotificationPermission, onMessage } from "./firebase";
+import { collection, addDoc, getDocs, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 /* ═══════════ GLOBAL CSS ═══════════ */
 const CSS = `
