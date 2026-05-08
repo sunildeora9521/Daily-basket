@@ -801,7 +801,28 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   },[]);
   const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
-  const place=()=>{setCart([]);setShCart(false);setTrack(true);};
+const place=async()=>{
+  try {
+    const sub = cart.reduce((s,i)=>s+i.price*i.qty,0);
+    const del = sub>299?0:25;
+    await addDoc(collection(db,'orders'),{
+      userId: auth.currentUser?.uid,
+      userName: user?.name || 'Customer',
+      userPhone: user?.phone || '',
+      items: cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price})),
+      subtotal: sub,
+      delivery: del,
+      total: sub+del,
+      payMethod: payMethod,
+      status: 'confirmed',
+      createdAt: serverTimestamp()
+    });
+    console.log('Order saved!');
+  } catch(e) {
+    console.log('Order error:', e);
+  }
+  setCart([]);setShCart(false);setTrack(true);
+};
   const goNav=n=>{setNav(n);setScr(n);setShCart(false);setSelP(null);};
 
   const navScrs=['home','combos','food','eco','profile'];
