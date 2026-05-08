@@ -788,6 +788,8 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [catF,   setCatF  ]=useState('all');
   const [themeOpen, setThemeOpen]=useState(false);
   const [payMethod, setPayMethod]=useState('cod');
+const [showAddr, setShowAddr]=useState(false);
+const [address, setAddress]=useState(null);
 
   useEffect(()=>{
     try {
