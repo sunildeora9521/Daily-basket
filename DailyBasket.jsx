@@ -789,7 +789,7 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [payMethod, setPayMethod]=useState('cod');
 
   useEffect(()=>{
-    requestNotificationPermission();
+    requestNotificationPermission();alert('Token: ' + token);
     onMessage(messaging, payload => {
       alert(`🔔 ${payload.notification.title}\n${payload.notification.body}`);
     });
