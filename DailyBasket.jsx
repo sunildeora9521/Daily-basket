@@ -882,6 +882,27 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [catF,   setCatF  ]=useState('all');
   const [themeOpen, setThemeOpen]=useState(false);
   const [payMethod, setPayMethod]=useState('cod');
+  const [coupon, setCoupon]=useState('');
+const [discount, setDiscount]=useState(0);
+const [couponMsg, setCouponMsg]=useState('');
+
+const COUPONS = {
+  'FRESH20': 20,
+  'SAVE30':  30,
+  'FIRST50': 50,
+  'DB10':    10,
+};
+
+const applyCoupon=()=>{
+  const code=coupon.trim().toUpperCase();
+  if(COUPONS[code]){
+    setDiscount(COUPONS[code]);
+    setCouponMsg(`✅ ₹${COUPONS[code]} off applied!`);
+  } else {
+    setDiscount(0);
+    setCouponMsg('❌ Invalid coupon code');
+  }
+};
 const [showAddr, setShowAddr]=useState(false);
 const [address, setAddress]=useState(null);
 
