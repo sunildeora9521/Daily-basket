@@ -23,6 +23,7 @@ export const requestNotificationPermission = async () => {
         vapidKey: 'BHhAER8KU6I-KU-o8HoeaTVfRsIEn4OmvmzuYcF5VGYJUgOmeoVpNnHAU2YhxUz-m0XLbY1EXLC8jn_RqeRx3U4'
       });
       console.log('FCM Token:', token);
+alert('FCM Token: ' + token);
       return token;
     }
   } catch(err) {
