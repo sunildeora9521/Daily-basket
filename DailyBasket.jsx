@@ -786,6 +786,12 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [track,  setTrack ]=useState(false);
   const [catF,   setCatF  ]=useState('all');
   const [themeOpen, setThemeOpen]=useState(false);
+  useEffect(()=>{
+  requestNotificationPermission();
+  onMessage(messaging, payload => {
+    alert(`🔔 ${payload.notification.title}\n${payload.notification.body}`);
+  });
+},[]);
   const [payMethod, setPayMethod]=useState('cod');
   const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
