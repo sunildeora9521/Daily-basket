@@ -789,10 +789,14 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [payMethod, setPayMethod]=useState('cod');
 
   useEffect(()=>{
-    requestNotificationPermission();alert('Token: ' + token);
-    onMessage(messaging, payload => {
-      alert(`🔔 ${payload.notification.title}\n${payload.notification.body}`);
-    });
+    try {
+      requestNotificationPermission();
+      onMessage(messaging, payload => {
+        console.log('Notification:', payload);
+      });
+    } catch(e) {
+      console.log('Messaging error:', e);
+    }
   },[]);
   const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
