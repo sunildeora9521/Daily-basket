@@ -836,6 +836,7 @@ const place=async(addr)=>{
   const showFC  = cart.length>0&&navScrs.includes(scr)&&!shCart&&!track&&!selP;
 
   const renderScr=()=>{
+    if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addr=>{setAddress(addr);setShowAddr(false);place(addr);}} userId={auth.currentUser?.uid}/>;
     if(shCart) return (
       <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
         <SBar/>
