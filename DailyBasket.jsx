@@ -981,13 +981,26 @@ const place=async(addr)=>{
 </div>
                 </div>
               ))}
-              {(()=>{const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);const del=sub>299?0:25;const tot=sub+del;return(
+              const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);const del=sub>299?0:25;const tot=Math.max(0,sub+del-discount);
                 <>
                   <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.14)',borderRadius:14,padding:'12px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
                     <Ic n="truck" s={16} c="#3DFF7A"/>
                     <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`${t.addFreeDelivery}${299-sub}${t.forFreeDelivery}`}</div>
                   </div>
-                  <div className="gc" style={{padding:16,marginBottom:80}}>
+                  {/* Coupon */}
+<div style={{marginBottom:14}}>
+  <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>🏷️ Coupon Code</div>
+  <div style={{display:'flex',gap:8}}>
+    <input className="dbi" placeholder="Enter coupon code" value={coupon}
+      onChange={e=>{setCoupon(e.target.value);setCouponMsg('');setDiscount(0);}}
+      style={{flex:1,padding:'10px 14px',fontSize:14}}/>
+    <button onClick={applyCoupon} style={{padding:'10px 16px',borderRadius:12,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',border:'none',color:'#0A1A0A',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+      Apply
+    </button>
+  </div>
+  {couponMsg&&<div style={{fontSize:12,marginTop:6,color:discount>0?'#3DFF7A':'#FF6B6B'}}>{couponMsg}</div>}
+  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Try: FRESH20 · SAVE30 · FIRST50</div>
+</div>
                     <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>{t.priceDetails}</div>
                     {[{l:t.subtotal,v:`₹${sub}`},{l:t.delivery,v:del===0?t.free:`₹${del}`},{l:t.ecoPackaging,v:t.included},...(discount>0?[{l:'🏷️ Discount',v:`-₹${discount}`}]:[])].map(r=>(
                       <div key={r.l} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}><span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span><span style={{fontSize:13,fontWeight:600,color:r.v.includes('FREE')||r.v.includes('मुफ्त')||r.v.includes('♻️')?'#3DFF7A':'#fff'}}>{r.v}</span></div>
