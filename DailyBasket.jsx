@@ -1012,8 +1012,6 @@ const place=async(addr)=>{
                   </div>
                 </>
               );})()}
-            </>
-          }
         </div>
         {cart.length>0&&<div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
   {/* Payment Method */}
