@@ -1976,8 +1976,12 @@ export default function DailyBasket() {
   const [adminA, setAdminA] = useState(false);
   const [theme,  setTheme ] = useState('eco');
 
-  const handleCapSelect = id => { setPortal(id); };
-
+  const handleCapSelect = id => {
+  setPortal(id);
+  if(id==='admin'||id==='rider'||id==='shop') {
+    setPhase('app');
+  }
+};
   const AdminPortal = () => {
     if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>setPortal('customer')} hint={null}/>;
     return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');}}/>;
