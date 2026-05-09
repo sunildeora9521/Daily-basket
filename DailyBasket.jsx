@@ -2027,4 +2027,3 @@ export default function DailyBasket() {
       <div style={{position:'fixed',right:32,top:'50%',transform:'translateY(-50%)',writingMode:'vertical-lr',fontSize:10,color:'rgba(61,255,122,.1)',fontWeight:600,letterSpacing:3,textTransform:'uppercase',pointerEvents:'none'}}>Daily Basket · v4.0</div>
     </div>
   );
-}
