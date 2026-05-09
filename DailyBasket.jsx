@@ -1039,11 +1039,26 @@ const place=async(addr)=>{
         <SBar/>
         <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}><BBtn onClick={()=>{setTrack(false);setScr('home');setNav('home');}}/><div><div style={{fontSize:18,fontWeight:800}}>{t.orderTracking}</div><div style={{fontSize:12,color:'var(--t3)'}}>#DB-20260505-001</div></div></div>
         <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
-          <div style={{height:170,borderRadius:20,background:'linear-gradient(135deg,#0D1A0D,#111C11)',border:'1px solid rgba(61,255,122,.1)',marginBottom:18,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',overflow:'hidden'}}>
-            <div style={{position:'absolute',inset:0,backgroundImage:'radial-gradient(circle,rgba(61,255,122,.05) 1px,transparent 1px)',backgroundSize:'24px 24px'}}/>
-            <div style={{position:'absolute',width:8,height:8,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite',top:'55%',left:'48%'}}/>
-            <div style={{textAlign:'center',position:'relative'}}><div style={{fontSize:36,marginBottom:6,animation:'floatY 2s ease-in-out infinite'}}>🚴‍♂️</div><div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{t.riderOnWay}</div><div style={{fontSize:11,color:'var(--t3)'}}>~25 {isHi?'मिनट':'min'}</div></div>
-          </div>
+         <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
+  <iframe
+    src="https://www.openstreetmap.org/export/embed.html?bbox=74.8,26.8,74.9,26.9&layer=mapnik&marker=26.85,74.85"
+    style={{width:'100%',height:'100%',border:'none'}}
+    title="Live Tracking Map"
+  />
+  <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(to top,rgba(7,9,7,.95),transparent)',padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <div style={{fontSize:20,animation:'floatY 2s ease-in-out infinite'}}>🚴‍♂️</div>
+      <div>
+        <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{t.riderOnWay}</div>
+        <div style={{fontSize:11,color:'var(--t3)'}}>~25 {isHi?'मिनट':'min'}</div>
+      </div>
+    </div>
+    <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',borderRadius:50,padding:'4px 10px'}}>
+      <div style={{width:6,height:6,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/>
+      <span style={{fontSize:11,color:'#3DFF7A',fontWeight:600}}>Live</span>
+    </div>
+  </div>
+</div>
           <div className="gc" style={{padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center'}}>
             <div style={{width:48,height:48,borderRadius:14,background:'linear-gradient(135deg,#1A3320,#0E2318)',border:'2px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>👨‍🍳</div>
             <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>Ramesh Kumar</div><div style={{fontSize:11,color:'var(--t3)'}}>⭐ 4.9</div></div>
