@@ -1658,7 +1658,7 @@ function AdminApp({data,setData,onBack}) {
         </div>
         <div style={{background:'rgba(255,140,66,.1)',border:'1px solid rgba(255,140,66,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF8C42',fontWeight:700}}>🔐 ADMIN</div>
       </div>
-      <div className="srow" style={{padding:'0 20px 10px',gap:6}}>
+      <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none'}}>
         {[{id:'dash',l:'📊'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦'},{id:'shops',l:'🏨'},{id:'riders',l:'🚲'},{id:'reports',l:'📈'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 24px'}}>
