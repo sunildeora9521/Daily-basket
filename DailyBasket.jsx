@@ -2021,6 +2021,7 @@ export default function DailyBasket() {
       );
     }
     return null;
+  };
 
   return (
     <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#050705,#070907,#060806)',fontFamily:"'Outfit',sans-serif"}}>
