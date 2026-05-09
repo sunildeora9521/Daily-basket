@@ -1652,10 +1652,7 @@ function AdminApp({data,setData,onBack}) {
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
       <SBar/>
       <div style={{padding:'4px 20px 8px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <BBtn onClick={onBack}/>
-          <div><div style={{fontSize:16,fontWeight:800,color:'#FF8C42'}}>🍓 Master Control</div><div style={{fontSize:11,color:'var(--t3)'}}>Admin: {ADMIN_ID}</div></div>
-        </div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}><div><div style={{fontSize:16,fontWeight:800,color:'#FF8C42'}}>🍓 Master Control</div><div style={{fontSize:11,color:'var(--t3)'}}>Admin: {ADMIN_ID}</div></div></div>
         <div style={{background:'rgba(255,140,66,.1)',border:'1px solid rgba(255,140,66,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF8C42',fontWeight:700}}>🔐 ADMIN</div>
       </div>
       <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none'}}>
