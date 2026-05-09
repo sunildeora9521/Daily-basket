@@ -981,12 +981,14 @@ const place=async(addr)=>{
 </div>
                 </div>
               ))}
-              const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);const del=sub>299?0:25;const tot=Math.max(0,sub+del-discount);
+              {(()=>{const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);const del=sub>299?0:25;const tot=Math.max(0,sub+del-discount);return(
+                <>
                 <>
                   <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.14)',borderRadius:14,padding:'12px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
                     <Ic n="truck" s={16} c="#3DFF7A"/>
                     <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`${t.addFreeDelivery}${299-sub}${t.forFreeDelivery}`}</div>
                   </div>
+                  <div className="gc" style={{padding:16,marginBottom:14}}>
                   {/* Coupon */}
 <div style={{marginBottom:14}}>
   <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>🏷️ Coupon Code</div>
@@ -1007,6 +1009,7 @@ const place=async(addr)=>{
                     ))}
                     <div className="divr"/>
                     <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontSize:16,fontWeight:800}}>{t.total}</span><span style={{fontSize:18,fontWeight:900,color:'#3DFF7A'}}>₹{tot}</span></div>
+                  </div>
                   </div>
                 </>
               );})()}
