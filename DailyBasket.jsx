@@ -1976,15 +1976,20 @@ export default function DailyBasket() {
   const [adminA, setAdminA] = useState(false);
   const [theme,  setTheme ] = useState('eco');
 
-  const handleCapSelect = id => {
-  setPortal(id);
-  if(id==='admin'||id==='rider'||id==='shop') {
+ const handleCapSelect = id => {
+  if(id==='help') {
+    setPortal('help');
     setPhase('app');
+  } else if(id==='admin'||id==='rider'||id==='shop') {
+    setPortal(id);
+    setPhase('app');
+  } else {
+    setPortal(id);
   }
 };
   const AdminPortal = () => {
-    if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}} hint={null}/>;
-    return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}}/>;
+    if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('login');}} hint={null}/>;
+    return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('login');}}/>;
 };
   };
 
