@@ -1586,39 +1586,113 @@ function ShopApp({shop,data,setData,onBack}) {
 }
 
 function AdminApp({data,setData,onBack}) {
-  const [tab,setTab]=useState('dash');const [pcTab,setPcTab]=useState('veg');const [editId,setEditId]=useState(null);const [addP,setAddP]=useState(false);const [addS,setAddS]=useState(false);const [addR,setAddR]=useState(false);const [creds,setCreds]=useState(null);
+  const [tab,setTab]=useState('dash');
+  const [pcTab,setPcTab]=useState('veg');
+  const [editId,setEditId]=useState(null);
+  const [addP,setAddP]=useState(false);
+  const [addS,setAddS]=useState(false);
+  const [addR,setAddR]=useState(false);
+  const [creds,setCreds]=useState(null);
+  const [realOrders,setRealOrders]=useState([]);
+  const [loadingOrders,setLoadingOrders]=useState(false);
   const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',stock:'50'});
   const [nsF,setNsF]=useState({name:'',owner:'',phone:'',cuisine:''});
   const [nrF,setNrF]=useState({name:'',phone:''});
-  const todOrds=data.orders.filter(o=>o.date==='Today');
-  const todRev=todOrds.reduce((s,o)=>s+o.total,0);
+
+  useEffect(()=>{
+    setLoadingOrders(true);
+    const unsub=onSnapshot(collection(db,'orders'),snap=>{
+      const orders=snap.docs.map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>b.createdAt?.seconds-a.createdAt?.seconds);
+      setRealOrders(orders);
+      setLoadingOrders(false);
+    });
+    return()=>unsub();
+  },[]);
+
+  const todayOrders=realOrders.filter(o=>{
+    if(!o.createdAt?.seconds) return false;
+    const d=new Date(o.createdAt.seconds*1000);
+    const today=new Date();
+    return d.toDateString()===today.toDateString();
+  });
+  const todRev=todayOrders.reduce((s,o)=>s+(o.total||0),0);
+  const totalRev=realOrders.reduce((s,o)=>s+(o.total||0),0);
+
   const toggleProd=id=>setData(d=>({...d,products:d.products.map(p=>p.id===id?{...p,active:!p.active}:p)}));
   const saveProd=(id,ch)=>setData(d=>({...d,products:d.products.map(p=>p.id===id?{...p,...ch}:p)}));
-  const addNewProd=()=>{const p={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji,cat:npF.cat,stock:+npF.stock,tag:'New',tagHi:'नया',active:true};setData(d=>({...d,products:[...d.products,p]}));setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',stock:'50'});setAddP(false);};
-  const regShop=()=>{const idx=data.shops.length+1;const s={id:`SHP${String(idx).padStart(3,'0')}`,name:nsF.name,owner:nsF.owner,phone:nsF.phone,cuisine:nsF.cuisine,pass:`Shop@${String(idx).padStart(3,'0')}`,active:true,totalOrders:0,totalRevenue:0,todayOrders:0,todayRevenue:0};setData(d=>({...d,shops:[...d.shops,s]}));setCreds({type:'Shop',id:s.id,pass:s.pass});setNsF({name:'',owner:'',phone:'',cuisine:''});setAddS(false);};
-  const regRider=()=>{const idx=data.riders.length+1;const r={id:`RDR${String(idx).padStart(3,'0')}`,name:nrF.name,phone:nrF.phone,pass:`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};setData(d=>({...d,riders:[...d.riders,r]}));setCreds({type:'Rider',id:r.id,pass:r.pass});setNrF({name:'',phone:''});setAddR(false);};
+  const addNewProd=()=>{
+    const p={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji,cat:npF.cat,stock:+npF.stock,tag:'New',tagHi:'नया',active:true};
+    setData(d=>({...d,products:[...d.products,p]}));
+    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',stock:'50'});
+    setAddP(false);
+  };
+  const regShop=()=>{
+    const idx=data.shops.length+1;
+    const s={id:`SHP${String(idx).padStart(3,'0')}`,name:nsF.name,owner:nsF.owner,phone:nsF.phone,cuisine:nsF.cuisine,pass:`Shop@${String(idx).padStart(3,'0')}`,active:true,totalOrders:0,totalRevenue:0,todayOrders:0,todayRevenue:0};
+    setData(d=>({...d,shops:[...d.shops,s]}));
+    setCreds({type:'Shop',id:s.id,pass:s.pass});
+    setNsF({name:'',owner:'',phone:'',cuisine:''});
+    setAddS(false);
+  };
+  const regRider=()=>{
+    const idx=data.riders.length+1;
+    const r={id:`RDR${String(idx).padStart(3,'0')}`,name:nrF.name,phone:nrF.phone,pass:`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
+    setData(d=>({...d,riders:[...d.riders,r]}));
+    setCreds({type:'Rider',id:r.id,pass:r.pass});
+    setNrF({name:'',phone:''});
+    setAddR(false);
+  };
   const toggleShop=id=>setData(d=>({...d,shops:d.shops.map(s=>s.id===id?{...s,active:!s.active}:s)}));
   const toggleRider=id=>setData(d=>({...d,riders:d.riders.map(r=>r.id===id?{...r,active:!r.active}:r)}));
   const fp=data.products.filter(p=>p.cat===pcTab);
   const Modal=({children,onClose})=><div className="ovl" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>{children}</div></div>;
+
   return(
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
       <SBar/>
       <div style={{padding:'4px 20px 8px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}><BBtn onClick={onBack}/><div><div style={{fontSize:16,fontWeight:800,color:'#FF8C42'}}>🍓 Master Control</div><div style={{fontSize:11,color:'var(--t3)'}}>Admin: {ADMIN_ID}</div></div></div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <BBtn onClick={onBack}/>
+          <div><div style={{fontSize:16,fontWeight:800,color:'#FF8C42'}}>🍓 Master Control</div><div style={{fontSize:11,color:'var(--t3)'}}>Admin: {ADMIN_ID}</div></div>
+        </div>
         <div style={{background:'rgba(255,140,66,.1)',border:'1px solid rgba(255,140,66,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF8C42',fontWeight:700}}>🔐 ADMIN</div>
       </div>
       <div className="srow" style={{padding:'0 20px 10px',gap:6}}>
-        {[{id:'dash',l:'📊 Dash'},{id:'prods',l:'🥦 Products'},{id:'shops',l:'🏨 Shops'},{id:'riders',l:'🚲 Riders'},{id:'reports',l:'📈 Reports'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
+        {[{id:'dash',l:'📊 Dash'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦 Products'},{id:'shops',l:'🏨 Shops'},{id:'riders',l:'🚲 Riders'},{id:'reports',l:'📈 Reports'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 24px'}}>
+
         {tab==='dash'&&<>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
-            {[{i:'📦',v:todOrds.length,l:'Orders Today'},{i:'💰',v:`₹${todRev}`,l:'Today Revenue',c:'#D4AF37'},{i:'🚲',v:data.riders.filter(r=>r.active).length,l:'Active Riders',c:'#00C44F'},{i:'🏨',v:data.shops.filter(s=>s.active).length,l:'Active Shops',c:'#FF8C42'}].map((s,i)=>(<div key={i} className="gc" style={{padding:'14px 16px'}}><div style={{fontSize:22,marginBottom:6}}>{s.i}</div><div style={{fontSize:20,fontWeight:800,color:s.c||'#3DFF7A'}}>{s.v}</div><div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{s.l}</div></div>))}
+            {[
+              {i:'📦',v:todayOrders.length,l:'Orders Today',c:'#3DFF7A'},
+              {i:'💰',v:`₹${todRev}`,l:'Today Revenue',c:'#D4AF37'},
+              {i:'📊',v:realOrders.length,l:'Total Orders',c:'#00C44F'},
+              {i:'💵',v:`₹${totalRev}`,l:'Total Revenue',c:'#FF8C42'},
+            ].map((s,i)=>(
+              <div key={i} className="gc" style={{padding:'14px 16px'}}>
+                <div style={{fontSize:22,marginBottom:6}}>{s.i}</div>
+                <div style={{fontSize:20,fontWeight:800,color:s.c}}>{s.v}</div>
+                <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{s.l}</div>
+              </div>
+            ))}
           </div>
           <div className="gc" style={{padding:'16px',marginBottom:12}}>
             <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>Platform Overview</div>
-            {[{l:'Total Products',v:data.products.length},{l:'Total Riders',v:data.riders.length},{l:'Total Shops',v:data.shops.length},{l:'Total Orders',v:data.orders.length}].map(r=>(<div key={r.l} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}><span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span><span style={{fontSize:14,fontWeight:800,color:'#FF8C42'}}>{r.v}</span></div>))}
+            {[
+              {l:'Total Products',v:data.products.length},
+              {l:'Active Products',v:data.products.filter(p=>p.active).length},
+              {l:'Total Riders',v:data.riders.length},
+              {l:'Total Shops',v:data.shops.length},
+              {l:'Total Orders',v:realOrders.length},
+              {l:'Total Revenue',v:`₹${totalRev}`},
+            ].map(r=>(
+              <div key={r.l} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span>
+                <span style={{fontSize:14,fontWeight:800,color:'#FF8C42'}}>{r.v}</span>
+              </div>
+            ))}
           </div>
           <div style={{display:'flex',gap:8}}>
             <button className="btn rip" onClick={()=>setTab('prods')} style={{flex:1,padding:'11px',fontSize:13}}>+ Product</button>
@@ -1626,21 +1700,84 @@ function AdminApp({data,setData,onBack}) {
             <button className="btn rip" onClick={()=>{setTab('riders');setAddR(true);}} style={{flex:1,padding:'11px',fontSize:13,background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>+ Rider</button>
           </div>
         </>}
+
+        {tab==='orders'&&<>
+          <div className="sh">
+            <div className="st">Real Orders ({realOrders.length})</div>
+            <div style={{fontSize:11,color:'#3DFF7A',fontWeight:600}}>Live 🟢</div>
+          </div>
+          {loadingOrders
+            ? <div style={{textAlign:'center',padding:40,color:'var(--t3)'}}>Loading...</div>
+            : realOrders.length===0
+              ? <div style={{textAlign:'center',padding:40}}><div style={{fontSize:48}}>📭</div><div style={{fontSize:16,fontWeight:700,marginTop:12}}>No orders yet</div></div>
+              : realOrders.map((o,i)=>(
+                <div key={o.id} className="gc" style={{padding:14,marginBottom:10,animation:`fadeUp .3s ease ${i*.04}s both`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <div style={{fontSize:12,fontWeight:700,color:'#FF8C42'}}>#{o.id.slice(-6).toUpperCase()}</div>
+                    <div style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:50,
+                      background:o.status==='delivered'?'rgba(61,255,122,.15)':'rgba(212,175,55,.15)',
+                      color:o.status==='delivered'?'#3DFF7A':'#D4AF37'}}>
+                      {o.status==='delivered'?'✅ Delivered':'🚴 Processing'}
+                    </div>
+                  </div>
+                  <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>{o.userName||'Customer'} · {o.userPhone}</div>
+                  <div style={{marginBottom:6}}>
+                    {o.items?.map((item,j)=>(
+                      <div key={j} style={{fontSize:12,color:'var(--t2)'}}>• {item.name} × {item.qty} — ₹{item.price*item.qty}</div>
+                    ))}
+                  </div>
+                  {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:4}}>📍 {o.address}</div>}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
+                    <div style={{fontSize:11,color:'var(--t3)'}}>
+                      {o.createdAt?.seconds ? new Date(o.createdAt.seconds*1000).toLocaleString('en-IN') : 'Recent'}
+                      {' · '}{o.payMethod==='cod'?'💵 COD':'📱 UPI'}
+                    </div>
+                    <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
+                  </div>
+                </div>
+              ))
+          }
+        </>}
+
         {tab==='prods'&&<>
           <div className="sh"><div className="st">Products ({data.products.length})</div><button className="btn rip" onClick={()=>setAddP(true)} style={{padding:'7px 14px',fontSize:12}}>+ Add</button></div>
-          <div className="srow" style={{marginBottom:12}}>{[{id:'veg',l:'🥦 Veg'},{id:'fruit',l:'🍎 Fruit'},{id:'milk',l:'🥛 Dairy'},{id:'food',l:'🍛 Food'}].map(t=>(<div key={t.id} className={`cp ${pcTab===t.id?'on':''}`} onClick={()=>setPcTab(t.id)} style={{flexShrink:0,fontSize:12}}>{t.l}</div>))}</div>
+          <div className="srow" style={{marginBottom:12}}>
+            {[{id:'veg',l:'🥦 Veg'},{id:'fruit',l:'🍎 Fruit'},{id:'milk',l:'🥛 Dairy'},{id:'food',l:'🍛 Food'}].map(t=>(
+              <div key={t.id} className={`cp ${pcTab===t.id?'on':''}`} onClick={()=>setPcTab(t.id)} style={{flexShrink:0,fontSize:12}}>{t.l}</div>
+            ))}
+          </div>
           {fp.map((p,i)=>(
             <div key={p.id} className="gc" style={{padding:'12px 14px',marginBottom:10}}>
               {editId===p.id
-                ?<div><div style={{fontSize:13,fontWeight:700,marginBottom:8}}>{p.emoji} Edit {p.name}</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}><div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PRICE (₹)</div><input className="dbi" style={{fontSize:14,padding:'9px 12px'}} defaultValue={p.price} id={`p${p.id}`}/></div><div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>STOCK</div><input className="dbi" style={{fontSize:14,padding:'9px 12px'}} defaultValue={p.stock} id={`s${p.id}`}/></div></div><div style={{display:'flex',gap:8}}><button className="btn rip" onClick={()=>{saveProd(p.id,{price:+document.getElementById(`p${p.id}`).value,stock:+document.getElementById(`s${p.id}`).value});setEditId(null);}} style={{flex:1,padding:'9px',fontSize:12}}>Save ✓</button><button className="btng" onClick={()=>setEditId(null)} style={{flex:1,padding:'9px',fontSize:12}}>Cancel</button></div></div>
-                :<div style={{display:'flex',alignItems:'center',gap:12}}>
-                  <div style={{width:46,height:46,borderRadius:14,background:'var(--card)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,border:'1px solid rgba(61,255,122,.07)',flexShrink:0}}>{p.emoji}</div>
-                  <div style={{flex:1,minWidth:0}}><div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}><div style={{fontSize:14,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div><div style={{width:7,height:7,borderRadius:'50%',background:p.active?'#3DFF7A':'#5A6A5A',flexShrink:0}}/></div><div style={{display:'flex',gap:8}}><span style={{fontSize:13,fontWeight:800,color:'#3DFF7A'}}>₹{p.price}</span><span style={{fontSize:11,color:'var(--t3)'}}>{p.unit}</span><span style={{fontSize:11,color:'var(--t3)'}}>Stock:{p.stock}</span></div></div>
-                  <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                    <Tog on={p.active} onClick={()=>toggleProd(p.id)}/>
-                    <div onClick={()=>setEditId(p.id)} style={{width:30,height:30,borderRadius:8,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ic n="edit" s={14} c="#3DFF7A"/></div>
+                ? <div>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>{p.emoji} Edit {p.name}</div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                      <div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PRICE (₹)</div><input className="dbi" style={{fontSize:14,padding:'9px 12px'}} defaultValue={p.price} id={`p${p.id}`}/></div>
+                      <div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>STOCK</div><input className="dbi" style={{fontSize:14,padding:'9px 12px'}} defaultValue={p.stock} id={`s${p.id}`}/></div>
+                    </div>
+                    <div style={{display:'flex',gap:8}}>
+                      <button className="btn rip" onClick={()=>{saveProd(p.id,{price:+document.getElementById(`p${p.id}`).value,stock:+document.getElementById(`s${p.id}`).value});setEditId(null);}} style={{flex:1,padding:'9px',fontSize:12}}>Save ✓</button>
+                      <button className="btng" onClick={()=>setEditId(null)} style={{flex:1,padding:'9px',fontSize:12}}>Cancel</button>
+                    </div>
                   </div>
-                </div>
+                : <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{width:46,height:46,borderRadius:14,background:'var(--card)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,border:'1px solid rgba(61,255,122,.07)',flexShrink:0}}>{p.emoji}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
+                        <div style={{fontSize:14,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
+                        <div style={{width:7,height:7,borderRadius:'50%',background:p.active?'#3DFF7A':'#5A6A5A',flexShrink:0}}/>
+                      </div>
+                      <div style={{display:'flex',gap:8}}>
+                        <span style={{fontSize:13,fontWeight:800,color:'#3DFF7A'}}>₹{p.price}</span>
+                        <span style={{fontSize:11,color:'var(--t3)'}}>{p.unit}</span>
+                        <span style={{fontSize:11,color:p.stock<20?'#FF6B6B':'var(--t3)',fontWeight:p.stock<20?700:400}}>Stock:{p.stock}{p.stock<20?' ⚠️':''}</span>
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <Tog on={p.active} onClick={()=>toggleProd(p.id)}/>
+                      <div onClick={()=>setEditId(p.id)} style={{width:30,height:30,borderRadius:8,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ic n="edit" s={14} c="#3DFF7A"/></div>
+                    </div>
+                  </div>
               }
             </div>
           ))}
@@ -1650,52 +1787,177 @@ function AdminApp({data,setData,onBack}) {
               <div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>EMOJI</div><input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="🥦" value={npF.emoji} onChange={e=>setNpF(p=>({...p,emoji:e.target.value}))}/></div>
               <div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PRICE (₹)</div><input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="50" value={npF.price} onChange={e=>setNpF(p=>({...p,price:e.target.value}))}/></div>
             </div>
-            {[{l:'Product Name (English)',k:'name',ph:'e.g. Broccoli'},{l:'Product Name (Hindi)',k:'nameHi',ph:'e.g. ब्रोकली'},{l:'Unit',k:'unit',ph:'500g'},{l:'Stock',k:'stock',ph:'100'}].map(f=>(<div key={f.k} style={{marginBottom:10}}><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div><input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={npF[f.k]} onChange={e=>setNpF(p=>({...p,[f.k]:e.target.value}))}/></div>))}
-            <div style={{marginBottom:14}}><div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>CATEGORY</div><div style={{display:'flex',gap:6}}>{['veg','fruit','milk','food'].map(c=>(<div key={c} className={`cp ${npF.cat===c?'on':''}`} onClick={()=>setNpF(p=>({...p,cat:c}))} style={{fontSize:11,padding:'6px 12px',textTransform:'capitalize'}}>{c}</div>))}</div></div>
-            <div style={{display:'flex',gap:8}}><button className="btn rip" onClick={addNewProd} style={{flex:1,padding:'12px'}}>Add Product</button><button className="btng" onClick={()=>setAddP(false)} style={{flex:1,padding:'12px'}}>Cancel</button></div>
+            {[{l:'Product Name (English)',k:'name',ph:'e.g. Broccoli'},{l:'Product Name (Hindi)',k:'nameHi',ph:'e.g. ब्रोकली'},{l:'Unit',k:'unit',ph:'500g'},{l:'Stock',k:'stock',ph:'100'}].map(f=>(
+              <div key={f.k} style={{marginBottom:10}}>
+                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div>
+                <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={npF[f.k]} onChange={e=>setNpF(p=>({...p,[f.k]:e.target.value}))}/>
+              </div>
+            ))}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>CATEGORY</div>
+              <div style={{display:'flex',gap:6}}>
+                {['veg','fruit','milk','food'].map(c=>(<div key={c} className={`cp ${npF.cat===c?'on':''}`} onClick={()=>setNpF(p=>({...p,cat:c}))} style={{fontSize:11,padding:'6px 12px',textTransform:'capitalize'}}>{c}</div>))}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn rip" onClick={addNewProd} style={{flex:1,padding:'12px'}}>Add Product</button>
+              <button className="btng" onClick={()=>setAddP(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
+            </div>
           </Modal>}
         </>}
+
         {tab==='shops'&&<>
           <div className="sh"><div className="st">Shops ({data.shops.length})</div><button className="btn rip" onClick={()=>setAddS(true)} style={{padding:'7px 14px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>+ Register</button></div>
-          {data.shops.map((s,i)=>(<div key={s.id} className="gc" style={{padding:'14px',marginBottom:10}}><div style={{display:'flex',gap:12,alignItems:'flex-start'}}><div style={{width:46,height:46,borderRadius:14,background:'rgba(212,175,55,.1)',border:'1px solid rgba(212,175,55,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏨</div><div style={{flex:1,minWidth:0}}><div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}><div style={{fontSize:14,fontWeight:700}}>{s.name}</div><div style={{width:7,height:7,borderRadius:'50%',background:s.active?'#3DFF7A':'#5A6A5A',flexShrink:0}}/></div><div style={{fontSize:11,color:'var(--t3)',marginBottom:6}}>{s.owner} · {s.cuisine}</div><div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}><span style={{background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>ID: {s.id}</span><span style={{background:'rgba(212,175,55,.08)',border:'1px solid rgba(212,175,55,.15)',color:'#D4AF37',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>Pass: {s.pass}</span></div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:11,color:'var(--t3)'}}>Orders:{s.totalOrders} · ₹{s.totalRevenue.toLocaleString()}</span><Tog on={s.active} onClick={()=>toggleShop(s.id)}/></div></div></div></div>))}
+          {data.shops.map((s,i)=>(
+            <div key={s.id} className="gc" style={{padding:'14px',marginBottom:10}}>
+              <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+                <div style={{width:46,height:46,borderRadius:14,background:'rgba(212,175,55,.1)',border:'1px solid rgba(212,175,55,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏨</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
+                    <div style={{fontSize:14,fontWeight:700}}>{s.name}</div>
+                    <div style={{width:7,height:7,borderRadius:'50%',background:s.active?'#3DFF7A':'#5A6A5A',flexShrink:0}}/>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--t3)',marginBottom:6}}>{s.owner} · {s.cuisine}</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+                    <span style={{background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>ID: {s.id}</span>
+                    <span style={{background:'rgba(212,175,55,.08)',border:'1px solid rgba(212,175,55,.15)',color:'#D4AF37',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>Pass: {s.pass}</span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span style={{fontSize:11,color:'var(--t3)'}}>Orders:{s.totalOrders} · ₹{s.totalRevenue.toLocaleString()}</span>
+                    <Tog on={s.active} onClick={()=>toggleShop(s.id)}/>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
           {addS&&<Modal onClose={()=>setAddS(false)}>
             <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Register New Shop</div>
-            {[{l:'Shop Name',k:'name',ph:'e.g. Fresh Corner'},{l:'Owner Name',k:'owner',ph:'Full name'},{l:'Phone',k:'phone',ph:'10-digit'},{l:'Cuisine Type',k:'cuisine',ph:'e.g. Indian Food'}].map(f=>(<div key={f.k} style={{marginBottom:10}}><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div><input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={nsF[f.k]} onChange={e=>setNsF(p=>({...p,[f.k]:e.target.value}))}/></div>))}
-            <div style={{background:'rgba(212,175,55,.06)',border:'1px solid rgba(212,175,55,.15)',borderRadius:12,padding:'10px 12px',marginBottom:14}}><div style={{fontSize:11,color:'#D4AF37',fontWeight:600,marginBottom:2}}>Auto Credentials:</div><div style={{fontSize:11,color:'var(--t3)'}}>ID: SHP{String(data.shops.length+1).padStart(3,'0')} · Pass: Shop@{String(data.shops.length+1).padStart(3,'0')}</div></div>
-            <div style={{display:'flex',gap:8}}><button className="btn rip" onClick={regShop} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>Register Shop</button><button className="btng" onClick={()=>setAddS(false)} style={{flex:1,padding:'12px'}}>Cancel</button></div>
+            {[{l:'Shop Name',k:'name',ph:'e.g. Fresh Corner'},{l:'Owner Name',k:'owner',ph:'Full name'},{l:'Phone',k:'phone',ph:'10-digit'},{l:'Cuisine Type',k:'cuisine',ph:'e.g. Indian Food'}].map(f=>(
+              <div key={f.k} style={{marginBottom:10}}>
+                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div>
+                <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={nsF[f.k]} onChange={e=>setNsF(p=>({...p,[f.k]:e.target.value}))}/>
+              </div>
+            ))}
+            <div style={{background:'rgba(212,175,55,.06)',border:'1px solid rgba(212,175,55,.15)',borderRadius:12,padding:'10px 12px',marginBottom:14}}>
+              <div style={{fontSize:11,color:'#D4AF37',fontWeight:600,marginBottom:2}}>Auto Credentials:</div>
+              <div style={{fontSize:11,color:'var(--t3)'}}>ID: SHP{String(data.shops.length+1).padStart(3,'0')} · Pass: Shop@{String(data.shops.length+1).padStart(3,'0')}</div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn rip" onClick={regShop} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>Register Shop</button>
+              <button className="btng" onClick={()=>setAddS(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
+            </div>
           </Modal>}
         </>}
+
         {tab==='riders'&&<>
           <div className="sh"><div className="st">Riders ({data.riders.length})</div><button className="btn rip" onClick={()=>setAddR(true)} style={{padding:'7px 14px',fontSize:12,background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>+ Register</button></div>
-          {data.riders.map((r,i)=>(<div key={r.id} className="gc" style={{padding:'14px',marginBottom:10}}><div style={{display:'flex',gap:12,alignItems:'flex-start'}}><div style={{width:46,height:46,borderRadius:14,background:'rgba(0,196,79,.1)',border:'1px solid rgba(0,196,79,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🚲</div><div style={{flex:1,minWidth:0}}><div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}><div style={{fontSize:14,fontWeight:700}}>{r.name}</div><div style={{width:7,height:7,borderRadius:'50%',background:r.online?'#3DFF7A':r.active?'#5A6A5A':'#FF6B6B',flexShrink:0}}/><span style={{fontSize:10,color:r.online?'#3DFF7A':'var(--t3)',fontWeight:600}}>{r.online?'Online':r.active?'Offline':'Disabled'}</span></div><div style={{display:'flex',gap:6,marginBottom:8}}><span style={{background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>ID: {r.id}</span><span style={{background:'rgba(0,196,79,.08)',border:'1px solid rgba(0,196,79,.15)',color:'#00C44F',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>Pass: {r.pass}</span></div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:11,color:'var(--t3)'}}>⭐{r.rating} · {r.totalOrders} orders</span><Tog on={r.active} onClick={()=>toggleRider(r.id)}/></div></div></div></div>))}
+          {data.riders.map((r,i)=>(
+            <div key={r.id} className="gc" style={{padding:'14px',marginBottom:10}}>
+              <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+                <div style={{width:46,height:46,borderRadius:14,background:'rgba(0,196,79,.1)',border:'1px solid rgba(0,196,79,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🚲</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
+                    <div style={{fontSize:14,fontWeight:700}}>{r.name}</div>
+                    <div style={{width:7,height:7,borderRadius:'50%',background:r.online?'#3DFF7A':r.active?'#5A6A5A':'#FF6B6B',flexShrink:0}}/>
+                    <span style={{fontSize:10,color:r.online?'#3DFF7A':'var(--t3)',fontWeight:600}}>{r.online?'Online':r.active?'Offline':'Disabled'}</span>
+                  </div>
+                  <div style={{display:'flex',gap:6,marginBottom:8}}>
+                    <span style={{background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>ID: {r.id}</span>
+                    <span style={{background:'rgba(0,196,79,.08)',border:'1px solid rgba(0,196,79,.15)',color:'#00C44F',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>Pass: {r.pass}</span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span style={{fontSize:11,color:'var(--t3)'}}>⭐{r.rating} · {r.totalOrders} orders</span>
+                    <Tog on={r.active} onClick={()=>toggleRider(r.id)}/>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
           {addR&&<Modal onClose={()=>setAddR(false)}>
             <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Register New Rider</div>
-            {[{l:'Full Name',k:'name',ph:'Rider full name'},{l:'Phone',k:'phone',ph:'10-digit mobile'}].map(f=>(<div key={f.k} style={{marginBottom:10}}><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div><input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={nrF[f.k]} onChange={e=>setNrF(p=>({...p,[f.k]:e.target.value}))}/></div>))}
-            <div style={{background:'rgba(0,196,79,.06)',border:'1px solid rgba(0,196,79,.15)',borderRadius:12,padding:'10px 12px',marginBottom:14}}><div style={{fontSize:11,color:'#00C44F',fontWeight:600,marginBottom:2}}>Auto Credentials:</div><div style={{fontSize:11,color:'var(--t3)'}}>ID: RDR{String(data.riders.length+1).padStart(3,'0')} · Pass: Rider@{String(data.riders.length+1).padStart(3,'0')}</div></div>
-            <div style={{display:'flex',gap:8}}><button className="btn rip" onClick={regRider} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>Register Rider</button><button className="btng" onClick={()=>setAddR(false)} style={{flex:1,padding:'12px'}}>Cancel</button></div>
+            {[{l:'Full Name',k:'name',ph:'Rider full name'},{l:'Phone',k:'phone',ph:'10-digit mobile'}].map(f=>(
+              <div key={f.k} style={{marginBottom:10}}>
+                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div>
+                <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={nrF[f.k]} onChange={e=>setNrF(p=>({...p,[f.k]:e.target.value}))}/>
+              </div>
+            ))}
+            <div style={{background:'rgba(0,196,79,.06)',border:'1px solid rgba(0,196,79,.15)',borderRadius:12,padding:'10px 12px',marginBottom:14}}>
+              <div style={{fontSize:11,color:'#00C44F',fontWeight:600,marginBottom:2}}>Auto Credentials:</div>
+              <div style={{fontSize:11,color:'var(--t3)'}}>ID: RDR{String(data.riders.length+1).padStart(3,'0')} · Pass: Rider@{String(data.riders.length+1).padStart(3,'0')}</div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn rip" onClick={regRider} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>Register Rider</button>
+              <button className="btng" onClick={()=>setAddR(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
+            </div>
           </Modal>}
         </>}
+
         {tab==='reports'&&<>
           <div className="sh"><div className="st">Sales Reports 📈</div></div>
           <div style={{background:'linear-gradient(135deg,rgba(255,140,66,.08),rgba(255,140,66,.04))',border:'1px solid rgba(255,140,66,.2)',borderRadius:20,padding:'20px',marginBottom:14,textAlign:'center'}}>
             <div style={{fontSize:12,color:'var(--t3)'}}>Total Platform Revenue</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:800,color:'#FF8C42',marginTop:4}}>₹{(data.shops.reduce((s,sh)=>s+sh.totalRevenue,0)+84200).toLocaleString()}</div>
-            <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{data.orders.length} total orders</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:800,color:'#FF8C42',marginTop:4}}>₹{totalRev.toLocaleString()}</div>
+            <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{realOrders.length} total orders</div>
           </div>
           <div className="gc" style={{padding:'16px',marginBottom:12}}>
-            <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>Category Sales</div>
-            {[{c:'Vegetables',v:42,col:'#3DFF7A'},{c:'Fruits',v:28,col:'#00C44F'},{c:'Dairy',v:18,col:'#D4AF37'},{c:'Food',v:12,col:'#FF8C42'}].map(r=>(<div key={r.c} style={{marginBottom:12}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontSize:12,color:'var(--t2)'}}>{r.c}</span><span style={{fontSize:12,fontWeight:700,color:r.col}}>{r.v}%</span></div><div className="pbar"><div className="pfill" style={{width:`${r.v}%`,background:`linear-gradient(90deg,${r.col},${r.col}88)`}}/></div></div>))}
+            <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>Today's Summary</div>
+            {[
+              {l:'Orders Today',v:todayOrders.length,c:'#3DFF7A'},
+              {l:'Revenue Today',v:`₹${todRev}`,c:'#D4AF37'},
+              {l:'Avg Order Value',v:`₹${realOrders.length>0?Math.round(totalRev/realOrders.length):0}`,c:'#FF8C42'},
+            ].map(r=>(
+              <div key={r.l} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span>
+                <span style={{fontSize:14,fontWeight:800,color:r.c}}>{r.v}</span>
+              </div>
+            ))}
+          </div>
+          <div className="gc" style={{padding:'16px',marginBottom:12}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>Payment Methods</div>
+            {[
+              {l:'Cash on Delivery',v:realOrders.filter(o=>o.payMethod==='cod').length,c:'#3DFF7A'},
+              {l:'UPI',v:realOrders.filter(o=>o.payMethod==='upi').length,c:'#D4AF37'},
+            ].map(r=>(
+              <div key={r.l} style={{marginBottom:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                  <span style={{fontSize:12,color:'var(--t2)'}}>{r.l}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:r.c}}>{r.v} orders</span>
+                </div>
+                <div className="pbar">
+                  <div className="pfill" style={{width:`${realOrders.length>0?(r.v/realOrders.length*100):0}%`,background:`linear-gradient(90deg,${r.c},${r.c}88)`}}/>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="gc" style={{padding:'16px'}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>Stock Alert ⚠️</div>
+            {data.products.filter(p=>p.stock<20).length===0
+              ? <div style={{textAlign:'center',color:'#3DFF7A',fontSize:13}}>✅ All products well stocked!</div>
+              : data.products.filter(p=>p.stock<20).map(p=>(
+                <div key={p.id} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                  <span style={{fontSize:13}}>{p.emoji} {p.name}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:'#FF6B6B'}}>Stock: {p.stock} ⚠️</span>
+                </div>
+              ))
+            }
           </div>
         </>}
+
       </div>
       {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
-        <div style={{textAlign:'center'}}><div style={{fontSize:28,marginBottom:8}}>🎉</div><div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{creds.type} Registered!</div><div style={{fontSize:13,color:'var(--t3)',marginBottom:18}}>Share these credentials</div>
-        <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.2)',borderRadius:14,padding:'16px',marginBottom:14}}>
-          <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Login ID</div><div style={{fontSize:22,fontWeight:800,color:'#3DFF7A'}}>{creds.id}</div>
-          <div className="divr"/>
-          <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Password</div><div style={{fontSize:20,fontWeight:800,color:'#D4AF37'}}>{creds.pass}</div>
+        <div style={{textAlign:'center'}}>
+          <div style={{fontSize:28,marginBottom:8}}>🎉</div>
+          <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{creds.type} Registered!</div>
+          <div style={{fontSize:13,color:'var(--t3)',marginBottom:18}}>Share these credentials</div>
+          <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.2)',borderRadius:14,padding:'16px',marginBottom:14}}>
+            <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Login ID</div>
+            <div style={{fontSize:22,fontWeight:800,color:'#3DFF7A'}}>{creds.id}</div>
+            <div className="divr"/>
+            <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Password</div>
+            <div style={{fontSize:20,fontWeight:800,color:'#D4AF37'}}>{creds.pass}</div>
+          </div>
+          <button className="btn rip" onClick={()=>setCreds(null)} style={{width:'100%',padding:'14px',fontSize:14}}>Done ✓</button>
         </div>
-        <button className="btn rip" onClick={()=>setCreds(null)} style={{width:'100%',padding:'14px',fontSize:14}}>Done ✓</button></div>
       </div></div>}
     </div>
   );
