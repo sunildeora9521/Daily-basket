@@ -1653,7 +1653,10 @@ function AdminApp({data,setData,onBack}) {
       <SBar/>
       <div style={{padding:'4px 20px 8px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}><div><div style={{fontSize:16,fontWeight:800,color:'#FF8C42'}}>🍓 Master Control</div><div style={{fontSize:11,color:'var(--t3)'}}>Admin: {ADMIN_ID}</div></div></div>
-        <div style={{background:'rgba(255,140,66,.1)',border:'1px solid rgba(255,140,66,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF8C42',fontWeight:700}}>🔐 ADMIN</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+  <div style={{background:'rgba(255,140,66,.1)',border:'1px solid rgba(255,140,66,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF8C42',fontWeight:700}}>🔐 ADMIN</div>
+  <div onClick={onBack} style={{background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF6B6B',fontWeight:700,cursor:'pointer'}}>Logout</div>
+</div>
       </div>
       <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none'}}>
         {[{id:'dash',l:'📊'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦'},{id:'shops',l:'🏨'},{id:'riders',l:'🚲'},{id:'reports',l:'📈'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
