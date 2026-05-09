@@ -1010,7 +1010,6 @@ const place=async(addr)=>{
                     <div className="divr"/>
                     <div style={{display:'flex',justifyContent:'space-between'}}><span style={{fontSize:16,fontWeight:800}}>{t.total}</span><span style={{fontSize:18,fontWeight:900,color:'#3DFF7A'}}>₹{tot}</span></div>
                   </div>
-                  </div>
                 </>
               );})()}
             </>
