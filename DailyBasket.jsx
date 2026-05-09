@@ -1027,8 +1027,7 @@ const place=async(addr)=>{
     </div>
   </div>
   <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)}</button>
-        </div>}
-      </div>
+</div>}
     );
 
     if(track) return (
