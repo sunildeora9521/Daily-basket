@@ -1011,6 +1011,9 @@ const place=async(addr)=>{
     </>
   );
 })()}
+            </>
+          }
+        </div>
         {cart.length>0&&<div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
   {/* Payment Method */}
   <div style={{marginBottom:12}}>
@@ -1028,6 +1031,7 @@ const place=async(addr)=>{
   </div>
   <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)}</button>
 </div>}
+      </div>
     );
 
     if(track) return (
