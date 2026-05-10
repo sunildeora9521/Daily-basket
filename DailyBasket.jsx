@@ -1613,7 +1613,9 @@ function AdminApp({data,setData,onBack}) {
   const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',stock:'50'});
   const [nsF,setNsF]=useState({name:'',owner:'',phone:'',cuisine:''});
   const [nrF,setNrF]=useState({name:'',phone:''});
-
+  const [coupons, setCoupons]=useState([]);
+  const [newCoupon, setNewCoupon]=useState({code:'',discount:'',minOrder:'0'});
+  const [addCoupon, setAddCoupon]=useState(false);
   useEffect(()=>{
     setLoadingOrders(true);
     const unsub=onSnapshot(collection(db,'orders'),snap=>{
