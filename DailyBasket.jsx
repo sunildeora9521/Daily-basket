@@ -1683,7 +1683,7 @@ function AdminApp({data,setData,onBack}) {
 </div>
       </div>
       <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none'}}>
-        {[{id:'dash',l:'📊'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦'},{id:'shops',l:'🏨'},{id:'riders',l:'🚲'},{id:'reports',l:'📈'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
+        {[{id:'dash',l:'📊'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦'},{id:'shops',l:'🏨'},{id:'riders',l:'🚲'},{id:'coupons',l:'🏷️ Coupons'},{id:'reports',l:'📈'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 24px'}}>
 
