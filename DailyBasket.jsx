@@ -1627,6 +1627,13 @@ function AdminApp({data,setData,onBack}) {
     return()=>unsub();
   },[]);
 
+  useEffect(()=>{
+    const unsub2=onSnapshot(collection(db,'coupons'),snap=>{
+      setCoupons(snap.docs.map(d=>({id:d.id,...d.data()})));
+    });
+    return()=>unsub2();
+  },[]);
+
   const todayOrders=realOrders.filter(o=>{
     if(!o.createdAt?.seconds) return false;
     const d=new Date(o.createdAt.seconds*1000);
