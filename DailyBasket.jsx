@@ -893,14 +893,31 @@ const COUPONS = {
   'DB10':    10,
 };
 
-const applyCoupon=()=>{
+const applyCoupon=async()=>{
   const code=coupon.trim().toUpperCase();
-  if(COUPONS[code]){
-    setDiscount(COUPONS[code]);
-    setCouponMsg(`✅ ₹${COUPONS[code]} off applied!`);
-  } else {
-    setDiscount(0);
-    setCouponMsg('❌ Invalid coupon code');
+  try {
+    const snap=await getDocs(collection(db,'coupons'));
+    const found=snap.docs.map(d=>({...d.data()})).find(c=>c.code===code);
+    if(found){
+      const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
+      if(found.minOrder>0&&sub<found.minOrder){
+        setCouponMsg(`❌ Min order ₹${found.minOrder} chahiye`);
+        setDiscount(0);
+      } else {
+        setDiscount(found.discount);
+        setCouponMsg(`✅ ₹${found.discount} off applied!`);
+      }
+    } else if(COUPONS[code]){
+      setDiscount(COUPONS[code]);
+      setCouponMsg(`✅ ₹${COUPONS[code]} off applied!`);
+    } else {
+      setDiscount(0);
+      setCouponMsg('❌ Invalid coupon code');
+    }
+  } catch(e) {
+    const fallback=COUPONS[code];
+    if(fallback){setDiscount(fallback);setCouponMsg(`✅ ₹${fallback} off applied!`);}
+    else {setDiscount(0);setCouponMsg('❌ Invalid coupon code');}
   }
 };
 const [showAddr, setShowAddr]=useState(false);
