@@ -1699,8 +1699,8 @@ function AdminApp({data,setData,onBack}) {
   <div onClick={onBack} style={{background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF6B6B',fontWeight:700,cursor:'pointer'}}>Logout</div>
 </div>
       </div>
-      <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none'}}>
-        {[{id:'dash',l:'📊'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦'},{id:'shops',l:'🏨'},{id:'riders',l:'🚲'},{id:'coupons',l:'🏷️ Coupons'},{id:'reports',l:'📈'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
+     <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
+        {[{id:'dash',l:'📊'},{id:'orders',l:'📦'},{id:'prods',l:'🥦'},{id:'shops',l:'🏨'},{id:'riders',l:'🚲'},{id:'coupons',l:'🏷️'},{id:'reports',l:'📈'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 24px'}}>
 
@@ -1998,7 +1998,7 @@ function AdminApp({data,setData,onBack}) {
           <div style={{fontSize:18,fontWeight:800,color:'#D4AF37'}}>₹{c.discount} off</div>
         </div>
         <div style={{fontSize:12,color:'var(--t3)'}}>Min order: ₹{c.minOrder||0}</div>
-        <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Used: {c.usedCount||0} times</div>
+        <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Used: {c.usedCount||0}/{c.maxUses||'∞'} times</div>
       </div>
     ))
   }
@@ -2013,10 +2013,15 @@ function AdminApp({data,setData,onBack}) {
         <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>DISCOUNT AMOUNT (₹)</div>
         <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 50" type="number" value={newCoupon.discount} onChange={e=>setNewCoupon(p=>({...p,discount:e.target.value}))}/>
       </div>
-      <div style={{marginBottom:16}}>
+      <div style={{marginBottom:10}}>
         <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>MIN ORDER AMOUNT (₹)</div>
         <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 100" type="number" value={newCoupon.minOrder} onChange={e=>setNewCoupon(p=>({...p,minOrder:e.target.value}))}/>
       </div>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>MAX USES (0 = unlimited)</div>
+        <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 10" type="number" value={newCoupon.maxUses||''} onChange={e=>setNewCoupon(p=>({...p,maxUses:e.target.value}))}/>
+        </div>
+      await addDoc(collection(db,'coupons'),{code:newCoupon.code,discount:+newCoupon.discount,minOrder:+newCoupon.minOrder,maxUses:+newCoupon.maxUses||0,usedCount:0,createdAt:serverTimestamp()});
       <div style={{display:'flex',gap:8}}>
         <button className="btn rip" onClick={async()=>{
           if(!newCoupon.code||!newCoupon.discount){alert('Code aur discount daalo!');return;}
