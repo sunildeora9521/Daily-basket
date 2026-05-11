@@ -2024,50 +2024,9 @@ function AdminApp({data,setData,onBack}) {
         setAddCoupon(false);
       }} style={{flex:1,padding:'12px'}}>Add Coupon ✓</button>
       <button className="btng" onClick={()=>setAddCoupon(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
-    </div>
-  </div>
-  <div className="sh">
-    <div className="st">Coupons 🏷️ ({coupons.length})</div>
-    <button className="btn rip" onClick={()=>setAddCoupon(true)} style={{padding:'7px 14px',fontSize:12}}>+ Add</button>
-  </div>
-  {coupons.length===0
-    ? <div style={{textAlign:'center',padding:40}}><div style={{fontSize:48}}>🏷️</div><div style={{fontSize:14,fontWeight:700,marginTop:12}}>No coupons yet</div></div>
-    : coupons.map((c,i)=>(
-      <div key={c.id} className="gc" style={{padding:14,marginBottom:10}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-          <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A',letterSpacing:1}}>{c.code}</div>
-          <div style={{fontSize:18,fontWeight:800,color:'#D4AF37'}}>₹{c.discount} off</div>
         </div>
-        <div style={{fontSize:12,color:'var(--t3)'}}>Min order: ₹{c.minOrder||0}</div>
-        <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Used: {c.usedCount||0} times</div>
-      </div>
-    ))
-  }
-  {addCoupon&&<div className="ovl" onClick={()=>setAddCoupon(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'80vh',overflowY:'auto'}}>
-    <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Add New Coupon
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>COUPON CODE</div>
-      <input className="dbi" style={{fontSize:14,padding:'10px 12px',textTransform:'uppercase'}} placeholder="e.g. SAVE50" value={newCoupon.code} onChange={e=>setNewCoupon(p=>({...p,code:e.target.value.toUpperCase()}))}/>
-    </div>
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>DISCOUNT AMOUNT (₹)</div>
-      <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 50" type="number" value={newCoupon.discount} onChange={e=>setNewCoupon(p=>({...p,discount:e.target.value}))}/>
-    </div>
-    <div style={{marginBottom:16}}>
-      <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>MIN ORDER AMOUNT (₹)</div>
-      <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 100" type="number" value={newCoupon.minOrder} onChange={e=>setNewCoupon(p=>({...p,minOrder:e.target.value}))}/>
-    </div>
-    <div style={{display:'flex',gap:8}}>
-      <button className="btn rip" onClick={async()=>{
-        if(!newCoupon.code||!newCoupon.discount){alert('Code aur discount daalo!');return;}
-        await addDoc(collection(db,'coupons'),{code:newCoupon.code,discount:+newCoupon.discount,minOrder:+newCoupon.minOrder,usedCount:0,createdAt:serverTimestamp()});
-        setNewCoupon({code:'',discount:'',minOrder:'0'});
-        setAddCoupon(false);
-      }} style={{flex:1,padding:'12px'}}>Add Coupon ✓</button>
-      <button className="btng" onClick={()=>setAddCoupon(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
-    </div>
-  </div></div>}
-</>}
+      </div></div>}
+        </>}
       </div>
       {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:'center'}}>
