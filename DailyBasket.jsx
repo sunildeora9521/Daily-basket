@@ -2002,30 +2002,34 @@ function AdminApp({data,setData,onBack}) {
       </div>
     ))
   }
-  {addCoupon&&<div className="ovl" onClick={()=>setAddCoupon(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'90vh',overflowY:'auto',paddingBottom:20}}>
-    <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>🏷️ Add New Coupon</div>
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>COUPON CODE</div>
-      <input className="dbi" style={{fontSize:14,padding:'10px 12px',textTransform:'uppercase'}} placeholder="e.g. SAVE50" value={newCoupon.code} onChange={e=>setNewCoupon(p=>({...p,code:e.target.value.toUpperCase()}))}/>
+{addCoupon&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.75)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setAddCoupon(false)}>
+    <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:'linear-gradient(180deg,#0E160E,#070907)',borderRadius:20,border:'1px solid rgba(61,255,122,.15)',padding:'22px 20px'}}>
+      <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>🏷️ Add New Coupon</div>
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>COUPON CODE</div>
+        <input className="dbi" style={{fontSize:14,padding:'10px 12px',textTransform:'uppercase'}} placeholder="e.g. SAVE50" value={newCoupon.code} onChange={e=>setNewCoupon(p=>({...p,code:e.target.value.toUpperCase()}))}/>
+      </div>
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>DISCOUNT AMOUNT (₹)</div>
+        <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 50" type="number" value={newCoupon.discount} onChange={e=>setNewCoupon(p=>({...p,discount:e.target.value}))}/>
+      </div>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>MIN ORDER AMOUNT (₹)</div>
+        <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 100" type="number" value={newCoupon.minOrder} onChange={e=>setNewCoupon(p=>({...p,minOrder:e.target.value}))}/>
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <button className="btn rip" onClick={async()=>{
+          if(!newCoupon.code||!newCoupon.discount){alert('Code aur discount daalo!');return;}
+          await addDoc(collection(db,'coupons'),{code:newCoupon.code,discount:+newCoupon.discount,minOrder:+newCoupon.minOrder,usedCount:0,createdAt:serverTimestamp()});
+          setNewCoupon({code:'',discount:'',minOrder:'0'});
+          setAddCoupon(false);
+        }} style={{flex:1,padding:'12px'}}>Add Coupon ✓</button>
+        <button className="btng" onClick={()=>setAddCoupon(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
+      </div>
     </div>
-    <div style={{marginBottom:10}}>
-      
-      <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 50" type="number" value={newCoupon.discount} onChange={e=>setNewCoupon(p=>({...p,discount:e.target.value}))}/>
-    </div>
-    <div style={{marginBottom:16}}>
-      <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>MIN ORDER AMOUNT (₹)</div>
-      <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 100" type="number" value={newCoupon.minOrder} onChange={e=>setNewCoupon(p=>({...p,minOrder:e.target.value}))}/>
-    </div>
-    <div style={{display:'flex',gap:8}}>
-      <button className="btn rip" onClick={async()=>{
-        if(!newCoupon.code||!newCoupon.discount){alert('Code aur discount daalo!');return;}
-        await addDoc(collection(db,'coupons'),{code:newCoupon.code,discount:+newCoupon.discount,minOrder:+newCoupon.minOrder,usedCount:0,createdAt:serverTimestamp()});
-        setNewCoupon({code:'',discount:'',minOrder:'0'});
-        setAddCoupon(false);
-      }} style={{flex:1,padding:'12px'}}>Add Coupon ✓</button>
-      <button className="btng" onClick={()=>setAddCoupon(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
-        </div>
-      </div></div>}
+  </div>}
+        </>}
+      </div>
         </>}
       </div>
       {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
