@@ -2020,7 +2020,8 @@ function AdminApp({data,setData,onBack}) {
       <div style={{marginBottom:16}}>
         <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>MAX USES (0 = unlimited)</div>
         <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 10" type="number" value={newCoupon.maxUses||''} onChange={e=>setNewCoupon(p=>({...p,maxUses:e.target.value}))}/>
-        <div await addDoc(collection(db,'coupons'),{code:newCoupon.code,discount:+newCoupon.discount,minOrder:+newCoupon.minOrder,maxUses:+newCoupon.maxUses||0,usedCount:0,createdAt:serverTimestamp()});
+      </div> 
+          await addDoc(collection(db,'coupons'),{code:newCoupon.code,discount:+newCoupon.discount,minOrder:+newCoupon.minOrder,maxUses:+newCoupon.maxUses||0,usedCount:0,createdAt:serverTimestamp()});
       <div style={{display:'flex',gap:8}}>
         <button className="btn rip" onClick={async()=>{
           if(!newCoupon.code||!newCoupon.discount){alert('Code aur discount daalo!');return;}
