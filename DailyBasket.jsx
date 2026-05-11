@@ -2002,7 +2002,7 @@ function AdminApp({data,setData,onBack}) {
       </div>
     ))
   }
-  {addCoupon&&<div className="ovl" onClick={()=>setAddCoupon(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'90vh',overflowY:'auto',paddingBottom:20}}
+  {addCoupon&&<div className="ovl" onClick={()=>setAddCoupon(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'90vh',overflowY:'auto',paddingBottom:20}}>
     <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Add New Coupon 🏷️</div>
     <div style={{marginBottom:10}}>
       <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>COUPON CODE</div>
