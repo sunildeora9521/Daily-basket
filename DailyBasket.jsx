@@ -1987,7 +1987,7 @@ function AdminApp({data,setData,onBack}) {
         {tab==='coupons'&&<>
   <div className="sh">
     <div className="st">Coupons 🏷️ ({coupons.length})</div>
-    <button className="btn rip" onClick={()=>setAddCoupon(true)} style={{padding:'7px 14px',fontSize:12}}>+ Add</button>
+    <button className="btn rip" onClick={()=>{setAddCoupon(true);setTimeout(()=>document.querySelector('.modal')?.scrollTo(0,0),100);}} style={{padding:'7px 14px',fontSize:12}}>+ Add</button>
   </div>
   {coupons.length===0
     ? <div style={{textAlign:'center',padding:40}}><div style={{fontSize:48}}>🏷️</div><div style={{fontSize:14,fontWeight:700,marginTop:12}}>No coupons yet</div></div>
@@ -2002,7 +2002,7 @@ function AdminApp({data,setData,onBack}) {
       </div>
     ))
   }
-  {addCoupon&&<div className="ovl" onClick={()=>setAddCoupon(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'80vh',overflowY:'auto'}}>
+  {addCoupon&&<div className="ovl" onClick={()=>setAddCoupon(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'90vh',overflowY:'auto',paddingBottom:20}}
     <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Add New Coupon 🏷️</div>
     <div style={{marginBottom:10}}>
       <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>COUPON CODE</div>
