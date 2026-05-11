@@ -2003,13 +2003,13 @@ function AdminApp({data,setData,onBack}) {
     ))
   }
   {addCoupon&&<div className="ovl" onClick={()=>setAddCoupon(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'90vh',overflowY:'auto',paddingBottom:20}}>
-    <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Add New Coupon 🏷️</div>
+    <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>🏷️ Add New Coupon</div>
     <div style={{marginBottom:10}}>
       <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>COUPON CODE</div>
       <input className="dbi" style={{fontSize:14,padding:'10px 12px',textTransform:'uppercase'}} placeholder="e.g. SAVE50" value={newCoupon.code} onChange={e=>setNewCoupon(p=>({...p,code:e.target.value.toUpperCase()}))}/>
     </div>
     <div style={{marginBottom:10}}>
-      <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>DISCOUNT AMOUNT (₹)</div>
+      
       <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 50" type="number" value={newCoupon.discount} onChange={e=>setNewCoupon(p=>({...p,discount:e.target.value}))}/>
     </div>
     <div style={{marginBottom:16}}>
