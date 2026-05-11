@@ -2030,8 +2030,7 @@ function AdminApp({data,setData,onBack}) {
   </div>}
         </>}
       </div>
-      </div>
-      {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
+           {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:'center'}}>
           <div style={{fontSize:28,marginBottom:8}}>🎉</div>
           <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{creds.type} Registered!</div>
