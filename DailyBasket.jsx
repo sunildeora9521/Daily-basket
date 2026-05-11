@@ -2030,7 +2030,6 @@ function AdminApp({data,setData,onBack}) {
   </div>}
         </>}
       </div>
-        </>}
       </div>
       {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:'center'}}>
