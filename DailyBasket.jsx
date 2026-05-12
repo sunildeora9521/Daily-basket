@@ -888,12 +888,7 @@ const [couponMsg, setCouponMsg]=useState('');
 const [dbCoupons, setDbCoupons]=useState([]);
 const [showCouponPicker, setShowCouponPicker]=useState(false);
 
-const COUPONS = {
-  'FRESH20': 20,
-  'SAVE30':  30,
-  'FIRST50': 50,
-  'DB10':    10,
-};
+const COUPONS = {};
 
 const applyCoupon=async()=>{
   const code=coupon.trim().toUpperCase();
@@ -909,17 +904,12 @@ const applyCoupon=async()=>{
         setDiscount(found.discount);
         setCouponMsg(`✅ ₹${found.discount} off applied!`);
       }
-    } else if(COUPONS[code]){
-      setDiscount(COUPONS[code]);
-      setCouponMsg(`✅ ₹${COUPONS[code]} off applied!`);
     } else {
       setDiscount(0);
       setCouponMsg('❌ Invalid coupon code');
     }
-  } catch(e) {
-    const fallback=COUPONS[code];
-    if(fallback){setDiscount(fallback);setCouponMsg(`✅ ₹${fallback} off applied!`);}
-    else {setDiscount(0);setCouponMsg('❌ Invalid coupon code');}
+} catch(e) {
+    setDiscount(0);setCouponMsg('❌ Invalid coupon code');
   }
 };
 const [showAddr, setShowAddr]=useState(false);
@@ -1020,8 +1010,8 @@ const place=async(addr)=>{
         const sub2=cart.reduce((s,i)=>s+i.price*i.qty,0);
         const allCoupons=[
           ...dbCoupons,
-          ...Object.entries(COUPONS).filter(([code])=>!dbCoupons.find(c=>c.code===code)).map(([code,discount])=>({code,discount,minOrder:0,maxUses:0}))
-        ];
+          ...[]
+         ];
         const unlocked=allCoupons.filter(c=>(c.minOrder||0)<=sub2);
         const locked=allCoupons.filter(c=>(c.minOrder||0)>sub2);
         return(
