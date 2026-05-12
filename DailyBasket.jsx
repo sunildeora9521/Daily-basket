@@ -2078,8 +2078,8 @@ export default function DailyBasket() {
   }
 };
   const AdminPortal = () => {
-    if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('login');}} hint={null}/>;
-   return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('login');}}/>;
+    if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}} hint={null}/>;
+   return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}}/>;;
   };
   const renderContent = () => {
     if(phase==='splash') return <Splash onDone={()=>setPhase('login')} onCapSelect={handleCapSelect}/>;
