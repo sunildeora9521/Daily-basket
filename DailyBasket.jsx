@@ -1731,8 +1731,8 @@ function AdminApp({data,setData,onBack}) {
   <div onClick={onBack} style={{background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF6B6B',fontWeight:700,cursor:'pointer'}}>Logout</div>
 </div>
       </div>
-     <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
-        {[{id:'dash',l:'📊'},{id:'orders',l:'📦'},{id:'prods',l:'🥦'},{id:'shops',l:'🏨'},{id:'riders',l:'🚲'},{id:'coupons',l:'🏷️'},{id:'reports',l:'📈'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',fontSize:12,flexShrink:0}}>{t.l}</div>))}
+<div style={{display:'flex',overflowX:'scroll',padding:'0 20px 10px',gap:6,scrollbarWidth:'none',WebkitOverflowScrolling:'touch',msOverflowStyle:'none'}}>
+        {[{id:'dash',l:'📊 Dash'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦 Prods'},{id:'shops',l:'🏨 Shops'},{id:'riders',l:'🚲 Riders'},{id:'coupons',l:'🏷️ Coupons'},{id:'reports',l:'📈 Reports'}].map(t=>(<div key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',fontSize:11,fontWeight:600,flexShrink:0,borderRadius:50,cursor:'pointer',whiteSpace:'nowrap',background:tab===t.id?'linear-gradient(135deg,#FF8C42,#FF6B20)':' rgba(255,140,66,.08)',color:tab===t.id?'#fff':'#FF8C42',border:`1px solid ${tab===t.id?'transparent':'rgba(255,140,66,.2)'}`}}>{t.l}</div>))}
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 24px'}}>
 
