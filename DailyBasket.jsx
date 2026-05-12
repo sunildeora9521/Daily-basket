@@ -885,6 +885,8 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [coupon, setCoupon]=useState('');
 const [discount, setDiscount]=useState(0);
 const [couponMsg, setCouponMsg]=useState('');
+const [dbCoupons, setDbCoupons]=useState([]);
+const [showCouponPicker, setShowCouponPicker]=useState(false);
 
 const COUPONS = {
   'FRESH20': 20,
@@ -922,6 +924,12 @@ const applyCoupon=async()=>{
 };
 const [showAddr, setShowAddr]=useState(false);
 const [address, setAddress]=useState(null);
+
+  useEffect(()=>{
+    getDocs(collection(db,'coupons')).then(snap=>{
+      setDbCoupons(snap.docs.map(d=>({id:d.id,...d.data()})));
+    }).catch(()=>{});
+  },[]);
 
   useEffect(()=>{
     try {
