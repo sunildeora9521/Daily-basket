@@ -976,7 +976,7 @@ const place=async(addr)=>{
           <BBtn onClick={()=>setShCart(false)}/>
           <div><div style={{fontSize:18,fontWeight:800}}>{t.myBasket}</div><div style={{fontSize:12,color:'var(--t3)'}}>{cart.reduce((s,i)=>s+i.qty,0)} {t.items}</div></div>
         </div>
-        <div className="scr" style={{position:'relative',padding:'0 20px 10px'}}>
+        <div className="scr" style={{position:'relative',padding:'0 20px 160px'}}>
           {cart.length===0
             ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'60%',gap:14}}><div style={{fontSize:64}}>🧺</div><div style={{fontSize:18,fontWeight:700}}>{isHi?'टोकरी खाली है':'Basket is empty'}</div></div>
             :<>
@@ -1995,10 +1995,13 @@ function AdminApp({data,setData,onBack}) {
       <div key={c.id} className="gc" style={{padding:14,marginBottom:10}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
           <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A',letterSpacing:1}}>{c.code}</div>
-          <div style={{fontSize:18,fontWeight:800,color:'#D4AF37'}}>₹{c.discount} off</div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{fontSize:16,fontWeight:800,color:'#D4AF37'}}>₹{c.discount} off</div>
+            <div onClick={async()=>{if(window.confirm('Delete this coupon?')){const {deleteDoc,doc}=await import('firebase/firestore');await deleteDoc(doc(db,'coupons',c.id));}}} style={{width:28,height:28,borderRadius:8,background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.2)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14}}>🗑️</div>
+          </div>
         </div>
-        <div style={{fontSize:12,color:'var(--t3)'}}>Min order: ₹{c.minOrder||0}</div>
-        <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Used: {c.usedCount||0}/{c.maxUses||'∞'} times</div>
+        <div style={{fontSize:12,color:'var(--t3)'}}>Min order: ₹{c.minOrder||0} · Max uses: {c.maxUses||'∞'}</div>
+        <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Used: {c.usedCount||0} times</div>
       </div>
     ))
   }
