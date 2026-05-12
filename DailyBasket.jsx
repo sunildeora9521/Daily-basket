@@ -1016,15 +1016,39 @@ const place=async(addr)=>{
         <Ic n="truck" s={16} c="#3DFF7A"/>
         <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`${t.addFreeDelivery}${299-sub}${t.forFreeDelivery}`}</div>
       </div>
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>🏷️ Coupon Code</div>
-        <div style={{display:'flex',gap:8}}>
-          <input className="dbi" placeholder="Enter coupon code" value={coupon} onChange={e=>{setCoupon(e.target.value);setCouponMsg('');setDiscount(0);}} style={{flex:1,padding:'10px 14px',fontSize:14}}/>
-          <button onClick={applyCoupon} style={{padding:'10px 16px',borderRadius:12,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',border:'none',color:'#0A1A0A',fontWeight:700,fontSize:13,cursor:'pointer'}}>Apply</button>
-        </div>
-        {couponMsg&&<div style={{fontSize:12,marginTop:6,color:discount>0?'#3DFF7A':'#FF6B6B'}}>{couponMsg}</div>}
-        <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Try: FRESH20 · SAVE30 · FIRST50</div>
-      </div>
+      {(()=>{
+        const sub2=cart.reduce((s,i)=>s+i.price*i.qty,0);
+        const allCoupons=[
+          ...dbCoupons,
+          ...Object.entries(COUPONS).filter(([code])=>!dbCoupons.find(c=>c.code===code)).map(([code,discount])=>({code,discount,minOrder:0,maxUses:0}))
+        ];
+        const unlocked=allCoupons.filter(c=>(c.minOrder||0)<=sub2);
+        const locked=allCoupons.filter(c=>(c.minOrder||0)>sub2);
+        return(
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>🏷️ Available Coupons</div>
+            {discount>0&&<div style={{fontSize:12,marginBottom:8,color:'#3DFF7A',fontWeight:600}}>✅ {couponMsg}</div>}
+            {unlocked.map(c=>(
+              <div key={c.code} onClick={()=>{setCoupon(c.code);setDiscount(c.discount);setCouponMsg(`✅ ₹${c.discount} off applied!`);}} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderRadius:12,marginBottom:8,cursor:'pointer',border:`1.5px solid ${discount===c.discount?'rgba(61,255,122,.5)':'rgba(61,255,122,.2)'}`,background:discount===c.discount?'rgba(61,255,122,.08)':'rgba(61,255,122,.03)'}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:800,color:'#3DFF7A',letterSpacing:1}}>{c.code}</div>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>₹{c.discount} off{c.minOrder>0?` · Min ₹${c.minOrder}`:''}</div>
+                </div>
+                <div style={{fontSize:11,fontWeight:700,color:discount===c.discount?'#3DFF7A':'var(--t2)',padding:'4px 10px',borderRadius:50,background:discount===c.discount?'rgba(61,255,122,.15)':'rgba(255,255,255,.05)'}}>{discount===c.discount?'✓ Applied':'Apply'}</div>
+              </div>
+            ))}
+            {locked.map(c=>(
+              <div key={c.code} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderRadius:12,marginBottom:8,border:'1px solid rgba(255,255,255,.05)',background:'rgba(255,255,255,.02)',opacity:.5}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:800,color:'var(--t3)',letterSpacing:1}}>🔒 {c.code}</div>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>₹{c.discount} off · Add ₹{(c.minOrder||0)-sub2} more</div>
+                </div>
+                <div style={{fontSize:11,color:'var(--t3)',padding:'4px 10px',borderRadius:50,background:'rgba(255,255,255,.04)'}}>Locked</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       <div className="gc" style={{padding:16,marginBottom:80}}>
         <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>{t.priceDetails}</div>
         {[{l:t.subtotal,v:`₹${sub}`},{l:t.delivery,v:del===0?t.free:`₹${del}`},{l:t.ecoPackaging,v:t.included},...(discount>0?[{l:'🏷️ Discount',v:`-₹${discount}`}]:[])].map(r=>(
