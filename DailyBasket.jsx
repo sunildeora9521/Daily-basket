@@ -953,7 +953,7 @@ const place=async(addr)=>{
       userName:user?.name||'Customer',
       userPhone:user?.phone||'',
       items:cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price})),
-      subtotal:sub,delivery:del,total:sub+del,
+      subtotal:sub,delivery:del,discount:discount,total:Math.max(0,sub+del-discount),
       payMethod:payMethod,
       address:finalAddr||'Not provided',
       status:'confirmed',
@@ -1078,7 +1078,7 @@ const place=async(addr)=>{
       </div>
     </div>
   </div>
-  <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)}</button>
+  <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount)}</button>
 </div>}
       </div>
     );
