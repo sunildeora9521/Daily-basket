@@ -889,6 +889,9 @@ const [discount, setDiscount]=useState(0);
 const [couponMsg, setCouponMsg]=useState('');
 const [dbCoupons, setDbCoupons]=useState([]);
 const [showCouponPicker, setShowCouponPicker]=useState(false);
+const [points, setPoints]=useState(312);
+const [usePoints, setUsePoints]=useState(false);
+const pointsDiscount = usePoints?Math.floor(points/10):0;
 
 const COUPONS = {};
 
@@ -951,7 +954,11 @@ const place=async(addr)=>{
       status:'confirmed',
       createdAt:serverTimestamp()
     });
-  }catch(e){console.log('Order error:',e);}
+ }catch(e){console.log('Order error:',e);}
+  const earned=Math.floor(Math.max(0,sub+del-discount)/10);
+  if(usePoints)setPoints(p=>Math.max(0,p-(Math.floor(p/10)*10))+earned);
+  else setPoints(p=>p+earned);
+  setUsePoints(false);
   setCart([]);setShCart(false);setTrack(true);
 };
   const goNav=n=>{setNav(n);setScr(n);setShCart(false);setSelP(null);};
@@ -1090,8 +1097,15 @@ const place=async(addr)=>{
       </div>
     </div>
   </div>
-  <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount)}</button>
-</div>}
+          {points>=100&&<div onClick={()=>setUsePoints(u=>!u)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:`1.5px solid ${usePoints?'rgba(212,175,55,.5)':'rgba(212,175,55,.15)'}`,background:usePoints?'rgba(212,175,55,.08)':'rgba(212,175,55,.03)'}}>
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
+      <span style={{fontSize:18}}>🪙</span>
+      <div><div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>{points} Points available</div><div style={{fontSize:10,color:'var(--t3)'}}>Use to save ₹{Math.floor(points/10)}</div></div>
+    </div>
+    <div style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${usePoints?'#D4AF37':'rgba(212,175,55,.3)'}`,background:usePoints?'#D4AF37':'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#0A0800',fontWeight:800}}>{usePoints?'✓':''}</div>
+  </div>}
+  <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
+  </div>}
       </div>
     );
 
