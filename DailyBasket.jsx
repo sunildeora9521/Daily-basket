@@ -1004,24 +1004,26 @@ const place=async(addr)=>{
                 </div>
               ))}
               {(()=>{
-              {/* Frequently Bought Together */}
-<div style={{marginTop:18}}>
-  <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>🔗 Often bought together</div>
-  <div className="srow">
-    {data.products.filter(p=>p.active&&!cart.find(c=>c.id===p.id)).slice(0,4).map(p=>(
-      <div key={p.id} onClick={()=>addC(p)} style={{flexShrink:0,width:80,background:'var(--card)',border:'1px solid rgba(61,255,122,.1)',borderRadius:14,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
-        <div style={{fontSize:28}}>{p.emoji}</div>
-        <div style={{fontSize:10,fontWeight:600,marginTop:4,color:'var(--t2)'}}>{p.name}</div>
-        <div style={{fontSize:11,color:'#3DFF7A',fontWeight:700,marginTop:2}}>₹{p.price}</div>
-      </div>
-    ))}
-  </div>
-</div>
   const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
   const del=sub>299?0:25;
   const tot=Math.max(0,sub+del-discount);
   return(
     <>
+      {activeProds.filter(p=>!cart.find(c=>c.id===p.id)).length>0&&(
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10,color:'var(--t2)'}}>🔗 {isHi?'अक्सर साथ खरीदा':'Often bought together'}</div>
+          <div className="srow">
+            {activeProds.filter(p=>!cart.find(c=>c.id===p.id)).slice(0,5).map(p=>(
+              <div key={p.id} onClick={()=>addC(p)} style={{flexShrink:0,width:82,background:'var(--card)',border:'1px solid rgba(61,255,122,.12)',borderRadius:14,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
+                <div style={{fontSize:26}}>{p.emoji}</div>
+                <div style={{fontSize:10,fontWeight:600,marginTop:4,color:'var(--t)',lineHeight:1.3}}>{pName(p)}</div>
+                <div style={{fontSize:11,color:'#3DFF7A',fontWeight:800,marginTop:3}}>₹{p.price}</div>
+                <div style={{marginTop:5,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',borderRadius:6,padding:'3px 0',fontSize:10,fontWeight:700,color:'#0A1A0A'}}>+ Add</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.14)',borderRadius:14,padding:'12px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
         <Ic n="truck" s={16} c="#3DFF7A"/>
         <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`${t.addFreeDelivery}${299-sub}${t.forFreeDelivery}`}</div>
