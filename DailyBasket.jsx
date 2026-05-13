@@ -1210,9 +1210,6 @@ const place=async(addr)=>{
           </div>
         </div>
         {/* Products */}
-        <div onClick={e=>{e.stopPropagation();setWishlist(w=>w.includes(p.id)?w.filter(x=>x!==p.id):[...w,p.id]);}} style={{position:'absolute',top:8,right:8,fontSize:16,cursor:'pointer'}}>
-  {wishlist.includes(p.id)?'❤️':'🤍'}
-</div>
         <div style={{padding:'0 20px'}}>
           <div className="sh"><div className="st">{t.bestSellers}</div><div className="sl">{t.seeAll}</div></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
@@ -1221,6 +1218,7 @@ const place=async(addr)=>{
                 <div style={{height:100,background:'linear-gradient(135deg,#111A11,#0D160D)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:50,position:'relative'}}>
                   {p.emoji}
                   <div className="chip" style={{position:'absolute',top:8,left:8,fontSize:10,padding:'2px 7px',fontFamily:fam}}>{pTag(p)}</div>
+                  <div onClick={e=>{e.stopPropagation();setWishlist(w=>w.includes(p.id)?w.filter(x=>x!==p.id):[...w,p.id]);}} style={{position:'absolute',top:8,right:8,fontSize:14,cursor:'pointer'}}>{wishlist.includes(p.id)?'❤️':'🤍'}</div>
                 </div>
                 <div style={{padding:'10px 10px 12px'}}>
                   <div style={{fontSize:13,fontWeight:700,marginBottom:2,fontFamily:fam}}>{pName(p)}</div>
