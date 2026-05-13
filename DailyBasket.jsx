@@ -434,12 +434,12 @@ function Splash({onDone, onCapSelect}) {
 }
 
 /* ═══════════ CUSTOMER LOGIN ═══════════ */
-function AddressScreen({onBack, onConfirm, userId}) {
+function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
   const [flat, setFlat]=useState('');
   const [area, setArea]=useState('');
   const [city, setCity]=useState('Bhopalgarh');
   const [type, setType]=useState('home');
-  const [slot, setSlot]=useState('morning');
+  const [slot, setSlot]=useState('quick');
   const [contactless, setContactless]=useState(false);
   const [loading, setLoading]=useState(false);
   const [gpsLoading, setGpsLoading]=useState(false);
@@ -463,7 +463,7 @@ function AddressScreen({onBack, onConfirm, userId}) {
     if(!flat.trim()){alert('Flat/House number daalo');return;}
     if(!area.trim()){alert('Area/Mohalla daalo');return;}
     setLoading(true);
-    const addrObj={flat,area,city,type,slot,contactless,full:`${flat}, ${area}, ${city} · ${slot==='morning'?'8-11 AM':slot==='afternoon'?'12-3 PM':'4-7 PM'}${contactless?' · 🚪 Leave at door':''}`};
+    const addrObj={flat,area,city,type,slot,contactless,full:`${flat}, ${area}, ${city} · ${slot==='morning'?'🌅 8-11 AM':slot==='quick'?'⚡ Quick ~30 min':'🌆 4-7 PM'}${contactless?' · 🚪 Contactless':''}`};
     try{
       if(userId) await addDoc(collection(db,'users',userId,'addresses'),{...addrObj,createdAt:serverTimestamp()});
     }catch(e){console.log('Address save error:',e);}
@@ -496,33 +496,48 @@ function AddressScreen({onBack, onConfirm, userId}) {
         <div style={{marginBottom:16}}>
           <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>🕐 Delivery Time Slot</div>
           <div style={{display:'flex',gap:8}}>
-            {[{id:'morning',icon:'🌅',label:'Morning',sub:'8–11 AM'},{id:'afternoon',icon:'☀️',label:'Afternoon',sub:'12–3 PM'},{id:'evening',icon:'🌆',label:'Evening',sub:'4–7 PM'}].map(s=>(
-              <div key={s.id} onClick={()=>setSlot(s.id)} style={{flex:1,padding:'10px 6px',borderRadius:12,border:`1.5px solid ${slot===s.id?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:slot===s.id?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
-                <div style={{fontSize:18}}>{s.icon}</div>
-                <div style={{fontSize:11,fontWeight:700,color:slot===s.id?'#3DFF7A':'var(--t)',marginTop:3}}>{s.label}</div>
+            {[{id:'morning',icon:'🌅',label:'Morning',sub:'8–11 AM'},{id:'quick',icon:'⚡',label:'Quick',sub:'~30 min'},{id:'evening',icon:'🌆',label:'Evening',sub:'4–7 PM'}].map(s=>(
+              <div key={s.id} onClick={()=>setSlot(s.id)} style={{flex:1,padding:'10px 6px',borderRadius:12,border:`1.5px solid ${slot===s.id?(s.id==='quick'?'rgba(212,175,55,.6)':'rgba(61,255,122,.5)'):'rgba(61,255,122,.1)'}`,background:slot===s.id?(s.id==='quick'?'rgba(212,175,55,.1)':'rgba(61,255,122,.08)'):'transparent',cursor:'pointer',textAlign:'center',position:'relative'}}>
+                {s.id==='quick'&&<div style={{position:'absolute',top:-7,left:'50%',transform:'translateX(-50%)',background:'linear-gradient(135deg,#D4AF37,#B8962E)',borderRadius:50,padding:'2px 7px',fontSize:9,fontWeight:700,color:'#0A0800',whiteSpace:'nowrap'}}>DEFAULT</div>}
+                <div style={{fontSize:18,marginTop:s.id==='quick'?4:0}}>{s.icon}</div>
+                <div style={{fontSize:11,fontWeight:700,color:slot===s.id?(s.id==='quick'?'#D4AF37':'#3DFF7A'):'var(--t)',marginTop:3}}>{s.label}</div>
                 <div style={{fontSize:10,color:'var(--t3)',marginTop:1}}>{s.sub}</div>
               </div>
             ))}
           </div>
         </div>
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Flat / House No.</div>
-          <input className="dbi" placeholder="e.g. House No. 12, Near Temple" value={flat} onChange={e=>setFlat(e.target.value)}/>
-        </div>
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Area / Mohalla</div>
-          <input className="dbi" placeholder="e.g. Shastri Nagar" value={area} onChange={e=>setArea(e.target.value)}/>
-        </div>
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>City</div>
-          <input className="dbi" placeholder="e.g. Bhopalgarh" value={city} onChange={e=>setCity(e.target.value)}/>
-        </div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',borderRadius:14,background:'rgba(61,255,122,.04)',border:'1px solid rgba(61,255,122,.1)',marginBottom:14,cursor:'pointer'}} onClick={()=>setContactless(c=>!c)}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{fontSize:20}}>🚪</span>
-            <div><div style={{fontSize:13,fontWeight:700}}>Contactless Delivery</div><div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>Leave order at door, ring bell</div></div>
+        {/* Contactless - only for online payment */}
+        <div style={{opacity:payMethod==='upi'?1:0.4,marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',borderRadius:14,background:'rgba(61,255,122,.04)',border:'1px solid rgba(61,255,122,.1)',cursor:payMethod==='upi'?'pointer':'not-allowed'}} onClick={()=>payMethod==='upi'&&setContactless(c=>!c)}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:20}}>🚪</span>
+              <div>
+                <div style={{fontSize:13,fontWeight:700}}>Contactless Delivery</div>
+                <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{payMethod==='upi'?'Leave order at door, ring bell':'Online payment pe available'}</div>
+              </div>
+            </div>
+            <Tog on={contactless&&payMethod==='upi'} onClick={e=>{e.stopPropagation();payMethod==='upi'&&setContactless(c=>!c);}}/>
           </div>
-          <Tog on={contactless} onClick={e=>{e.stopPropagation();setContactless(c=>!c);}}/>
+        </div>
+        {/* Drone Delivery - Coming Soon */}
+        <div style={{marginBottom:14,padding:'14px 16px',borderRadius:14,background:'rgba(100,100,255,.04)',border:'1px solid rgba(100,149,237,.2)',position:'relative',overflow:'hidden'}}>
+          <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,background:'repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(100,149,237,.02) 8px,rgba(100,149,237,.02) 16px)'}}/>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:22}}>🚁</span>
+              <div>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'#6495ED'}}>Drone Delivery</div>
+                  <div style={{background:'linear-gradient(135deg,#6495ED,#4169E1)',borderRadius:50,padding:'2px 8px',fontSize:9,fontWeight:800,color:'#fff'}}>COMING SOON</div>
+                </div>
+                <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>5–15 km range · Ultra fast</div>
+              </div>
+            </div>
+            <div style={{fontSize:18,opacity:.4}}>🔒</div>
+          </div>
+          <div style={{marginTop:10,fontSize:11,color:'#6495ED',fontWeight:500,background:'rgba(100,149,237,.08)',borderRadius:8,padding:'6px 10px',position:'relative'}}>
+            🌟 Bhopalgarh ke 5–15km range mein drone delivery jald aayegi!
+          </div>
         </div>
         {flat&&area&&(
           <div style={{padding:'12px 14px',borderRadius:12,background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.15)',marginBottom:14}}>
@@ -1000,7 +1015,7 @@ const place=async(addr)=>{
   const showFC  = cart.length>0&&navScrs.includes(scr)&&!shCart&&!track&&!selP;
 
   const renderScr=()=>{
-    if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addr=>{setAddress(addr);setShowAddr(false);place(addr);}} userId={auth.currentUser?.uid}/>;
+    if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addr=>{setAddress(addr);setShowAddr(false);place(addr);}} userId={auth.currentUser?.uid} payMethod={payMethod}/>;
     if(shCart) return (
       <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
         <SBar/>
