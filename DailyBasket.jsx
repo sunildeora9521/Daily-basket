@@ -1222,7 +1222,12 @@ const place=async(addr)=>{
                 </div>
                 <div style={{padding:'10px 10px 12px'}}>
                   <div style={{fontSize:13,fontWeight:700,marginBottom:2,fontFamily:fam}}>{pName(p)}</div>
-                  <div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>{p.unit}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:3,marginBottom:4}}>
+                    <span style={{fontSize:11,color:'#D4AF37'}}>★</span>
+                    <span style={{fontSize:11,color:'#D4AF37',fontWeight:700}}>{p.rating||4.2}</span>
+                    <span style={{fontSize:10,color:'var(--t3)'}}>({p.reviews||128})</span>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--t3)',marginBottom:6}}>{p.unit}</div>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <div style={{fontSize:15,fontWeight:800,color:'#3DFF7A'}}>₹{p.price}</div>
                     <AddBtn inCart={!!cart.find(c=>c.id===p.id)} onAdd={e=>{e.stopPropagation();addC(p);}}/>
@@ -1309,15 +1314,9 @@ function ProdDetailInner({prod,pName,pTag,t,fam,onAdd,cart}) {
       <button className="btn rip" onClick={()=>{for(let i=0;i<qty;i++)onAdd(prod);setAdded(true);setTimeout(()=>setAdded(false),2000);}} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,background:added?'linear-gradient(135deg,#D4AF37,#B8962E)':undefined}}>
         {added?t.addedToCart:`🧺 ${t.addToCart} — ₹${prod.price*qty}`}
       </button>
-    </div>
+</div>
   );
 }
-{/* Rating Row */}
-<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
-  {[1,2,3,4,5].map(s=><span key={s} style={{fontSize:18,color:s<=4?'#D4AF37':'#2A3A2A'}}>★</span>)}
-  <span style={{fontSize:13,color:'var(--t2)',fontWeight:600}}>4.2</span>
-  <span style={{fontSize:12,color:'var(--t3)'}}>(128 reviews)</span>
-</div>
 function CombosScr({t,fam,cart,onAdd,isHi}) {
   const C=[
     {id:'C1',name:'Morning Boost',nameHi:'मॉर्निंग बूस्ट', desc:'Milk+Fruits+Curd',descHi:'दूध+फल+दही',price:149,orig:199,emoji:'🌅',tag:'Best Value',tagHi:'सर्वोत्तम',items:['🥛','🍎','🍶'],unit:'1 combo'},
