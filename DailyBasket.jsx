@@ -879,6 +879,7 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [selP,   setSelP  ]=useState(null);
   const [shCart, setShCart]=useState(false);
   const [track,  setTrack ]=useState(false);
+  const [wishlist, setWishlist]=useState([]);
   const [catF,   setCatF  ]=useState('all');
   const [searchQ, setSearchQ]=useState('');
   const [themeOpen, setThemeOpen]=useState(false);
@@ -1003,6 +1004,19 @@ const place=async(addr)=>{
                 </div>
               ))}
               {(()=>{
+              {/* Frequently Bought Together */}
+<div style={{marginTop:18}}>
+  <div style={{fontSize:14,fontWeight:700,marginBottom:10}}>🔗 Often bought together</div>
+  <div className="srow">
+    {data.products.filter(p=>p.active&&!cart.find(c=>c.id===p.id)).slice(0,4).map(p=>(
+      <div key={p.id} onClick={()=>addC(p)} style={{flexShrink:0,width:80,background:'var(--card)',border:'1px solid rgba(61,255,122,.1)',borderRadius:14,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
+        <div style={{fontSize:28}}>{p.emoji}</div>
+        <div style={{fontSize:10,fontWeight:600,marginTop:4,color:'var(--t2)'}}>{p.name}</div>
+        <div style={{fontSize:11,color:'#3DFF7A',fontWeight:700,marginTop:2}}>₹{p.price}</div>
+      </div>
+    ))}
+  </div>
+</div>
   const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
   const del=sub>299?0:25;
   const tot=Math.max(0,sub+del-discount);
@@ -1196,6 +1210,9 @@ const place=async(addr)=>{
           </div>
         </div>
         {/* Products */}
+        <div onClick={e=>{e.stopPropagation();setWishlist(w=>w.includes(p.id)?w.filter(x=>x!==p.id):[...w,p.id]);}} style={{position:'absolute',top:8,right:8,fontSize:16,cursor:'pointer'}}>
+  {wishlist.includes(p.id)?'❤️':'🤍'}
+</div>
         <div style={{padding:'0 20px'}}>
           <div className="sh"><div className="st">{t.bestSellers}</div><div className="sl">{t.seeAll}</div></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
@@ -1297,7 +1314,12 @@ function ProdDetailInner({prod,pName,pTag,t,fam,onAdd,cart}) {
     </div>
   );
 }
-
+{/* Rating Row */}
+<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+  {[1,2,3,4,5].map(s=><span key={s} style={{fontSize:18,color:s<=4?'#D4AF37':'#2A3A2A'}}>★</span>)}
+  <span style={{fontSize:13,color:'var(--t2)',fontWeight:600}}>4.2</span>
+  <span style={{fontSize:12,color:'var(--t3)'}}>(128 reviews)</span>
+</div>
 function CombosScr({t,fam,cart,onAdd,isHi}) {
   const C=[
     {id:'C1',name:'Morning Boost',nameHi:'मॉर्निंग बूस्ट', desc:'Milk+Fruits+Curd',descHi:'दूध+फल+दही',price:149,orig:199,emoji:'🌅',tag:'Best Value',tagHi:'सर्वोत्तम',items:['🥛','🍎','🍶'],unit:'1 combo'},
