@@ -1245,7 +1245,7 @@ const place=async(addr)=>{
     if(scr==='combos') return <CombosScr t={t} fam={fam} cart={cart} onAdd={addC} isHi={isHi}/>;
     if(scr==='food')   return <FoodScr t={t} fam={fam} isHi={isHi}/>;
     if(scr==='eco')    return <EcoScr t={t} fam={fam} isHi={isHi}/>;
-    if(scr==='profile')return <ProfileScr user={user} t={t} fam={fam} lang={lang} isHi={isHi}/>;
+    if(scr==='profile')return <ProfileScr user={user} t={t} fam={fam} lang={lang} isHi={isHi} onReorder={items=>{items.forEach(item=>{for(let k=0;k<item.qty;k++)addC(item);});setShCart(true);}}/>;
     return null;
   };
 
@@ -1428,7 +1428,7 @@ function EcoScr({t,fam,isHi}) {
   );
 }
 
-function ProfileScr({user,t,fam,lang,isHi}) {
+function ProfileScr({user,t,fam,lang,isHi,onReorder}) {
   const [showOrders, setShowOrders]=useState(false);
   const [orders, setOrders]=useState([]);
   const [loadingOrders, setLoadingOrders]=useState(false);
@@ -1486,7 +1486,10 @@ function ProfileScr({user,t,fam,lang,isHi}) {
                 {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>📍 {o.address}</div>}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div style={{fontSize:11,color:'var(--t3)'}}>💳 {o.payMethod==='cod'?'Cash on Delivery':'UPI'}</div>
-                  <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
+                    {onReorder&&o.items?.length>0&&<button className="btn rip" onClick={()=>onReorder(o.items)} style={{padding:'6px 14px',fontSize:12,borderRadius:50}}>🔁 Reorder</button>}
+                  </div>
                 </div>
               </div>
             ))
