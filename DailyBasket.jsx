@@ -439,9 +439,10 @@ function AddressScreen({onBack, onConfirm, userId}) {
   const [area, setArea]=useState('');
   const [city, setCity]=useState('Bhopalgarh');
   const [type, setType]=useState('home');
+  const [slot, setSlot]=useState('morning');
+  const [contactless, setContactless]=useState(false);
   const [loading, setLoading]=useState(false);
   const [gpsLoading, setGpsLoading]=useState(false);
-
   const getGPS=()=>{
     setGpsLoading(true);
     navigator.geolocation.getCurrentPosition(async pos=>{
@@ -462,7 +463,7 @@ function AddressScreen({onBack, onConfirm, userId}) {
     if(!flat.trim()){alert('Flat/House number daalo');return;}
     if(!area.trim()){alert('Area/Mohalla daalo');return;}
     setLoading(true);
-    const addrObj={flat,area,city,type,full:`${flat}, ${area}, ${city}`};
+    const addrObj={flat,area,city,type,slot,contactless,full:`${flat}, ${area}, ${city} · ${slot==='morning'?'8-11 AM':slot==='afternoon'?'12-3 PM':'4-7 PM'}${contactless?' · 🚪 Leave at door':''}`};
     try{
       if(userId) await addDoc(collection(db,'users',userId,'addresses'),{...addrObj,createdAt:serverTimestamp()});
     }catch(e){console.log('Address save error:',e);}
@@ -492,6 +493,18 @@ function AddressScreen({onBack, onConfirm, userId}) {
             ))}
           </div>
         </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>🕐 Delivery Time Slot</div>
+          <div style={{display:'flex',gap:8}}>
+            {[{id:'morning',icon:'🌅',label:'Morning',sub:'8–11 AM'},{id:'afternoon',icon:'☀️',label:'Afternoon',sub:'12–3 PM'},{id:'evening',icon:'🌆',label:'Evening',sub:'4–7 PM'}].map(s=>(
+              <div key={s.id} onClick={()=>setSlot(s.id)} style={{flex:1,padding:'10px 6px',borderRadius:12,border:`1.5px solid ${slot===s.id?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:slot===s.id?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+                <div style={{fontSize:18}}>{s.icon}</div>
+                <div style={{fontSize:11,fontWeight:700,color:slot===s.id?'#3DFF7A':'var(--t)',marginTop:3}}>{s.label}</div>
+                <div style={{fontSize:10,color:'var(--t3)',marginTop:1}}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
         <div style={{marginBottom:14}}>
           <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Flat / House No.</div>
           <input className="dbi" placeholder="e.g. House No. 12, Near Temple" value={flat} onChange={e=>setFlat(e.target.value)}/>
@@ -503,6 +516,13 @@ function AddressScreen({onBack, onConfirm, userId}) {
         <div style={{marginBottom:14}}>
           <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>City</div>
           <input className="dbi" placeholder="e.g. Bhopalgarh" value={city} onChange={e=>setCity(e.target.value)}/>
+        </div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',borderRadius:14,background:'rgba(61,255,122,.04)',border:'1px solid rgba(61,255,122,.1)',marginBottom:14,cursor:'pointer'}} onClick={()=>setContactless(c=>!c)}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:20}}>🚪</span>
+            <div><div style={{fontSize:13,fontWeight:700}}>Contactless Delivery</div><div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>Leave order at door, ring bell</div></div>
+          </div>
+          <Tog on={contactless} onClick={e=>{e.stopPropagation();setContactless(c=>!c);}}/>
         </div>
         {flat&&area&&(
           <div style={{padding:'12px 14px',borderRadius:12,background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.15)',marginBottom:14}}>
