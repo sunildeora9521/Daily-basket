@@ -1136,7 +1136,7 @@ const place=async(addr)=>{
         <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
          <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
   <iframe
-    src="https://www.openstreetmap.org/export/embed.html?bbox=74.8,26.8,74.9,26.9&layer=mapnik&marker=26.85,74.85"
+    src="https://www.openstreetmap.org/export/embed.html?bbox=73.38,26.27,73.48,26.37&layer=mapnik&marker=26.32,73.43"
     style={{width:'100%',height:'100%',border:'none'}}
     title="Live Tracking Map"
   />
@@ -1656,8 +1656,21 @@ function RiderApp({rider,data,setData,onBack}) {
             <div key={o.id} className="gc" style={{padding:'14px',marginBottom:10,animation:`fadeUp .4s ease ${i*.06}s both`}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><div style={{fontSize:14,fontWeight:700}}>{o.cust}</div><div style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:50,background:o.status==='delivered'?'rgba(61,255,122,.15)':'rgba(212,175,55,.15)',color:o.status==='delivered'?'#3DFF7A':'#D4AF37',border:`1px solid ${o.status==='delivered'?'rgba(61,255,122,.3)':'rgba(212,175,55,.3)'}`}}>{o.status==='delivered'?'✅ Delivered':'🚴 Delivering'}</div></div>
               <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{o.items.map(i=>i.name).join(', ')} · ₹{o.total}</div>
-              {o.address&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}><span style={{fontSize:11,color:'var(--t3)'}}>📍 {o.address}</span>{o.status==='out_for_delivery'&&<a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noreferrer" style={{marginLeft:'auto',fontSize:11,color:'#3DFF7A',fontWeight:700,textDecoration:'none',flexShrink:0}}>🗺️ Navigate</a>}</div>}
-              {o.status==='out_for_delivery'&&<button className="btn rip" onClick={()=>deliver(o.id)} style={{width:'100%',padding:'9px',fontSize:13}}>Mark as Delivered ✓</button>}
+              {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:6}}>📍 {o.address}</div>}
+              {o.status==='out_for_delivery'&&<>
+                <div style={{height:160,borderRadius:14,overflow:'hidden',marginBottom:8,border:'1px solid rgba(61,255,122,.2)'}}>
+                  <iframe
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=73.38,26.27,73.48,26.37&layer=mapnik&marker=26.32,73.43`}
+                    style={{width:'100%',height:'100%',border:'none'}}
+                    title="Delivery Location"
+                  />
+                </div>
+                <div style={{display:'flex',gap:8,marginBottom:8}}>
+                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((o.address||'Bhopalgarh, Rajasthan'))}&travelmode=driving`} target="_blank" rel="noreferrer" style={{flex:1,padding:'9px',borderRadius:12,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontWeight:700,fontSize:12,textDecoration:'none',textAlign:'center',display:'block'}}>🧭 Google Maps Navigate</a>
+                  <a href={`https://maps.google.com/?q=${encodeURIComponent(o.address||'Bhopalgarh')}`} target="_blank" rel="noreferrer" style={{flex:1,padding:'9px',borderRadius:12,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',color:'#3DFF7A',fontWeight:700,fontSize:12,textDecoration:'none',textAlign:'center',display:'block'}}>🗺️ View Map</a>
+                </div>
+                <button className="btn rip" onClick={()=>deliver(o.id)} style={{width:'100%',padding:'9px',fontSize:13}}>Mark as Delivered ✓</button>
+              </>}
             </div>
           ))}
         </>}
