@@ -1630,10 +1630,23 @@ function RiderApp({rider,data,setData,onBack}) {
           </div>
           <div className="sh"><div className="st">New Pickups {avail.length>0&&`(${avail.length})`}</div></div>
           {avail.length===0?<div style={{textAlign:'center',padding:'20px',color:'var(--t3)',fontSize:13}}>No new pickups. Stay online! 🟢</div>:avail.map(o=>(
-            <div key={o.id} className="gc" style={{padding:'14px',marginBottom:10}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><div style={{fontSize:14,fontWeight:700}}>{o.cust}</div><div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div></div>
-              <div style={{fontSize:12,color:'var(--t3)',marginBottom:10}}>{o.items.map(i=>i.name).join(', ')}</div>
-              <button className="btn rip" onClick={()=>accept(o.id)} style={{width:'100%',padding:'10px',fontSize:13}}>Accept Pickup →</button>
+            <div key={o.id} className="gc" style={{padding:'14px',marginBottom:10,animation:'fadeUp .3s ease both'}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                <div style={{fontSize:14,fontWeight:700}}>{o.cust}</div>
+                <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
+              </div>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{o.items.map(i=>i.name).join(', ')}</div>
+              {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:4}}>📍 {o.address}</div>}
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+                <span style={{fontSize:11,color:'#3DFF7A',fontWeight:600}}>🛵 ~2.4 km</span>
+                <span style={{fontSize:11,color:'var(--t3)'}}>·</span>
+                <span style={{fontSize:11,color:'#D4AF37',fontWeight:600}}>💰 ₹{40+Math.floor(2.4*5)} earn</span>
+                {o.address&&<a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noreferrer" style={{marginLeft:'auto',fontSize:11,color:'#3DFF7A',fontWeight:600,textDecoration:'none'}}>🗺️ Map →</a>}
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                <button className="btn rip" onClick={()=>accept(o.id)} style={{flex:1,padding:'10px',fontSize:13}}>✅ Accept</button>
+                <button className="btng rip" style={{flex:1,padding:'10px',fontSize:13,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.2)'}}>✕ Skip</button>
+              </div>
             </div>
           ))}
         </>}
@@ -1642,7 +1655,8 @@ function RiderApp({rider,data,setData,onBack}) {
           {my.length===0?<div style={{textAlign:'center',padding:'20px',color:'var(--t3)'}}>No orders yet</div>:my.map((o,i)=>(
             <div key={o.id} className="gc" style={{padding:'14px',marginBottom:10,animation:`fadeUp .4s ease ${i*.06}s both`}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><div style={{fontSize:14,fontWeight:700}}>{o.cust}</div><div style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:50,background:o.status==='delivered'?'rgba(61,255,122,.15)':'rgba(212,175,55,.15)',color:o.status==='delivered'?'#3DFF7A':'#D4AF37',border:`1px solid ${o.status==='delivered'?'rgba(61,255,122,.3)':'rgba(212,175,55,.3)'}`}}>{o.status==='delivered'?'✅ Delivered':'🚴 Delivering'}</div></div>
-              <div style={{fontSize:12,color:'var(--t2)',marginBottom:o.status==='out_for_delivery'?10:0}}>{o.items.map(i=>i.name).join(', ')} · ₹{o.total}</div>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{o.items.map(i=>i.name).join(', ')} · ₹{o.total}</div>
+              {o.address&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}><span style={{fontSize:11,color:'var(--t3)'}}>📍 {o.address}</span>{o.status==='out_for_delivery'&&<a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noreferrer" style={{marginLeft:'auto',fontSize:11,color:'#3DFF7A',fontWeight:700,textDecoration:'none',flexShrink:0}}>🗺️ Navigate</a>}</div>}
               {o.status==='out_for_delivery'&&<button className="btn rip" onClick={()=>deliver(o.id)} style={{width:'100%',padding:'9px',fontSize:13}}>Mark as Delivered ✓</button>}
             </div>
           ))}
@@ -1652,6 +1666,23 @@ function RiderApp({rider,data,setData,onBack}) {
             <div style={{fontSize:12,color:'var(--t3)'}}>Total Lifetime Earnings</div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:38,fontWeight:800,color:'#3DFF7A',marginTop:4}}>₹{rider.totalEarnings.toLocaleString()}</div>
             <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{rider.totalOrders} orders delivered</div>
+          </div>
+          <div className="gc" style={{padding:'16px',marginBottom:12}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>📅 This Week</div>
+            {[{d:'Mon',e:320},{d:'Tue',e:450},{d:'Wed',e:280},{d:'Thu',e:510},{d:'Fri',e:390},{d:'Sat',e:620},{d:'Sun',e:rider.todayEarnings}].map((day,i)=>{
+              const max=620;const pct=Math.round((day.e/max)*100);
+              return(<div key={day.d} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                <div style={{fontSize:11,color:'var(--t3)',width:28}}>{day.d}</div>
+                <div style={{flex:1,height:6,background:'rgba(61,255,122,.08)',borderRadius:99,overflow:'hidden'}}>
+                  <div style={{width:`${pct}%`,height:'100%',background:`linear-gradient(90deg,#3DFF7A,#00C44F)`,borderRadius:99,transition:'width .5s ease'}}/>
+                </div>
+                <div style={{fontSize:11,fontWeight:700,color:'#3DFF7A',width:36,textAlign:'right'}}>₹{day.e}</div>
+              </div>);
+            })}
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:'1px solid rgba(61,255,122,.08)'}}>
+              <span style={{fontSize:12,color:'var(--t3)'}}>Week Total</span>
+              <span style={{fontSize:14,fontWeight:800,color:'#D4AF37'}}>₹{320+450+280+510+390+620+rider.todayEarnings}</span>
+            </div>
           </div>
           <div className="gc" style={{padding:'16px'}}>
             <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>Per Delivery Rates</div>
