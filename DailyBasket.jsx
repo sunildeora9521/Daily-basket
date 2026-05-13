@@ -880,6 +880,7 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [shCart, setShCart]=useState(false);
   const [track,  setTrack ]=useState(false);
   const [catF,   setCatF  ]=useState('all');
+  const [searchQ, setSearchQ]=useState('');
   const [themeOpen, setThemeOpen]=useState(false);
   const [payMethod, setPayMethod]=useState('cod');
   const [coupon, setCoupon]=useState('');
@@ -957,7 +958,12 @@ const place=async(addr)=>{
   const navScrs=['home','combos','food','eco','profile'];
   const totalQ = cart.reduce((s,i)=>s+i.qty,0);
   const activeProds = data.products.filter(p=>p.active);
-  const filtP = catF==='all'?activeProds.slice(0,10):activeProds.filter(p=>p.cat===catF);
+  const filtP = activeProds.filter(p=>{
+  const matchCat = catF==='all'||p.cat===catF;
+  const q = searchQ.toLowerCase();
+  const matchQ = !q||p.name.toLowerCase().includes(q)||p.nameHi.includes(q);
+  return matchCat&&matchQ;
+}).slice(0,20);
 
   const pName=p=>isHi?p.nameHi:p.name;
   const pTag=p=>isHi?p.tagHi:p.tag;
