@@ -1259,7 +1259,7 @@ const place=async(addr)=>{
     if(scr==='combos') return <CombosScr t={t} fam={fam} cart={cart} onAdd={addC} isHi={isHi}/>;
     if(scr==='food')   return <FoodScr t={t} fam={fam} isHi={isHi}/>;
     if(scr==='eco')    return <EcoScr t={t} fam={fam} isHi={isHi}/>;
-    if(scr==='profile')return <ProfileScr user={user} t={t} fam={fam} lang={lang} isHi={isHi} onReorder={items=>{items.forEach(item=>{for(let k=0;k<item.qty;k++)addC(item);});setShCart(true);}}/>;
+    if(scr==='profile')return <ProfileScr user={user} t={t} fam={fam} lang={lang} isHi={isHi} points={points} onReorder={items=>{items.forEach(item=>{for(let k=0;k<item.qty;k++)addC(item);});setShCart(true);}}/>;
     return null;
   };
 
@@ -1442,7 +1442,7 @@ function EcoScr({t,fam,isHi}) {
   );
 }
 
-function ProfileScr({user,t,fam,lang,isHi,onReorder}) {
+function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   const [showOrders, setShowOrders]=useState(false);
   const [orders, setOrders]=useState([]);
   const [loadingOrders, setLoadingOrders]=useState(false);
@@ -1533,7 +1533,7 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder}) {
             <div><div style={{fontSize:18,fontWeight:800}}>{(user&&user.name)||'User'}</div><div style={{fontSize:13,color:'var(--t2)'}}>+91 {(user&&user.phone)||'XXXXXXXXXX'}</div><span style={{background:'rgba(212,175,55,.14)',border:'1px solid rgba(212,175,55,.3)',color:'#D4AF37',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:50,marginTop:5,display:'inline-block'}}>🥈 {isHi?'सिल्वर सदस्य':'Silver Member'}</span></div>
           </div>
           <div style={{display:'flex',gap:12,padding:12,background:'rgba(0,0,0,.2)',borderRadius:14}}>
-            {[{v:'2.45kg',l:isHi?'बचाया':'Saved',c:'#3DFF7A'},{v:'312',l:isHi?'अंक':'Points',c:'#D4AF37'},{v:orders.length||'0',l:isHi?'ऑर्डर':'Orders',c:'#3DFF7A'}].map((s,i)=>(
+            {[{v:'2.45kg',l:isHi?'बचाया':'Saved',c:'#3DFF7A'},{v:points,l:isHi?'अंक':'Points',c:'#D4AF37'},{v:orders.length||'0',l:isHi?'ऑर्डर':'Orders',c:'#3DFF7A'}].map((s,i)=>(
               <div key={i} style={{flex:1,textAlign:'center'}}><div style={{fontSize:15,fontWeight:800,color:s.c}}>{s.v}</div><div style={{fontSize:10,color:'var(--t3)',fontFamily:fam}}>{s.l}</div></div>
             ))}
           </div>
