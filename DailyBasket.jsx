@@ -1175,6 +1175,14 @@ const place=async(addr)=>{
             </div>
           </div>
         </div>
+        {/* Search Bar */}
+<div style={{margin:'0 20px 16px'}}>
+  <div style={{background:'var(--card)',border:`1.5px solid ${searchQ?'rgba(61,255,122,.4)':'rgba(61,255,122,.08)'}`,borderRadius:14,padding:'12px 16px',display:'flex',alignItems:'center',gap:10}}>
+    <Ic n="search" s={18} c="#5A6A5A"/>
+    <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder={isHi?'सब्जी, फल खोजें…':'Search veggies, fruits…'} style={{flex:1,background:'none',border:'none',outline:'none',fontSize:14,color:'var(--t)',fontFamily:fam}} />
+    {searchQ&&<div onClick={()=>setSearchQ('')} style={{fontSize:16,color:'var(--t3)',cursor:'pointer'}}>✕</div>}
+  </div>
+</div>
         {/* Categories */}
         <div style={{padding:'0 20px',marginBottom:20}}>
           <div className="sh"><div className="st">{t.categories}</div></div>
