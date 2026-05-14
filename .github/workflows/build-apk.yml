@@ -22,12 +22,32 @@ jobs:
       - name: Create TWA Project
         run: |
           mkdir -p twa-app/app/src/main/res/values
+          mkdir -p twa-app/gradle/wrapper
+
+          # Gradle wrapper properties - fixed 8.4
+          cat > twa-app/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          # Download gradlew wrapper jar
+          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradle/wrapper/gradle-wrapper.jar \
+            -o twa-app/gradle/wrapper/gradle-wrapper.jar
+
+          # Download gradlew script
+          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradlew \
+            -o twa-app/gradlew
+          chmod +x twa-app/gradlew
 
           cat > twa-app/settings.gradle << 'EOF'
           pluginManagement {
             repositories { google(); mavenCentral(); gradlePluginPortal() }
           }
           dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
             repositories { google(); mavenCentral() }
           }
           rootProject.name = "DailyBasket"
@@ -52,12 +72,13 @@ jobs:
               versionName "1.0"
             }
             buildTypes {
-              debug { signingConfig signingConfigs.debug }
+              debug {}
             }
             namespace "com.dailybasket.bhopalgarh"
           }
           dependencies {
             implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+            implementation 'androidx.appcompat:appcompat:1.6.1'
           }
           EOF
 
@@ -91,17 +112,9 @@ jobs:
           </resources>
           EOF
 
-      - name: Setup Gradle Wrapper
-        run: |
-          cd twa-app
-          gradle wrapper --gradle-version 8.4
-        env:
-          GRADLE_USER_HOME: /home/runner/.gradle
-
       - name: Build Debug APK
         run: |
           cd twa-app
-          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
