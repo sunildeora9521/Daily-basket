@@ -22,7 +22,21 @@ jobs:
       - name: Create TWA Project
         run: |
           mkdir -p twa-app/app/src/main/res/values
+          mkdir -p twa-app/app/src/main/res/mipmap-mdpi
+          mkdir -p twa-app/app/src/main/res/mipmap-hdpi
+          mkdir -p twa-app/app/src/main/res/mipmap-xhdpi
+          mkdir -p twa-app/app/src/main/res/mipmap-xxhdpi
+          mkdir -p twa-app/app/src/main/res/mipmap-xxxhdpi
           mkdir -p twa-app/gradle/wrapper
+
+          # Download & resize app icon
+          sudo apt-get install -y imagemagick -q
+          curl -L "https://dailybasket-bhopalgarh.vercel.app/icon-512.png" -o icon.png
+          convert icon.png -resize 48x48   twa-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          convert icon.png -resize 72x72   twa-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert icon.png -resize 96x96   twa-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert icon.png -resize 144x144 twa-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert icon.png -resize 192x192 twa-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
           # Gradle wrapper properties - fixed 8.4
           cat > twa-app/gradle/wrapper/gradle-wrapper.properties << 'EOF'
@@ -88,14 +102,29 @@ jobs:
             <uses-permission android:name="android.permission.INTERNET"/>
             <application
               android:label="Daily Basket"
+              android:icon="@mipmap/ic_launcher"
+              android:roundIcon="@mipmap/ic_launcher"
               android:theme="@style/Theme.AppCompat.NoActionBar"
               android:allowBackup="true">
               <activity
                 android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-                android:exported="true">
+                android:exported="true"
+                android:screenOrientation="portrait">
                 <meta-data
                   android:name="android.support.customtabs.trusted.DEFAULT_URL"
                   android:value="https://dailybasket-bhopalgarh.vercel.app"/>
+                <meta-data
+                  android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                  android:resource="@color/colorPrimary"/>
+                <meta-data
+                  android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
+                  android:resource="@mipmap/ic_launcher"/>
+                <meta-data
+                  android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
+                  android:resource="@color/backgroundColor"/>
+                <meta-data
+                  android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
+                  android:value="300"/>
                 <intent-filter>
                   <action android:name="android.intent.action.MAIN"/>
                   <category android:name="android.intent.category.LAUNCHER"/>
@@ -105,10 +134,19 @@ jobs:
           </manifest>
           EOF
 
+          mkdir -p twa-app/app/src/main/res/values
           cat > twa-app/app/src/main/res/values/strings.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <string name="app_name">Daily Basket</string>
+          </resources>
+          EOF
+
+          cat > twa-app/app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <color name="colorPrimary">#0A1A0A</color>
+            <color name="backgroundColor">#070907</color>
           </resources>
           EOF
 
