@@ -13,185 +13,126 @@ jobs:
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Create WebView App
+      - name: Install ImageMagick
+        run: sudo apt-get install -y imagemagick
+
+      - name: Create Project Structure
         run: |
+          mkdir -p app-project/app/src/main/java/com/dailybasket/app
           mkdir -p app-project/app/src/main/res/mipmap-mdpi
           mkdir -p app-project/app/src/main/res/mipmap-hdpi
           mkdir -p app-project/app/src/main/res/mipmap-xhdpi
           mkdir -p app-project/app/src/main/res/mipmap-xxhdpi
           mkdir -p app-project/app/src/main/res/mipmap-xxxhdpi
           mkdir -p app-project/app/src/main/res/values
-          mkdir -p app-project/app/src/main/res/layout
-          mkdir -p app-project/app/src/main/java/com/dailybasket/app
           mkdir -p app-project/gradle/wrapper
 
-          sudo apt-get install -y imagemagick -q
+      - name: Download and Resize Icons
+        run: |
           curl -L "https://dailybasket-bhopalgarh.vercel.app/icon-512.png" -o icon.png || convert -size 192x192 xc:#0A1A0A icon.png
-
           convert icon.png -resize 48x48   app-project/app/src/main/res/mipmap-mdpi/ic_launcher.png
           convert icon.png -resize 72x72   app-project/app/src/main/res/mipmap-hdpi/ic_launcher.png
           convert icon.png -resize 96x96   app-project/app/src/main/res/mipmap-xhdpi/ic_launcher.png
           convert icon.png -resize 144x144 app-project/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
           convert icon.png -resize 192x192 app-project/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
-          cat > app-project/gradle/wrapper/gradle-wrapper.properties << 'EOF'
-distributionBase=GRADLE_USER_HOME
-distributionPath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-EOF
-
+      - name: Setup Gradle Wrapper
+        run: |
           curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradle/wrapper/gradle-wrapper.jar -o app-project/gradle/wrapper/gradle-wrapper.jar
           curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradlew -o app-project/gradlew
           chmod +x app-project/gradlew
+          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.4-bin.zip\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > app-project/gradle/wrapper/gradle-wrapper.properties
 
-          cat > app-project/settings.gradle << 'EOF'
-pluginManagement {
-  repositories { google(); mavenCentral(); gradlePluginPortal() }
-}
-dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-  repositories { google(); mavenCentral() }
-}
-rootProject.name = "DailyBasket"
-include ':app'
-EOF
+      - name: Create Gradle Files
+        run: |
+          printf 'pluginManagement {\n  repositories { google(); mavenCentral(); gradlePluginPortal() }\n}\ndependencyResolutionManagement {\n  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n  repositories { google(); mavenCentral() }\n}\nrootProject.name = "DailyBasket"\ninclude ":app"\n' > app-project/settings.gradle
+          printf 'plugins {\n  id "com.android.application" version "8.1.0" apply false\n}\n' > app-project/build.gradle
+          printf 'android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m\nandroid.suppressUnsupportedCompileSdk=34\n' > app-project/gradle.properties
+          printf 'plugins { id "com.android.application" }\nandroid {\n  compileSdk 34\n  defaultConfig {\n    applicationId "com.dailybasket.bhopalgarh"\n    minSdk 21\n    targetSdk 34\n    versionCode 1\n    versionName "1.0"\n  }\n  buildTypes { debug {} }\n  namespace "com.dailybasket.app"\n}\ndependencies {\n  implementation "androidx.appcompat:appcompat:1.6.1"\n}\n' > app-project/app/build.gradle
 
-          cat > app-project/build.gradle << 'EOF'
-plugins {
-  id 'com.android.application' version '8.1.0' apply false
-}
-EOF
+      - name: Create AndroidManifest
+        run: |
+          cat > app-project/app/src/main/AndroidManifest.xml << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+            <application
+              android:label="Daily Basket"
+              android:icon="@mipmap/ic_launcher"
+              android:roundIcon="@mipmap/ic_launcher"
+              android:allowBackup="true"
+              android:usesCleartextTraffic="true"
+              android:theme="@style/AppTheme">
+              <activity
+                android:name=".MainActivity"
+                android:exported="true"
+                android:screenOrientation="portrait"
+                android:windowSoftInputMode="adjustResize">
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN"/>
+                  <category android:name="android.intent.category.LAUNCHER"/>
+                </intent-filter>
+              </activity>
+            </application>
+          </manifest>
+          XML
 
-          cat > app-project/app/build.gradle << 'EOF'
-plugins { id 'com.android.application' }
-android {
-  compileSdk 34
-  defaultConfig {
-    applicationId "com.dailybasket.bhopalgarh"
-    minSdk 21
-    targetSdk 34
-    versionCode 1
-    versionName "1.0"
-  }
-  buildTypes { debug {} }
-  namespace "com.dailybasket.app"
-}
-dependencies {
-  implementation 'androidx.appcompat:appcompat:1.6.1'
-}
-EOF
+      - name: Create MainActivity
+        run: |
+          cat > app-project/app/src/main/java/com/dailybasket/app/MainActivity.java << 'JAVA'
+          package com.dailybasket.app;
+          import android.annotation.SuppressLint;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowManager;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          public class MainActivity extends Activity {
+              private WebView webView;
+              @SuppressLint("SetJavaScriptEnabled")
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  requestWindowFeature(Window.FEATURE_NO_TITLE);
+                  getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                  getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+                  webView = new WebView(this);
+                  setContentView(webView);
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  s.setUseWideViewPort(true);
+                  s.setLoadWithOverviewMode(true);
+                  s.setBuiltInZoomControls(false);
+                  s.setGeolocationEnabled(true);
+                  webView.setWebViewClient(new WebViewClient() {
+                      @Override public boolean shouldOverrideUrlLoading(WebView v, android.webkit.WebResourceRequest r) { return false; }
+                  });
+                  webView.loadUrl("https://dailybasket-bhopalgarh.vercel.app");
+              }
+              @Override public void onBackPressed() { if (webView.canGoBack()) webView.goBack(); else super.onBackPressed(); }
+              @Override protected void onResume() { super.onResume(); webView.onResume(); }
+              @Override protected void onPause() { super.onPause(); webView.onPause(); }
+          }
+          JAVA
 
-          cat > app-project/app/src/main/AndroidManifest.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-  <application
-    android:label="Daily Basket"
-    android:icon="@mipmap/ic_launcher"
-    android:roundIcon="@mipmap/ic_launcher"
-    android:allowBackup="true"
-    android:usesCleartextTraffic="true"
-    android:theme="@style/AppTheme">
-    <activity
-      android:name=".MainActivity"
-      android:exported="true"
-      android:screenOrientation="portrait"
-      android:configChanges="orientation|screenSize|keyboardHidden"
-      android:windowSoftInputMode="adjustResize">
-      <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
-    </activity>
-  </application>
-</manifest>
-EOF
+      - name: Create Resources
+        run: |
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources><string name="app_name">Daily Basket</string></resources>\n' > app-project/app/src/main/res/values/strings.xml
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n  <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">\n    <item name="android:windowBackground">#070907</item>\n    <item name="android:statusBarColor">#0A1A0A</item>\n    <item name="android:navigationBarColor">#0A1A0A</item>\n  </style>\n</resources>\n' > app-project/app/src/main/res/values/styles.xml
 
-          cat > app-project/app/src/main/java/com/dailybasket/app/MainActivity.java << 'EOF'
-package com.dailybasket.app;
-import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.os.Bundle;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-public class MainActivity extends Activity {
-    private WebView webView;
-    @SuppressLint("SetJavaScriptEnabled")
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        );
-        webView = new WebView(this);
-        setContentView(webView);
-        WebSettings s = webView.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setDatabaseEnabled(true);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
-        s.setUseWideViewPort(true);
-        s.setLoadWithOverviewMode(true);
-        s.setBuiltInZoomControls(false);
-        s.setGeolocationEnabled(true);
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                return false;
-            }
-        });
-        webView.loadUrl("https://dailybasket-bhopalgarh.vercel.app");
-    }
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
-    }
-    @Override protected void onResume() { super.onResume(); webView.onResume(); }
-    @Override protected void onPause() { super.onPause(); webView.onPause(); }
-}
-EOF
-
-          cat > app-project/app/src/main/res/values/strings.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources><string name="app_name">Daily Basket</string></resources>
-EOF
-
-          cat > app-project/app/src/main/res/values/styles.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-  <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
-    <item name="android:windowBackground">#070907</item>
-    <item name="android:statusBarColor">#0A1A0A</item>
-    <item name="android:navigationBarColor">#0A1A0A</item>
-  </style>
-</resources>
-EOF
-
-          cat > app-project/gradle.properties << 'EOF'
-android.useAndroidX=true
-android.enableJetifier=true
-org.gradle.jvmargs=-Xmx2048m
-android.suppressUnsupportedCompileSdk=34
-EOF
-
-      - name: Build Debug APK
+      - name: Build APK
         run: |
           cd app-project
           ./gradlew assembleDebug --stacktrace
