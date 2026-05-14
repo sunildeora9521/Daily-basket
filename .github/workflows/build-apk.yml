@@ -19,151 +19,185 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Create TWA Project
+      - name: Create WebView App
         run: |
-          mkdir -p twa-app/app/src/main/res/values
-          mkdir -p twa-app/app/src/main/res/mipmap-mdpi
-          mkdir -p twa-app/app/src/main/res/mipmap-hdpi
-          mkdir -p twa-app/app/src/main/res/mipmap-xhdpi
-          mkdir -p twa-app/app/src/main/res/mipmap-xxhdpi
-          mkdir -p twa-app/app/src/main/res/mipmap-xxxhdpi
-          mkdir -p twa-app/gradle/wrapper
+          mkdir -p app-project/app/src/main/res/mipmap-mdpi
+          mkdir -p app-project/app/src/main/res/mipmap-hdpi
+          mkdir -p app-project/app/src/main/res/mipmap-xhdpi
+          mkdir -p app-project/app/src/main/res/mipmap-xxhdpi
+          mkdir -p app-project/app/src/main/res/mipmap-xxxhdpi
+          mkdir -p app-project/app/src/main/res/values
+          mkdir -p app-project/app/src/main/res/layout
+          mkdir -p app-project/app/src/main/java/com/dailybasket/app
+          mkdir -p app-project/gradle/wrapper
 
-          # Download & resize app icon
           sudo apt-get install -y imagemagick -q
-          curl -L "https://dailybasket-bhopalgarh.vercel.app/icon-512.png" -o icon.png
-          convert icon.png -resize 48x48   twa-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          convert icon.png -resize 72x72   twa-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          convert icon.png -resize 96x96   twa-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          convert icon.png -resize 144x144 twa-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          convert icon.png -resize 192x192 twa-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          curl -L "https://dailybasket-bhopalgarh.vercel.app/icon-512.png" -o icon.png || convert -size 192x192 xc:#0A1A0A icon.png
 
-          # Gradle wrapper properties - fixed 8.4
-          cat > twa-app/gradle/wrapper/gradle-wrapper.properties << 'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
+          convert icon.png -resize 48x48   app-project/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          convert icon.png -resize 72x72   app-project/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert icon.png -resize 96x96   app-project/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert icon.png -resize 144x144 app-project/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert icon.png -resize 192x192 app-project/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
-          # Download gradlew wrapper jar
-          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradle/wrapper/gradle-wrapper.jar \
-            -o twa-app/gradle/wrapper/gradle-wrapper.jar
+          cat > app-project/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+EOF
 
-          # Download gradlew script
-          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradlew \
-            -o twa-app/gradlew
-          chmod +x twa-app/gradlew
+          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradle/wrapper/gradle-wrapper.jar -o app-project/gradle/wrapper/gradle-wrapper.jar
+          curl -L https://raw.githubusercontent.com/gradle/gradle/v8.4.0/gradlew -o app-project/gradlew
+          chmod +x app-project/gradlew
 
-          cat > twa-app/settings.gradle << 'EOF'
-          pluginManagement {
-            repositories { google(); mavenCentral(); gradlePluginPortal() }
-          }
-          dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories { google(); mavenCentral() }
-          }
-          rootProject.name = "DailyBasket"
-          include ':app'
-          EOF
+          cat > app-project/settings.gradle << 'EOF'
+pluginManagement {
+  repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositories { google(); mavenCentral() }
+}
+rootProject.name = "DailyBasket"
+include ':app'
+EOF
 
-          cat > twa-app/build.gradle << 'EOF'
-          plugins {
-            id 'com.android.application' version '8.1.0' apply false
-          }
-          EOF
+          cat > app-project/build.gradle << 'EOF'
+plugins {
+  id 'com.android.application' version '8.1.0' apply false
+}
+EOF
 
-          cat > twa-app/app/build.gradle << 'EOF'
-          plugins { id 'com.android.application' }
-          android {
-            compileSdk 34
-            defaultConfig {
-              applicationId "com.dailybasket.bhopalgarh"
-              minSdk 21
-              targetSdk 34
-              versionCode 1
-              versionName "1.0"
+          cat > app-project/app/build.gradle << 'EOF'
+plugins { id 'com.android.application' }
+android {
+  compileSdk 34
+  defaultConfig {
+    applicationId "com.dailybasket.bhopalgarh"
+    minSdk 21
+    targetSdk 34
+    versionCode 1
+    versionName "1.0"
+  }
+  buildTypes { debug {} }
+  namespace "com.dailybasket.app"
+}
+dependencies {
+  implementation 'androidx.appcompat:appcompat:1.6.1'
+}
+EOF
+
+          cat > app-project/app/src/main/AndroidManifest.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <application
+    android:label="Daily Basket"
+    android:icon="@mipmap/ic_launcher"
+    android:roundIcon="@mipmap/ic_launcher"
+    android:allowBackup="true"
+    android:usesCleartextTraffic="true"
+    android:theme="@style/AppTheme">
+    <activity
+      android:name=".MainActivity"
+      android:exported="true"
+      android:screenOrientation="portrait"
+      android:configChanges="orientation|screenSize|keyboardHidden"
+      android:windowSoftInputMode="adjustResize">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>
+EOF
+
+          cat > app-project/app/src/main/java/com/dailybasket/app/MainActivity.java << 'EOF'
+package com.dailybasket.app;
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.os.Bundle;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+public class MainActivity extends Activity {
+    private WebView webView;
+    @SuppressLint("SetJavaScriptEnabled")
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        );
+        webView = new WebView(this);
+        setContentView(webView);
+        WebSettings s = webView.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setDatabaseEnabled(true);
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setUseWideViewPort(true);
+        s.setLoadWithOverviewMode(true);
+        s.setBuiltInZoomControls(false);
+        s.setGeolocationEnabled(true);
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                return false;
             }
-            buildTypes {
-              debug {}
-            }
-            namespace "com.dailybasket.bhopalgarh"
-          }
-          dependencies {
-            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-          }
-          EOF
+        });
+        webView.loadUrl("https://dailybasket-bhopalgarh.vercel.app");
+    }
+    @Override
+    public void onBackPressed() {
+        if (webView.canGoBack()) webView.goBack();
+        else super.onBackPressed();
+    }
+    @Override protected void onResume() { super.onResume(); webView.onResume(); }
+    @Override protected void onPause() { super.onPause(); webView.onPause(); }
+}
+EOF
 
-          cat > twa-app/app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <application
-              android:label="Daily Basket"
-              android:icon="@mipmap/ic_launcher"
-              android:roundIcon="@mipmap/ic_launcher"
-              android:theme="@style/Theme.AppCompat.NoActionBar"
-              android:allowBackup="true">
-              <activity
-                android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-                android:exported="true"
-                android:screenOrientation="portrait">
-                <meta-data
-                  android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                  android:value="https://dailybasket-bhopalgarh.vercel.app"/>
-                <meta-data
-                  android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                  android:resource="@color/colorPrimary"/>
-                <meta-data
-                  android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
-                  android:resource="@mipmap/ic_launcher"/>
-                <meta-data
-                  android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
-                  android:resource="@color/backgroundColor"/>
-                <meta-data
-                  android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
-                  android:value="300"/>
-                <intent-filter>
-                  <action android:name="android.intent.action.MAIN"/>
-                  <category android:name="android.intent.category.LAUNCHER"/>
-                </intent-filter>
-              </activity>
-            </application>
-          </manifest>
-          EOF
+          cat > app-project/app/src/main/res/values/strings.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources><string name="app_name">Daily Basket</string></resources>
+EOF
 
-          mkdir -p twa-app/app/src/main/res/values
-          cat > twa-app/app/src/main/res/values/strings.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-            <string name="app_name">Daily Basket</string>
-          </resources>
-          EOF
+          cat > app-project/app/src/main/res/values/styles.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+    <item name="android:windowBackground">#070907</item>
+    <item name="android:statusBarColor">#0A1A0A</item>
+    <item name="android:navigationBarColor">#0A1A0A</item>
+  </style>
+</resources>
+EOF
 
-          cat > twa-app/app/src/main/res/values/colors.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-            <color name="colorPrimary">#0A1A0A</color>
-            <color name="backgroundColor">#070907</color>
-          </resources>
-          EOF
-
-          cat > twa-app/gradle.properties << 'EOF'
-          android.useAndroidX=true
-          android.enableJetifier=true
-          org.gradle.jvmargs=-Xmx2048m
-          android.suppressUnsupportedCompileSdk=34
-          EOF
+          cat > app-project/gradle.properties << 'EOF'
+android.useAndroidX=true
+android.enableJetifier=true
+org.gradle.jvmargs=-Xmx2048m
+android.suppressUnsupportedCompileSdk=34
+EOF
 
       - name: Build Debug APK
         run: |
-          cd twa-app
+          cd app-project
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: DailyBasket-APK
-          path: twa-app/app/build/outputs/apk/debug/*.apk
+          path: app-project/app/build/outputs/apk/debug/*.apk
