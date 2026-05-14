@@ -8,29 +8,42 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
-          
-      - name: Install dependencies
-        run: npm install
-        
-      - name: Build PWA
-        run: npm run build
-        
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
-        
-      - name: Generate APK
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Init Bubblewrap
         run: |
-          bubblewrap init --manifest https://dailybasket-bhopalgarh.vercel.app/manifest.webmanifest
-          bubblewrap build
-          
+          bubblewrap init \
+            --manifest "https://dailybasket-bhopalgarh.vercel.app/manifest.webmanifest" \
+            --directory twa-app
+        working-directory: ${{ github.workspace }}
+
+      - name: Build APK
+        run: |
+          cd twa-app
+          bubblewrap build --skipPwaValidation
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: daily-basket-apk
-          path: '*.apk'
+          name: DailyBasket-APK
+          path: twa-app/*.apk
+          if-no-files-found: warn
