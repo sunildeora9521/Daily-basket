@@ -21,19 +21,25 @@ jobs:
 
       - name: Create TWA Project
         run: |
-          mkdir -p twa-app/app/src/main
-          
-          cat > twa-app/build.gradle << 'EOF'
-          buildscript {
-            repositories { google(); mavenCentral() }
-            dependencies { classpath 'com.android.tools.build:gradle:8.1.0' }
-          }
-          EOF
-          
+          mkdir -p twa-app/app/src/main/res/values
+
           cat > twa-app/settings.gradle << 'EOF'
+          pluginManagement {
+            repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+            repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "DailyBasket"
           include ':app'
           EOF
-          
+
+          cat > twa-app/build.gradle << 'EOF'
+          plugins {
+            id 'com.android.application' version '8.1.0' apply false
+          }
+          EOF
+
           cat > twa-app/app/build.gradle << 'EOF'
           plugins { id 'com.android.application' }
           android {
@@ -46,7 +52,7 @@ jobs:
               versionName "1.0"
             }
             buildTypes {
-              release { minifyEnabled false }
+              debug { signingConfig signingConfigs.debug }
             }
             namespace "com.dailybasket.bhopalgarh"
           }
@@ -55,17 +61,21 @@ jobs:
           }
           EOF
 
-          mkdir -p twa-app/app/src/main/res/values
-          
           cat > twa-app/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application android:label="Daily Basket" android:theme="@style/Theme.AppCompat">
-              <activity android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <application
+              android:label="Daily Basket"
+              android:theme="@style/Theme.AppCompat.NoActionBar"
+              android:allowBackup="true">
+              <activity
+                android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
                 android:exported="true">
-                <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                <meta-data
+                  android:name="android.support.customtabs.trusted.DEFAULT_URL"
                   android:value="https://dailybasket-bhopalgarh.vercel.app"/>
-                <intent-filter android:autoVerify="true">
+                <intent-filter>
                   <action android:name="android.intent.action.MAIN"/>
                   <category android:name="android.intent.category.LAUNCHER"/>
                 </intent-filter>
@@ -76,15 +86,24 @@ jobs:
 
           cat > twa-app/app/src/main/res/values/strings.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <resources><string name="app_name">Daily Basket</string></resources>
+          <resources>
+            <string name="app_name">Daily Basket</string>
+          </resources>
           EOF
+
+      - name: Setup Gradle Wrapper
+        run: |
+          cd twa-app
+          gradle wrapper --gradle-version 8.4
+        env:
+          GRADLE_USER_HOME: /home/runner/.gradle
 
       - name: Build Debug APK
         run: |
           cd twa-app
-          gradle wrapper
-          ./gradlew assembleDebug
-        
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
