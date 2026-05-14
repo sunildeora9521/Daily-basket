@@ -1,0 +1,36 @@
+name: Build APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build PWA
+        run: npm run build
+        
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+        
+      - name: Generate APK
+        run: |
+          bubblewrap init --manifest https://dailybasket-bhopalgarh.vercel.app/manifest.webmanifest
+          bubblewrap build
+          
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: daily-basket-apk
+          path: '*.apk'
