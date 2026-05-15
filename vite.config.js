@@ -18,6 +18,7 @@ export default defineConfig({
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
+start_url: './',
         id: '/',
         categories: ['shopping', 'food', 'lifestyle'],
         screenshots: [
