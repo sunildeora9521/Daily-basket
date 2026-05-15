@@ -915,6 +915,7 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const [shCart, setShCart]=useState(false);
   const [track,  setTrack ]=useState(false);
   const [wishlist, setWishlist]=useState([]);
+  const [shNotif, setShNotif]=useState(false);
   const [catF,   setCatF  ]=useState('all');
   const [searchQ, setSearchQ]=useState('');
   const [themeOpen, setThemeOpen]=useState(false);
@@ -1219,12 +1220,11 @@ const place=async(addr)=>{
             <div onClick={()=>setThemeOpen(true)} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18,transition:'all .2s',boxShadow:theme!=='eco'?'0 0 12px var(--shadow)':'none'}}>
               {THEMES[theme].icon}
             </div>
-            {[{n:'search'},{n:'bell'}].map(({n},i)=>(
-              <div key={i} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
-                <Ic n={n} s={18} c="var(--t3)"/>
-                {n==='bell'&&<span style={{position:'absolute',top:8,right:8,width:8,height:8,borderRadius:'50%',background:'var(--green)',border:'2px solid var(--bg)'}}/>}
-              </div>
-            ))}
+            <div onClick={()=>setScr('combos')} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18}}>🧺</div>
+            <div onClick={()=>setShNotif(n=>!n)} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
+              <Ic n="bell" s={18} c="var(--t3)"/>
+              <span style={{position:'absolute',top:8,right:8,width:8,height:8,borderRadius:'50%',background:'var(--green)',border:'2px solid var(--bg)'}}/>
+            </div>
           </div>
           {themeOpen&&<ThemePicker theme={theme} setTheme={setTheme} onClose={()=>setThemeOpen(false)} isHi={isHi}/>}
         </div>
@@ -1548,13 +1548,13 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   );
 
   const menu=[
-    {i:'📦',l:t.myOrders,sub:`${orders.length||0} orders`,c:'#3DFF7A',action:()=>{fetchOrders();setShowOrders(true);}},
-    {i:'🧺',l:t.myCombos,sub:isHi?'2 सक्रिय कॉम्बो':'2 active combos',c:'#00C44F'},
-    {i:'📅',l:t.subscription,sub:isHi?'डेली प्लान · सक्रिय':'Daily plan · Active',c:'#D4AF37'},
-    {i:'📍',l:t.addresses,sub:isHi?'2 सहेजे गए':'2 saved',c:'#3DFF7A'},
-    {i:'💳',l:t.payment,sub:'UPI · Card',c:'#00C44F'},
+    {i:'📦',l:t.myOrders,sub:`${orders.length} orders`,c:'#3DFF7A',action:()=>{fetchOrders();setShowOrders(true);}},
+    {i:'🧺',l:t.myCombos,sub:isHi?'2 सक्रिय कॉम्बो':'2 active combos',c:'#00C44F',action:()=>alert('My Combos - Coming Soon!')},
+    {i:'📅',l:t.subscription,sub:isHi?'डेली प्लान · सक्रिय':'Daily plan · Active',c:'#D4AF37',action:()=>alert('Subscription - Coming Soon!')},
+    {i:'📍',l:t.addresses,sub:isHi?'2 सहेजे गए':'2 saved',c:'#3DFF7A',action:()=>alert('Saved Addresses - Coming Soon!')},
+    {i:'💳',l:t.payment,sub:'UPI · Card',c:'#00C44F',action:()=>alert('Payment Methods - Coming Soon!')},
     {i:'🌐',l:isHi?'भाषा':'Language',sub:lang==='hi'?'हिंदी':'English',c:'#3DFF7A'},
-    {i:'⚙️',l:t.settings,sub:isHi?'सूचनाएं':'Notifications',c:'#8A9A8A'}
+    {i:'⚙️',l:t.settings,sub:isHi?'सूचनाएं':'Notifications',c:'#8A9A8A',action:()=>alert('Settings - Coming Soon!')}
   ];
 
   return (
@@ -1582,7 +1582,7 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
             <Ic n="arrow" s={16} c="#3A4A3A"/>
           </div>
         ))}
-        <button className="btng rip" style={{width:'100%',padding:'14px',fontSize:13,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.2)',marginTop:4,fontFamily:fam}}>{t.signOut}</button>
+        <button className="btng rip" onClick={()=>{if(window.confirm('Sign out karna chahte ho?')){import('firebase/auth').then(({signOut,getAuth})=>signOut(getAuth()));window.location.reload();} }} style={{width:'100%',padding:'14px',fontSize:13,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.2)',marginTop:4,fontFamily:fam}}>{t.signOut}</button>
       </div>
     </div>
   );
