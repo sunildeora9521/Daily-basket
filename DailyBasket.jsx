@@ -640,7 +640,7 @@ function CustomerLogin({onLogin}) {
               </div>
             </div>
 
-            <div id="recaptcha-container"></div>
+            <div id="recaptcha-container" style={{display:'none'}}></div>
 
             {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',padding:'10px 14px',borderRadius:10,marginBottom:16}}>{err}</div>}
 
