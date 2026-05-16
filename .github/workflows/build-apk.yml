@@ -35,7 +35,8 @@ jobs:
 
       - name: Download and Resize Icons
         run: |
-          curl -L "https://dailybasket-bhopalgarh.vercel.app/icon-512.png" -o icon.png || convert -size 512x512 xc:#0A1A0A icon.png
+          curl -L "https://dailybasket-bhopalgarh.vercel.app/icon-512.png" -o icon.png
+          file icon.png | grep -q PNG || convert -size 512x512 xc:#0A1A0A icon.png
           convert icon.png -resize 48x48   app-project/app/src/main/res/mipmap-mdpi/ic_launcher.png
           convert icon.png -resize 72x72   app-project/app/src/main/res/mipmap-hdpi/ic_launcher.png
           convert icon.png -resize 96x96   app-project/app/src/main/res/mipmap-xhdpi/ic_launcher.png
