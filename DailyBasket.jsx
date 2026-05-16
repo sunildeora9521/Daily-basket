@@ -2312,7 +2312,13 @@ export default function DailyBasket() {
     return null;
   };
 
-  return (
+  const isApp = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  return isApp ? (
+    <div style={{width:'100vw',height:'100vh',background:'var(--bg)',fontFamily:"'Outfit',sans-serif",position:'relative',overflow:'hidden'}}>
+      <style>{CSS}</style>
+      <div style={{position:'absolute',inset:0,overflow:'hidden'}}>{renderContent()}</div>
+    </div>
+  ) : (
     <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#050705,#070907,#060806)',fontFamily:"'Outfit',sans-serif"}}>
       <style>{CSS}</style>
       <div className="phone" style={getThemeStyle(theme)}>{renderContent()}</div>
