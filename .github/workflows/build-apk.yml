@@ -32,10 +32,10 @@ jobs:
           mkdir -p app-project/app/src/main/res/mipmap-xxxhdpi
           mkdir -p app-project/app/src/main/res/values
           mkdir -p app-project/gradle/wrapper
-          convert -size 512x512 xc:#0A1A0A icon.png
-      - - name: Download and Resize Icons
+
+      - name: Download and Resize Icons
         run: |
-          convert -size 512x512 xc:#0A1A0A -fill '#3DFF7A' -draw 'roundrectangle 56,56,456,456,60,60' -fill '#0A1A0A' -pointsize 180 -gravity center -annotate 0 '🌿' icon.png || convert -size 512x512 xc:#0A1A0A icon.png
+          curl -L "https://dailybasket-bhopalgarh.vercel.app/icon-512.png" -o icon.png || convert -size 512x512 xc:#0A1A0A icon.png
           convert icon.png -resize 48x48   app-project/app/src/main/res/mipmap-mdpi/ic_launcher.png
           convert icon.png -resize 72x72   app-project/app/src/main/res/mipmap-hdpi/ic_launcher.png
           convert icon.png -resize 96x96   app-project/app/src/main/res/mipmap-xhdpi/ic_launcher.png
@@ -108,6 +108,93 @@ jobs:
           import android.webkit.GeolocationPermissions;
           import android.webkit.WebChromeClient;
           import android.webkit.WebResourceRequest;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          public class MainActivity extends Activity {
+              private WebView webView;
+              @SuppressLint("SetJavaScriptEnabled")
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  requestWindowFeature(Window.FEATURE_NO_TITLE);
+                  getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                  getWindow().setStatusBarColor(Color.parseColor("#070907"));
+                  getWindow().setNavigationBarColor(Color.parseColor("#070907"));
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                      getWindow().setDecorFitsSystemWindows(false);
+                  } else {
+                      getWindow().getDecorView().setSystemUiVisibility(
+                          View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                          View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                          View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                      );
+                  }
+                  webView = new WebView(this);
+                  setContentView(webView);
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setDatabaseEnabled(true);
+                  s.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  s.setUseWideViewPort(true);
+                  s.setLoadWithOverviewMode(true);
+                  s.setBuiltInZoomControls(false);
+                  s.setDisplayZoomControls(false);
+                  s.setGeolocationEnabled(true);
+                  s.setAllowFileAccess(true);
+                  s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                  CookieManager.getInstance().setAcceptCookie(true);
+                  CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+                  webView.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) { return false; }
+                  });
+                  webView.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback cb) {
+                          cb.invoke(origin, true, false);
+                      }
+                  });
+                  if (savedInstanceState != null) {
+                      webView.restoreState(savedInstanceState);
+                  } else {
+                      webView.loadUrl("https://dailybasket-bhopalgarh.vercel.app");
+                  }
+              }
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) {
+                      webView.goBack();
+                  }
+                  // App band nahi hoga back se
+              }
+              @Override
+              protected void onSaveInstanceState(Bundle out) {
+                  super.onSaveInstanceState(out);
+                  webView.saveState(out);
+              }
+              @Override protected void onResume() { super.onResume(); webView.onResume(); }
+              @Override protected void onPause() { super.onPause(); webView.onPause(); }
+              @Override protected void onDestroy() { webView.destroy(); super.onDestroy(); }
+          }
+          JAVA
+
+      - name: Create Resources
+        run: |
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources><string name="app_name">Daily Basket</string></resources>\n' > app-project/app/src/main/res/values/strings.xml
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n  <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">\n    <item name="android:windowBackground">#070907</item>\n    <item name="android:statusBarColor">#070907</item>\n    <item name="android:navigationBarColor">#070907</item>\n    <item name="android:windowFullscreen">true</item>\n  </style>\n</resources>\n' > app-project/app/src/main/res/values/styles.xml
+
+      - name: Build APK
+        run: |
+          cd app-project
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DailyBasket-v2-APK
+          path: app-project/app/build/outputs/apk/debug/*.apk          import android.webkit.WebResourceRequest;
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
