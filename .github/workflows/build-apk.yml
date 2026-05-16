@@ -167,7 +167,6 @@ jobs:
                   if (webView.canGoBack()) {
                       webView.goBack();
                   }
-                  // App band nahi hoga back se
               }
               @Override
               protected void onSaveInstanceState(Bundle out) {
@@ -194,5 +193,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DailyBasket-v2-APK
-         path: app-project/app/build/outputs/apk/debug/*.apk
-          
+          path: app-project/app/build/outputs/apk/debug/*.apk
