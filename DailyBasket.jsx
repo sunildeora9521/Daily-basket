@@ -307,7 +307,12 @@ const Ic = ({n,s=20,c='currentColor'}) => {
   return M[n]||null;
 };
 
-const SBar = () => <div className="sbar"><span>9:41</span><div style={{display:'flex',gap:5,alignItems:'center'}}><span>●●●</span><span>WiFi</span><span>⚡</span></div></div>;
+const SBar = () => {
+  const sa = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  return sa
+    ? <div style={{height:'env(safe-area-inset-top,44px)',minHeight:0,flexShrink:0,background:'var(--bg)'}}/>
+    : <div className="sbar"><span>9:41</span><div style={{display:'flex',gap:5,alignItems:'center'}}><span>●●●</span><span>WiFi</span><span>⚡</span></div></div>;
+};
 const BBtn = ({onClick}) => <div onClick={onClick} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ic n="back" s={18} c="#8A9A8A"/></div>;
 const Tog = ({on,onClick}) => <div className={`tog ${on?'on':''}`} onClick={onClick}/>;
 
@@ -392,8 +397,10 @@ function Splash({onDone, onCapSelect}) {
       </div>
 
       {/* ── SIMPLE BASKET ── */}
-      <div style={{marginBottom:36,animation:'floatY 3s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(61,255,122,.35))'}}>
-        <div style={{fontSize:110,lineHeight:1,textAlign:'center'}}>🧺</div>
+      <div style={{marginBottom:36,animation:'floatY 3s ease-in-out infinite'}}>
+        <div style={{width:150,height:150,borderRadius:'50%',background:'linear-gradient(135deg,#1A4A1A,#0A2A0A)',border:'3px solid rgba(61,255,122,.45)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto',boxShadow:'0 0 60px rgba(61,255,122,.45),0 0 120px rgba(61,255,122,.15)',animation:'glowPulse 2.5s ease-in-out infinite'}}>
+          <div style={{fontSize:82,lineHeight:1}}>🧺</div>
+        </div>
       </div>
 
       {/* Progress bar */}
@@ -972,6 +979,23 @@ const [address, setAddress]=useState(null);
       console.log('Messaging error:', e);
     }
   },[]);
+  useEffect(()=>{
+    window.history.pushState({db:'1'},'',window.location.href);
+  },[]);
+
+  useEffect(()=>{
+    const onBack=()=>{
+      if(showAddr){setShowAddr(false);window.history.pushState({db:'1'},'',window.location.href);return;}
+      if(selP){setSelP(null);window.history.pushState({db:'1'},'',window.location.href);return;}
+      if(track){setTrack(false);setScr('home');setNav('home');window.history.pushState({db:'1'},'',window.location.href);return;}
+      if(shCart){setShCart(false);window.history.pushState({db:'1'},'',window.location.href);return;}
+      if(scr!=='home'){setScr('home');setNav('home');window.history.pushState({db:'1'},'',window.location.href);return;}
+      window.history.pushState({db:'1'},'',window.location.href);
+    };
+    window.addEventListener('popstate',onBack);
+    return()=>window.removeEventListener('popstate',onBack);
+  },[showAddr,selP,track,shCart,scr]);
+
   const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
 const place=async(addr)=>{
@@ -1133,6 +1157,23 @@ const place=async(addr)=>{
       </div>
     </div>
   </div>
+  {payMethod==='upi'&&(
+    <div style={{background:'rgba(61,255,122,.05)',border:'1px solid rgba(61,255,122,.25)',borderRadius:14,padding:14,marginBottom:10,animation:'fadeUp .3s ease both'}}>
+      <div style={{fontSize:12,fontWeight:700,color:'#3DFF7A',marginBottom:10,textAlign:'center'}}>📱 UPI App se Pay karo</div>
+      <div style={{display:'flex',gap:8,marginBottom:12}}>
+        {[{name:'GPay',pa:'dailybasket@oksbi',color:'#4285F4'},{name:'PhonePe',pa:'dailybasket@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'dailybasket@paytm',color:'#00B9F1'},{name:'BHIM',pa:'dailybasket@upi',color:'#FF6B35'}].map(app=>(
+          <button key={app.name} onClick={()=>{const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);window.location.href=`upi://pay?pa=${app.pa}&pn=Daily%20Basket&am=${amt}&cu=INR&tn=Grocery%20Order`;}} style={{flex:1,padding:'8px 2px',borderRadius:10,border:`1.5px solid ${app.color}55`,background:`${app.color}18`,color:app.color,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>
+            {app.name}
+          </button>
+        ))}
+      </div>
+      <div style={{textAlign:'center',marginBottom:6}}>
+        <div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>Ya QR scan karo:</div>
+        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=dailybasket@oksbi%26pn=Daily%20Basket%26am=${Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount)}%26cu=INR`} alt="UPI QR" style={{borderRadius:10,border:'2px solid rgba(61,255,122,.3)',width:140,height:140}}/>
+      </div>
+      <div style={{fontSize:11,color:'var(--t3)',textAlign:'center',marginTop:4}}>⬆️ Pay karke niche "Place Order" dabaao</div>
+    </div>
+  )}
           {points>=100&&<div onClick={()=>setUsePoints(u=>!u)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:`1.5px solid ${usePoints?'rgba(212,175,55,.5)':'rgba(212,175,55,.15)'}`,background:usePoints?'rgba(212,175,55,.08)':'rgba(212,175,55,.03)'}}>
     <div style={{display:'flex',alignItems:'center',gap:8}}>
       <span style={{fontSize:18}}>🪙</span>
@@ -2314,7 +2355,7 @@ export default function DailyBasket() {
 
   const isApp = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   return isApp ? (
-    <div style={{width:'100vw',height:'100vh',background:'var(--bg)',fontFamily:"'Outfit',sans-serif",position:'relative',overflow:'hidden'}}>
+<div style={{width:'100vw',height:'100vh',background:'var(--bg)',fontFamily:"'Outfit',sans-serif",position:'relative',overflow:'hidden',paddingTop:'env(safe-area-inset-top,0px)',paddingBottom:'env(safe-area-inset-bottom,0px)',boxSizing:'border-box'}}>
       <style>{CSS}</style>
       <div style={{position:'absolute',inset:0,overflow:'hidden'}}>{renderContent()}</div>
     </div>
