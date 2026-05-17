@@ -1169,7 +1169,7 @@ const place=async(addr)=>{
     <div style={{background:'rgba(61,255,122,.05)',border:'1px solid rgba(61,255,122,.25)',borderRadius:14,padding:14,marginBottom:10,animation:'fadeUp .3s ease both'}}>
       <div style={{fontSize:12,fontWeight:700,color:'#3DFF7A',marginBottom:10,textAlign:'center'}}>📱 UPI App se Pay karo</div>
       <div style={{display:'flex',gap:8,marginBottom:12}}>
-        {[{name:'GPay',pa:'9653895714@ybl',color:'#4285F4'},{name:'PhonePe',pa:'9653895714@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'9653895714@ybl',color:'#00B9F1'},{name:'BHIM',pa:'9653895714@ybl',color:'#FF6B35'}].map(app=>(
+        {[{name:'GPay',pa:'9653895714-2@ybl',color:'#4285F4'},{name:'PhonePe',pa:'9653895714-2@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'9653895714-2@ybl',color:'#00B9F1'},{name:'BHIM',pa:'9653895714-2@ybl',color:'#FF6B35'}].map(app=>(
           <button key={app.name} onClick={()=>{const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);window.location.href=`upi://pay?pa=${app.pa}&pn=Daily%20Basket&am=${amt}&cu=INR&tn=Grocery%20Order`;}} style={{flex:1,padding:'8px 2px',borderRadius:10,border:`1.5px solid ${app.color}55`,background:`${app.color}18`,color:app.color,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>
             {app.name}
           </button>
