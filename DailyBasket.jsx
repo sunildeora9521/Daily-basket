@@ -1848,6 +1848,7 @@ function ShopApp({shop,data,setData,onBack}) {
   );
 }
 
+function AdminModal({children,onClose}){return <div className="ovl" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>{children}</div></div>;}
 function AdminApp({data,setData,onBack}) {
   const [tab,setTab]=useState('dash');
   const [pcTab,setPcTab]=useState('veg');
@@ -1858,7 +1859,7 @@ function AdminApp({data,setData,onBack}) {
   const [creds,setCreds]=useState(null);
   const [realOrders,setRealOrders]=useState([]);
   const [loadingOrders,setLoadingOrders]=useState(false);
-  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',stock:'50'});
+  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50'});
   const [nsF,setNsF]=useState({name:'',owner:'',phone:'',cuisine:''});
   const [nrF,setNrF]=useState({name:'',phone:''});
   const [coupons, setCoupons]=useState([]);
@@ -1918,8 +1919,7 @@ function AdminApp({data,setData,onBack}) {
   const toggleShop=id=>setData(d=>({...d,shops:d.shops.map(s=>s.id===id?{...s,active:!s.active}:s)}));
   const toggleRider=id=>setData(d=>({...d,riders:d.riders.map(r=>r.id===id?{...r,active:!r.active}:r)}));
   const fp=data.products.filter(p=>p.cat===pcTab);
-  const Modal=({children,onClose})=><div className="ovl" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>{children}</div></div>;
-
+  
   return(
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
       <SBar/>
@@ -2099,18 +2099,47 @@ function AdminApp({data,setData,onBack}) {
               }
             </div>
           ))}
-          {addP&&<Modal onClose={()=>setAddP(false)}>
-            <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Add New Product</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
-              <div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>EMOJI</div><input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="🥦" value={npF.emoji} onChange={e=>setNpF(p=>({...p,emoji:e.target.value}))}/></div>
-              <div><div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PRICE (₹)</div><input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="50" value={npF.price} onChange={e=>setNpF(p=>({...p,price:e.target.value}))}/></div>
-            </div>
-            {[{l:'Product Name (English)',k:'name',ph:'e.g. Broccoli'},{l:'Product Name (Hindi)',k:'nameHi',ph:'e.g. ब्रोकली'},{l:'Unit',k:'unit',ph:'500g'},{l:'Stock',k:'stock',ph:'100'}].map(f=>(
-              <div key={f.k} style={{marginBottom:10}}>
-                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div>
-                <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={npF[f.k]} onChange={e=>setNpF(p=>({...p,[f.k]:e.target.value}))}/>
+          {addP&&<AdminModal onClose={()=>setAddP(false)}>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>🥦 Add New Product</div>
+            {/* Image Upload */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>PRODUCT IMAGE (Gallery se upload karo)</div>
+              <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                <div style={{width:64,height:64,borderRadius:14,background:'var(--card)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
+                  {npF.imgUrl
+                    ? <img src={npF.imgUrl} alt="product" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                    : <span style={{fontSize:32}}>{npF.emoji||'🥦'}</span>
+                  }
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',padding:'9px 14px',borderRadius:12,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:12,cursor:'pointer',textAlign:'center',marginBottom:6}}>
+                    📷 Gallery se Upload
+                    <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setNpF(p=>({...p,imgUrl:ev.target.result}));r.readAsDataURL(f);}}}/>
+                  </label>
+                  <input className="dbi" style={{fontSize:20,padding:'6px 10px',textAlign:'center'}} placeholder="या Emoji 🥦" value={npF.emoji} onChange={e=>setNpF(p=>({...p,emoji:e.target.value,imgUrl:''}))}/>
+                </div>
               </div>
-            ))}
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PRICE (₹)</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="50" value={npF.price} onChange={e=>setNpF(p=>({...p,price:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PRODUCT NAME (ENGLISH)</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. Broccoli" value={npF.name} onChange={e=>setNpF(p=>({...p,name:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PRODUCT NAME (HINDI)</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. ब्रोकली" value={npF.nameHi} onChange={e=>setNpF(p=>({...p,nameHi:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>UNIT</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="500g" value={npF.unit} onChange={e=>setNpF(p=>({...p,unit:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>STOCK</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="100" value={npF.stock} onChange={e=>setNpF(p=>({...p,stock:e.target.value}))}/>
+            </div>
             <div style={{marginBottom:14}}>
               <div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>CATEGORY</div>
               <div style={{display:'flex',gap:6}}>
@@ -2118,10 +2147,15 @@ function AdminApp({data,setData,onBack}) {
               </div>
             </div>
             <div style={{display:'flex',gap:8}}>
-              <button className="btn rip" onClick={addNewProd} style={{flex:1,padding:'12px'}}>Add Product</button>
+              <button className="btn rip" onClick={()=>{
+                const p={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock,tag:'New',tagHi:'नया',active:true};
+                setData(d=>({...d,products:[...d.products,p]}));
+                setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50'});
+                setAddP(false);
+              }} style={{flex:1,padding:'12px'}}>Add Product ✓</button>
               <button className="btng" onClick={()=>setAddP(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
             </div>
-          </Modal>}
+          </AdminModal>}
         </>}
 
         {tab==='shops'&&<>
@@ -2191,23 +2225,49 @@ function AdminApp({data,setData,onBack}) {
               </div>
             </div>
           ))}
-          {addR&&<Modal onClose={()=>setAddR(false)}>
-            <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Register New Rider</div>
-            {[{l:'Full Name',k:'name',ph:'Rider full name'},{l:'Phone',k:'phone',ph:'10-digit mobile'}].map(f=>(
-              <div key={f.k} style={{marginBottom:10}}>
-                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div>
-                <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={nrF[f.k]} onChange={e=>setNrF(p=>({...p,[f.k]:e.target.value}))}/>
+          {addR&&<AdminModal onClose={()=>setAddR(false)}>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>🚲 Register New Rider</div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>FULL NAME</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="Rider full name" value={nrF.name} onChange={e=>setNrF(p=>({...p,name:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>PHONE</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="10-digit mobile" value={nrF.phone} onChange={e=>setNrF(p=>({...p,phone:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>CUSTOM ID (optional)</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={`Auto: RDR${String(data.riders.length+1).padStart(3,'0')}`} value={nrF.customId||''} onChange={e=>setNrF(p=>({...p,customId:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>CUSTOM PASSWORD (optional)</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={`Auto: Rider@${String(data.riders.length+1).padStart(3,'0')}`} value={nrF.customPass||''} onChange={e=>setNrF(p=>({...p,customPass:e.target.value}))}/>
+            </div>
+            <div style={{background:'rgba(0,196,79,.06)',border:'1px solid rgba(0,196,79,.15)',borderRadius:12,padding:'12px',marginBottom:14}}>
+              <div style={{fontSize:11,color:'#00C44F',fontWeight:700,marginBottom:6}}>🔑 Final Credentials:</div>
+              <div style={{display:'flex',gap:8}}>
+                <div style={{flex:1,background:'rgba(0,0,0,.3)',borderRadius:8,padding:'8px 10px'}}>
+                  <div style={{fontSize:10,color:'var(--t3)'}}>LOGIN ID</div>
+                  <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>{nrF.customId||`RDR${String(data.riders.length+1).padStart(3,'0')}`}</div>
+                </div>
+                <div style={{flex:1,background:'rgba(0,0,0,.3)',borderRadius:8,padding:'8px 10px'}}>
+                  <div style={{fontSize:10,color:'var(--t3)'}}>PASSWORD</div>
+                  <div style={{fontSize:14,fontWeight:800,color:'#D4AF37'}}>{nrF.customPass||`Rider@${String(data.riders.length+1).padStart(3,'0')}`}</div>
+                </div>
               </div>
-            ))}
-            <div style={{background:'rgba(0,196,79,.06)',border:'1px solid rgba(0,196,79,.15)',borderRadius:12,padding:'10px 12px',marginBottom:14}}>
-              <div style={{fontSize:11,color:'#00C44F',fontWeight:600,marginBottom:2}}>Auto Credentials:</div>
-              <div style={{fontSize:11,color:'var(--t3)'}}>ID: RDR{String(data.riders.length+1).padStart(3,'0')} · Pass: Rider@{String(data.riders.length+1).padStart(3,'0')}</div>
             </div>
             <div style={{display:'flex',gap:8}}>
-              <button className="btn rip" onClick={regRider} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>Register Rider</button>
+              <button className="btn rip" onClick={()=>{
+                const idx=data.riders.length+1;
+                const r={id:nrF.customId||`RDR${String(idx).padStart(3,'0')}`,name:nrF.name,phone:nrF.phone,pass:nrF.customPass||`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
+                setData(d=>({...d,riders:[...d.riders,r]}));
+                setCreds({type:'Rider',id:r.id,pass:r.pass});
+                setNrF({name:'',phone:'',customId:'',customPass:''});
+                setAddR(false);
+              }} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>Register Rider ✓</button>
               <button className="btng" onClick={()=>setAddR(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
             </div>
-          </Modal>}
+          </AdminModal>}
         </>}
 
         {tab==='reports'&&<>
