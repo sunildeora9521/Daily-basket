@@ -1209,44 +1209,7 @@ const place=async(addr)=>{
     <button className="btn rip" onClick={()=>place(address)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
   </>}
   </div>}
-  <div style={{marginBottom:12}}>
-    <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>💳 Payment Method</div>
-    <div style={{display:'flex',gap:8}}>
-      <div onClick={()=>setPayMethod('cod')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='cod'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='cod'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
-        <div style={{fontSize:16}}>💵</div>
-        <div style={{fontSize:11,fontWeight:600,color:payMethod==='cod'?'#3DFF7A':'var(--t3)'}}>Cash on Delivery</div>
-      </div>
-      <div onClick={()=>setPayMethod('upi')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='upi'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='upi'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
-        <div style={{fontSize:16}}>📱</div>
-        <div style={{fontSize:11,fontWeight:600,color:payMethod==='upi'?'#3DFF7A':'var(--t3)'}}>UPI</div>
-      </div>
-    </div>
-  </div>
-  {payMethod==='upi'&&(
-    <div style={{background:'rgba(61,255,122,.05)',border:'1px solid rgba(61,255,122,.25)',borderRadius:14,padding:14,marginBottom:10,animation:'fadeUp .3s ease both'}}>
-      <div style={{fontSize:12,fontWeight:700,color:'#3DFF7A',marginBottom:10,textAlign:'center'}}>📱 UPI App se Pay karo</div>
-      <div style={{display:'flex',gap:8,marginBottom:12}}>
-        {[{name:'GPay',pa:'9653895714-2@ybl',color:'#4285F4'},{name:'PhonePe',pa:'9653895714-2@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'9653895714-2@ybl',color:'#00B9F1'},{name:'BHIM',pa:'9653895714-2@ybl',color:'#FF6B35'}].map(app=>(
-          <button key={app.name} onClick={()=>{const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);window.location.href=`upi://pay?pa=${app.pa}&pn=Daily%20Basket&am=${amt}&cu=INR&tn=Grocery%20Order`;}} style={{flex:1,padding:'8px 2px',borderRadius:10,border:`1.5px solid ${app.color}55`,background:`${app.color}18`,color:app.color,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>
-            {app.name}
-          </button>
-        ))}
-      </div>
-      <div style={{textAlign:'center',marginBottom:6}}>
-        <div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>Ya QR scan karo:</div>
-        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=dailybasket@oksbi%26pn=Daily%20Basket%26am=${Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount)}%26cu=INR`} alt="UPI QR" style={{borderRadius:10,border:'2px solid rgba(61,255,122,.3)',width:140,height:140}}/>
-      </div>
-      <div style={{fontSize:11,color:'var(--t3)',textAlign:'center',marginTop:4}}>⬆️ Pay karke niche "Place Order" dabaao</div>
-    </div>
-  )}
-          {points>=100&&<div onClick={()=>setUsePoints(u=>!u)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:`1.5px solid ${usePoints?'rgba(212,175,55,.5)':'rgba(212,175,55,.15)'}`,background:usePoints?'rgba(212,175,55,.08)':'rgba(212,175,55,.03)'}}>
-    <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <span style={{fontSize:18}}>🪙</span>
-      <div><div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>{points} Points available</div><div style={{fontSize:10,color:'var(--t3)'}}>Use to save ₹{Math.floor(points/10)}</div></div>
-    </div>
-    <div style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${usePoints?'#D4AF37':'rgba(212,175,55,.3)'}`,background:usePoints?'#D4AF37':'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#0A0800',fontWeight:800}}>{usePoints?'✓':''}</div>
-  </div>}
-  </div>
+</div>
     );
 
     if(track) return (
@@ -1659,9 +1622,10 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
     {i:'🧺',l:t.myCombos,sub:isHi?'2 सक्रिय कॉम्बो':'2 active combos',c:'#00C44F',action:()=>alert('My Combos - Coming Soon!')},
     {i:'📅',l:t.subscription,sub:isHi?'डेली प्लान · सक्रिय':'Daily plan · Active',c:'#D4AF37',action:()=>alert('Subscription - Coming Soon!')},
     {i:'📍',l:t.addresses,sub:isHi?'2 सहेजे गए':'2 saved',c:'#3DFF7A',action:()=>alert('Saved Addresses - Coming Soon!')},
-    {i:'💳',l:t.payment,sub:'UPI · Card',c:'#00C44F',action:()=>alert('Payment Methods - Coming Soon!')},
-    {i:'🌐',l:isHi?'भाषा':'Language',sub:lang==='hi'?'हिंदी':'English',c:'#3DFF7A'},
-    {i:'⚙️',l:t.settings,sub:isHi?'सूचनाएं':'Notifications',c:'#8A9A8A',action:()=>alert('Settings - Coming Soon!')}
+    {i:'💳',l:t.payment,sub:'UPI · Card',c:'#00C44F',action:()=>window.open('upi://pay?pa=9653895714@ybl&pn=Daily%20Basket','_blank')},
+    {i:'🌐',l:isHi?'भाषा':'Language',sub:lang==='hi'?'हिंदी':'English',c:'#3DFF7A',action:()=>window.location.reload()},
+    {i:'💬',l:'WhatsApp Support',sub:'6375565339',c:'#25D366',action:()=>window.open('https://wa.me/916375565339?text=Daily%20Basket%20Support','_blank')},
+    {i:'⚙️',l:t.settings,sub:isHi?'सूचनाएं':'Notifications',c:'#8A9A8A',action:()=>{if(Notification.permission!=='granted')Notification.requestPermission();else alert('Notifications already enabled!');}}
   ];
 
   return (
@@ -1725,10 +1689,17 @@ function LoginForm({color,icon,role,cred,onLogin,onBack,hint}) {
 /* Simple Rider & Shop apps (abbreviated for space) */
 function RiderApp({rider,data,setData,onBack}) {
   const [tab,setTab]=useState('dash');const [online,setOnline]=useState(rider.online);
-  const my=data.orders.filter(o=>o.riderId===rider.id);
-  const avail=data.orders.filter(o=>o.status==='confirmed'&&!o.riderId);
-  const accept=id=>setData(d=>({...d,orders:d.orders.map(o=>o.id===id?{...o,riderId:rider.id,status:'out_for_delivery'}:o)}));
-  const deliver=id=>setData(d=>({...d,orders:d.orders.map(o=>o.id===id?{...o,status:'delivered'}:o)}));
+  const [realOrders,setRealOrders]=useState([]);
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'orders'),snap=>{
+      setRealOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.createdAt?.seconds-a.createdAt?.seconds));
+    });
+    return()=>unsub();
+  },[]);
+  const my=realOrders.filter(o=>o.riderId===rider.id);
+  const avail=realOrders.filter(o=>o.status==='confirmed'&&!o.riderId);
+  const accept=async id=>{try{const {doc,updateDoc}=await import('firebase/firestore');await updateDoc(doc(db,'orders',id),{riderId:rider.id,status:'out_for_delivery'});}catch(e){console.log(e);}};
+  const deliver=async id=>{try{const {doc,updateDoc}=await import('firebase/firestore');await updateDoc(doc(db,'orders',id),{status:'delivered'});}catch(e){console.log(e);}};
   return(
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
       <SBar/>
@@ -2397,8 +2368,8 @@ export default function DailyBasket() {
     if(phase==='language') return <LanguageScreen user={user} onSelect={l=>{setLang(l);setPhase('app');}}/>;
     if(phase==='app') {
       if(portal==='customer') return <CustomerApp user={user} lang={lang} data={data} theme={theme} setTheme={setTheme}/>;
-      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>data.riders.find(r=>r.id===id&&r.pass===p&&r.active)||null} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}} hint="ID: RDR001 · Pass: Rider@001"/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}}/>);
-      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>data.shops.find(s=>s.id===id&&s.pass===p&&s.active)||null} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}} hint="ID: SHP001 · Pass: Shop@001"/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}}/>);
+      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>data.riders.find(r=>r.id===id&&r.pass===p&&r.active)||null} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}}/>);
+      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>data.shops.find(s=>s.id===id&&s.pass===p&&s.active)||null} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}}/>);
       if(portal==='admin') return <AdminPortal/>;
       if(portal==='help') return (
         <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
