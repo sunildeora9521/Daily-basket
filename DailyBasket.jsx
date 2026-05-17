@@ -966,6 +966,25 @@ const applyCoupon=async()=>{
 };
 const [showAddr, setShowAddr]=useState(false);
 const [address, setAddress]=useState(null);
+const [ckStep, setCkStep]=useState(1);
+const [savedAddr, setSavedAddr]=useState(null);
+const [adIdx, setAdIdx]=useState(0);
+const [adSlides]=useState([
+  {bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:'🌱 Eco Friendly',title:'Fresh Veggies Daily',sub:'Farm to doorstep · Bhopalgarh',btn:'Shop Now',act:()=>{}},
+  {bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:'💼 Advertise Here',title:'Grow Your Business',sub:'Daily Basket ke saath judo',btn:'Contact Us',act:()=>window.open('https://wa.me/916375565339?text=Ad%20posting%20ke%20liye%20interested%20hoon','_blank')},
+  {bg:'linear-gradient(135deg,#0D001A,#080012)',emoji:'🤝',chip:'🌐 Partnership',title:'Partner With Us',sub:'Local brands welcome · Bhopalgarh',btn:'Join Now',act:()=>window.open('https://wa.me/916375565339?text=Partnership%20mein%20interested%20hoon','_blank')},
+  {bg:'linear-gradient(135deg,#001A1A,#000E0E)',emoji:'🎁',chip:'⭐ Special Offer',title:'Refer & Earn',sub:'Dosto ko refer karo, ₹50 pao',btn:'Refer Now',act:()=>{}},
+  {bg:'linear-gradient(135deg,#0A0D1A,#060710)',emoji:'🥛',chip:'🌅 Daily Milk',title:'Milk Subscription',sub:'Fresh milk daily at your door',btn:'Subscribe',act:()=>{}},
+]);
+
+  useEffect(()=>{const iv=setInterval(()=>setAdIdx(i=>(i+1)%5),3000);return()=>clearInterval(iv);},[]);
+  useEffect(()=>{
+    if(auth.currentUser?.uid){
+      getDocs(collection(db,'users',auth.currentUser.uid,'addresses')).then(snap=>{
+        if(!snap.empty){const a=snap.docs[snap.docs.length-1].data();if(a.full)setSavedAddr(a.full);}
+      }).catch(()=>{});
+    }
+  },[]);
 
   useEffect(()=>{
     getDocs(collection(db,'coupons')).then(snap=>{
@@ -1044,7 +1063,7 @@ const place=async(addr)=>{
   const showFC  = cart.length>0&&navScrs.includes(scr)&&!shCart&&!track&&!selP;
 
   const renderScr=()=>{
-    if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addr=>{setAddress(addr);setShowAddr(false);place(addr);}} userId={auth.currentUser?.uid} payMethod={payMethod}/>;
+    if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addr=>{setAddress(addr);setShowAddr(false);setCkStep(3);}} userId={auth.currentUser?.uid} payMethod={payMethod}/>;
     if(shCart) return (
       <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
         <SBar/>
@@ -1147,7 +1166,49 @@ const place=async(addr)=>{
           }
         </div>
         {cart.length>0&&<div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
-  {/* Payment Method */}
+  {ckStep===1&&<>
+    {savedAddr&&<div onClick={()=>{setAddress(savedAddr);setCkStep(3);}} style={{padding:'10px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:'1.5px solid rgba(61,255,122,.3)',background:'rgba(61,255,122,.06)',display:'flex',alignItems:'center',gap:8}}>
+      <span style={{fontSize:16}}>📍</span>
+      <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,color:'var(--t3)'}}>Saved Address</div><div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{savedAddr}</div></div>
+      <span style={{fontSize:12,color:'#3DFF7A',fontWeight:700,flexShrink:0}}>Use →</span>
+    </div>}
+    <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>📍 Delivery Address set karo →</button>
+  </>}
+  {ckStep===3&&<>
+    <div style={{marginBottom:12}}>
+      {address&&<div style={{padding:'8px 12px',borderRadius:10,marginBottom:10,background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.2)',fontSize:12,color:'#3DFF7A'}}><span style={{fontWeight:700}}>📍 Delivery: </span>{address} <span onClick={()=>{setShowAddr(true);}} style={{color:'#D4AF37',cursor:'pointer',marginLeft:6}}>Change</span></div>}
+      <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>💳 Payment Method</div>
+      <div style={{display:'flex',gap:8}}>
+        <div onClick={()=>setPayMethod('cod')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='cod'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='cod'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+          <div style={{fontSize:16}}>💵</div><div style={{fontSize:11,fontWeight:600,color:payMethod==='cod'?'#3DFF7A':'var(--t3)'}}>Cash on Delivery</div>
+        </div>
+        <div onClick={()=>setPayMethod('upi')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='upi'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='upi'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+          <div style={{fontSize:16}}>📱</div><div style={{fontSize:11,fontWeight:600,color:payMethod==='upi'?'#3DFF7A':'var(--t3)'}}>UPI</div>
+        </div>
+      </div>
+    </div>
+    {payMethod==='upi'&&(
+      <div style={{background:'rgba(61,255,122,.05)',border:'1px solid rgba(61,255,122,.25)',borderRadius:14,padding:14,marginBottom:10,animation:'fadeUp .3s ease both'}}>
+        <div style={{fontSize:12,fontWeight:700,color:'#3DFF7A',marginBottom:10,textAlign:'center'}}>📱 UPI App se Pay karo</div>
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          {[{name:'GPay',pa:'9653895714@ybl',color:'#4285F4'},{name:'PhonePe',pa:'9653895714@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'9653895714@ybl',color:'#00B9F1'},{name:'BHIM',pa:'9653895714@ybl',color:'#FF6B35'}].map(app=>(
+            <button key={app.name} onClick={()=>{const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);window.location.href=`upi://pay?pa=${app.pa}&pn=Daily%20Basket&am=${amt}&cu=INR&tn=Grocery%20Order`;}} style={{flex:1,padding:'8px 2px',borderRadius:10,border:`1.5px solid ${app.color}55`,background:`${app.color}18`,color:app.color,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>{app.name}</button>
+          ))}
+        </div>
+        <div style={{textAlign:'center',marginBottom:6}}>
+          <div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>Ya QR scan karo:</div>
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=9653895714@ybl%26pn=Daily%20Basket%26am=${Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount)}%26cu=INR`} alt="UPI QR" style={{borderRadius:10,border:'2px solid rgba(61,255,122,.3)',width:140,height:140}}/>
+        </div>
+        <div style={{fontSize:11,color:'var(--t3)',textAlign:'center',marginTop:4}}>⬆️ Pay karke niche "Place Order" dabaao</div>
+      </div>
+    )}
+    {points>=100&&<div onClick={()=>setUsePoints(u=>!u)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:`1.5px solid ${usePoints?'rgba(212,175,55,.5)':'rgba(212,175,55,.15)'}`,background:usePoints?'rgba(212,175,55,.08)':'rgba(212,175,55,.03)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:18}}>🪙</span><div><div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>{points} Points available</div><div style={{fontSize:10,color:'var(--t3)'}}>Use to save ₹{Math.floor(points/10)}</div></div></div>
+      <div style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${usePoints?'#D4AF37':'rgba(212,175,55,.3)'}`,background:usePoints?'#D4AF37':'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#0A0800',fontWeight:800}}>{usePoints?'✓':''}</div>
+    </div>}
+    <button className="btn rip" onClick={()=>place(address)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
+  </>}
+  </div>}
   <div style={{marginBottom:12}}>
     <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:8}}>💳 Payment Method</div>
     <div style={{display:'flex',gap:8}}>
@@ -1268,16 +1329,19 @@ const place=async(addr)=>{
             <div onClick={()=>setScr('combos')} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18}}>🧺</div>
           </div>
         </div>
-        {/* Banner */}
+        {/* Ad Slider */}
         <div style={{margin:'0 20px 20px'}}>
-          <div className="gc" style={{background:'linear-gradient(135deg,#0D2010,#0A180A)',padding:20,position:'relative',overflow:'hidden',minHeight:136,animation:'glowPulse 3s ease-in-out infinite'}}>
-            <div style={{position:'absolute',right:-10,top:0,bottom:0,fontSize:88,display:'flex',alignItems:'center',opacity:.4}}>🥦</div>
+          <div className="gc" style={{background:adSlides[adIdx].bg,padding:20,position:'relative',overflow:'hidden',minHeight:136,transition:'background .5s ease'}}>
+            <div style={{position:'absolute',right:-10,top:0,bottom:0,fontSize:88,display:'flex',alignItems:'center',opacity:.35,transition:'all .5s'}}>{adSlides[adIdx].emoji}</div>
             <div style={{position:'relative',zIndex:1}}>
-              <div className="chip" style={{marginBottom:10}}>🌱 {t.ecoFriendly}</div>
-              <div style={{fontSize:18,fontWeight:800,lineHeight:1.3,maxWidth:200,fontFamily:fam,whiteSpace:'pre-line'}}>{t.freshVeggies}</div>
-              <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{t.byShopping}</div>
-              <button className="btn rip" onClick={()=>setCatF('veg')} style={{marginTop:12,padding:'9px 20px',fontSize:13,fontFamily:fam}}>{t.shopNow}</button>
+              <div className="chip" style={{marginBottom:10}}>{adSlides[adIdx].chip}</div>
+              <div style={{fontSize:18,fontWeight:800,lineHeight:1.3,maxWidth:200,fontFamily:fam}}>{adSlides[adIdx].title}</div>
+              <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{adSlides[adIdx].sub}</div>
+              <button className="btn rip" onClick={adSlides[adIdx].act} style={{marginTop:12,padding:'9px 20px',fontSize:13,fontFamily:fam}}>{adSlides[adIdx].btn}</button>
             </div>
+          </div>
+          <div style={{display:'flex',justifyContent:'center',gap:5,marginTop:8}}>
+            {adSlides.map((_,i)=><div key={i} onClick={()=>setAdIdx(i)} style={{width:i===adIdx?20:6,height:6,borderRadius:3,background:i===adIdx?'#3DFF7A':'rgba(61,255,122,.25)',cursor:'pointer',transition:'all .3s'}}/>)}
           </div>
         </div>
         {/* Search Bar */}
@@ -2357,7 +2421,8 @@ export default function DailyBasket() {
     return null;
   };
 
-  const isApp = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const isApp=isMobile||window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
   return isApp ? (
 <div style={{width:'100vw',height:'100vh',background:'var(--bg)',fontFamily:"'Outfit',sans-serif",position:'relative',overflow:'hidden',paddingTop:'env(safe-area-inset-top,0px)',paddingBottom:'env(safe-area-inset-bottom,0px)',boxSizing:'border-box'}}>
       <style>{CSS}</style>
