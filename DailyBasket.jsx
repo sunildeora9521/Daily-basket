@@ -1258,7 +1258,7 @@ const place=async(addr)=>{
         <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
          <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
   <iframe
-    src="https://www.openstreetmap.org/export/embed.html?bbox=73.38,26.27,73.48,26.37&layer=mapnik&marker=26.32,73.43"
+    src={`https://www.openstreetmap.org/export/embed.html?bbox=73.410,26.308,73.450,26.332&layer=mapnik&marker=26.319,73.431`}
     style={{width:'100%',height:'100%',border:'none'}}
     title="Live Tracking Map"
   />
