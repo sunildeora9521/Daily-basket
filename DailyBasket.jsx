@@ -311,8 +311,7 @@ const SBar = () => {
   const sa = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
   return sa
     ? <div style={{height:'env(safe-area-inset-top,44px)',minHeight:0,flexShrink:0,background:'var(--bg)'}}/>
-    : <div className="sbar"><span>9:41</span><div style={{display:'flex',gap:5,alignItems:'center'}}><span>●●●</span><span>WiFi</span><span>⚡</span></div></div>;
-};
+    : const SBar = () => <div style={{height:44,flexShrink:0}}/>;
 const BBtn = ({onClick}) => <div onClick={onClick} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ic n="back" s={18} c="#8A9A8A"/></div>;
 const Tog = ({on,onClick}) => <div className={`tog ${on?'on':''}`} onClick={onClick}/>;
 
@@ -486,9 +485,18 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
         <div><div style={{fontSize:18,fontWeight:800}}>🗺️ Delivery Address</div><div style={{fontSize:12,color:'var(--t3)'}}>Where should we deliver?</div></div>
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 100px'}}>
-        <button onClick={getGPS} disabled={gpsLoading} style={{width:'100%',padding:'14px',borderRadius:14,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:14,cursor:'pointer',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+        <button onClick={getGPS} disabled={gpsLoading} style={{width:'100%',padding:'14px',borderRadius:14,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:14,cursor:'pointer',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
           {gpsLoading?'📡 Getting location...':'📍 Use Current Location (GPS)'}
         </button>
+
+        {/* Manual Address Input */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>📝 Manual Address</div>
+          <input className="dbi" placeholder="🏠 Flat / House No / Building" value={flat} onChange={e=>setFlat(e.target.value)} style={{marginBottom:10}}/>
+          <input className="dbi" placeholder="📍 Area / Mohalla / Colony" value={area} onChange={e=>setArea(e.target.value)} style={{marginBottom:10}}/>
+          <input className="dbi" placeholder="🏙️ City" value={city} onChange={e=>setCity(e.target.value)}/>
+        </div>
+
         <div style={{marginBottom:16}}>
           <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>Address Type</div>
           <div style={{display:'flex',gap:8}}>
@@ -1161,7 +1169,7 @@ const place=async(addr)=>{
     <div style={{background:'rgba(61,255,122,.05)',border:'1px solid rgba(61,255,122,.25)',borderRadius:14,padding:14,marginBottom:10,animation:'fadeUp .3s ease both'}}>
       <div style={{fontSize:12,fontWeight:700,color:'#3DFF7A',marginBottom:10,textAlign:'center'}}>📱 UPI App se Pay karo</div>
       <div style={{display:'flex',gap:8,marginBottom:12}}>
-        {[{name:'GPay',pa:'dailybasket@oksbi',color:'#4285F4'},{name:'PhonePe',pa:'dailybasket@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'dailybasket@paytm',color:'#00B9F1'},{name:'BHIM',pa:'dailybasket@upi',color:'#FF6B35'}].map(app=>(
+        {[{name:'GPay',pa:'9653895714@ybl',color:'#4285F4'},{name:'PhonePe',pa:'9653895714@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'9653895714@ybl',color:'#00B9F1'},{name:'BHIM',pa:'9653895714@ybl',color:'#FF6B35'}].map(app=>(
           <button key={app.name} onClick={()=>{const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);window.location.href=`upi://pay?pa=${app.pa}&pn=Daily%20Basket&am=${amt}&cu=INR&tn=Grocery%20Order`;}} style={{flex:1,padding:'8px 2px',borderRadius:10,border:`1.5px solid ${app.color}55`,background:`${app.color}18`,color:app.color,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>
             {app.name}
           </button>
@@ -1257,17 +1265,12 @@ const place=async(addr)=>{
         <div style={{padding:'4px 20px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div><div style={{fontSize:13,color:'var(--t3)',fontWeight:500}}>{t.goodMorning}, {user&&user.name&&user.name.split(' ')[0]}!</div><div style={{fontSize:22,fontWeight:800}}>Daily Basket</div></div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            {/* Theme switcher button */}
-            <div onClick={()=>setThemeOpen(true)} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18,transition:'all .2s',boxShadow:theme!=='eco'?'0 0 12px var(--shadow)':'none'}}>
-              {THEMES[theme].icon}
+            <div onClick={()=>setShNotif(n=>!n)} style={{width:40,height:40,borderRadius:12,background:shNotif?'rgba(61,255,122,.15)':'var(--glass)',backdropFilter:'blur(10px)',border:`1px solid ${shNotif?'rgba(61,255,122,.5)':'var(--gb)'}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',transition:'all .2s'}}>
+              <Ic n="bell" s={18} c={shNotif?'#3DFF7A':'var(--t3)'}/>
+              <span style={{position:'absolute',top:7,right:7,width:9,height:9,borderRadius:'50%',background:'#3DFF7A',border:'2px solid var(--bg)',animation:'statusP 1.5s infinite'}}/>
             </div>
             <div onClick={()=>setScr('combos')} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18}}>🧺</div>
-            <div onClick={()=>setShNotif(n=>!n)} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
-              <Ic n="bell" s={18} c="var(--t3)"/>
-              <span style={{position:'absolute',top:8,right:8,width:8,height:8,borderRadius:'50%',background:'var(--green)',border:'2px solid var(--bg)'}}/>
-            </div>
           </div>
-          {themeOpen&&<ThemePicker theme={theme} setTheme={setTheme} onClose={()=>setThemeOpen(false)} isHi={isHi}/>}
         </div>
         {/* Banner */}
         <div style={{margin:'0 20px 20px'}}>
@@ -1578,7 +1581,12 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
                   <div style={{fontSize:11,color:'var(--t3)'}}>💳 {o.payMethod==='cod'?'Cash on Delivery':'UPI'}</div>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
-                    {onReorder&&o.items?.length>0&&<button className="btn rip" onClick={()=>onReorder(o.items)} style={{padding:'6px 14px',fontSize:12,borderRadius:50}}>🔁 Reorder</button>}
+                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                      {onReorder&&o.items?.length>0&&<button className="btn rip" onClick={()=>onReorder(o.items)} style={{padding:'6px 14px',fontSize:12,borderRadius:50}}>🔁 Reorder</button>}
+                      <button onClick={()=>window.open(`https://wa.me/916375565339?text=Hello%20Daily%20Basket!%20Mujhe%20mere%20order%20${o.id||''}%20mein%20help%20chahiye.%20Total%3A%20%E2%82%B9${o.total}%20%7C%20Date%3A%20${o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString('en-IN'):'Recent'}`,'_blank')} style={{padding:'6px 12px',fontSize:12,borderRadius:50,background:'#25D366',color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontFamily:"'Outfit',sans-serif",display:'flex',alignItems:'center',gap:4}}>
+                        <span>💬</span><span>Help</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
