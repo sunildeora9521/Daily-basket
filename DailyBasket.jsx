@@ -307,11 +307,7 @@ const Ic = ({n,s=20,c='currentColor'}) => {
   return M[n]||null;
 };
 
-const SBar = () => {
-  const sa = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  return sa
-    ? <div style={{height:'env(safe-area-inset-top,44px)',minHeight:0,flexShrink:0,background:'var(--bg)'}}/>
-    : const SBar = () => <div style={{height:44,flexShrink:0}}/>;
+const SBar = () => <div style={{height:44,flexShrink:0}}/>;
 const BBtn = ({onClick}) => <div onClick={onClick} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ic n="back" s={18} c="#8A9A8A"/></div>;
 const Tog = ({on,onClick}) => <div className={`tog ${on?'on':''}`} onClick={onClick}/>;
 
