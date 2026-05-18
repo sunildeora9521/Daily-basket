@@ -1262,7 +1262,7 @@ const place=async(addr)=>{
         <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
          <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
   <iframe
-    src={`https://www.openstreetmap.org/export/embed.html?bbox=73.410,26.308,73.450,26.332&layer=mapnik&marker=26.319,73.431`}
+    src="https://maps.google.com/maps?q=Bhopalgarh,Rajasthan,India&z=14&output=embed"
     style={{width:'100%',height:'100%',border:'none'}}
     title="Live Tracking Map"
   />
@@ -1816,7 +1816,7 @@ function RiderApp({rider,data,setData,onBack}) {
               {o.status==='out_for_delivery'&&<>
                 <div style={{height:160,borderRadius:14,overflow:'hidden',marginBottom:8,border:'1px solid rgba(61,255,122,.2)'}}>
                   <iframe
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=73.38,26.27,73.48,26.37&layer=mapnik&marker=26.32,73.43`}
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(o.address||'Bhopalgarh,Rajasthan')}&z=14&output=embed`}
                     style={{width:'100%',height:'100%',border:'none'}}
                     title="Delivery Location"
                   />
@@ -2527,10 +2527,7 @@ export default function DailyBasket() {
     setPortal(id);
   }
 };
-  const AdminPortal = () => {
-    if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}} hint={null}/>;
-   return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}}/>;;
-  };
+  
   const renderContent = () => {
     if(phase==='splash') return <Splash onDone={()=>setPhase('login')} onCapSelect={handleCapSelect}/>;
     if(phase==='login')  return <CustomerLogin onLogin={u=>{setUser(u);setPhase('location');}}/>;
@@ -2540,11 +2537,11 @@ export default function DailyBasket() {
       if(portal==='customer') return <CustomerApp user={user} lang={lang} data={data} theme={theme} setTheme={setTheme}/>;
       if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>data.riders.find(r=>r.id===id&&r.pass===p&&r.active)||null} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}}/>);
       if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>data.shops.find(s=>s.id===id&&s.pass===p&&s.active)||null} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}}/>);
-      if(portal==='admin') return <AdminPortal/>;
+      if(portal==='admin') { if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}} hint={null}/>; return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}}/>; }
       if(portal==='help') return (
         <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
           <SBar/>
-          <div style={{padding:'4px 20px 14px',display:'flex',alignItems:'center',gap:12}}><BBtn onClick={()=>setPortal('customer')}/><span style={{fontSize:17,fontWeight:800}}>How to Use 📖</span></div>
+          <div style={{padding:'4px 20px 14px',display:'flex',alignItems:'center',gap:12}}><BBtn onClick={()=>{setPortal('customer');if(!user)setPhase('splash');}}/><span style={{fontSize:17,fontWeight:800}}>How to Use 📖</span></div>
           <div className="scr" style={{position:'relative',padding:'0 20px 30px'}}>
             <div style={{fontSize:13,color:'var(--t3)',marginBottom:18}}>New to Daily Basket? Follow these steps.</div>
             {[{icon:'📱',title:'Open Daily Basket',body:"You're on the Customer home screen by default."},{icon:'🛒',title:'Browse & Add Items',body:'Browse veggies, fruits, milk and food. Tap + to add.'},{icon:'🧺',title:'View Basket',body:'A floating cart bar appears. Tap it to checkout.'},{icon:'✅',title:'Place Order',body:'Confirm and tap "Place Order".'},{icon:'🚴',title:'Track Delivery',body:'Watch: Confirmed → Packed → On the way → Delivered!'},{icon:'🌱',title:'Eco Points',body:'Every order earns Green Points & saves plastic.'}].map((s,i)=>(
