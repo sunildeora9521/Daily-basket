@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { auth, db, messaging, requestNotificationPermission, onMessage } from "./firebase";
 import { collection, addDoc, getDocs, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
@@ -70,7 +70,7 @@ body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflo
 .tog.on{background:linear-gradient(135deg,#3DFF7A,#00C44F);}.tog.on::after{left:25px;box-shadow:0 0 8px rgba(61,255,122,.5);}
 .tog:not(.on){background:rgba(255,255,255,.12);}.tog:not(.on)::after{left:3px;}
 .ovl{position:absolute;inset:0;background:rgba(0,0,0,.75);z-index:300;animation:overlayI .25s ease;display:flex;align-items:flex-end;}
-.modal{width:100%;background:linear-gradient(180deg,#0E160E,#070907);border-radius:28px 28px 0 0;border-top:1px solid rgba(61,255,122,.15);padding:22px 20px 44px;animation:modalUp .32s cubic-bezier(.34,1.2,.64,1) both;max-height:88vh;overflow-y:auto;}
+.modal{width:100%;background:linear-gradient(180deg,#0E160E,#070907);border-radius:28px 28px 0 0;border-top:1px solid rgba(61,255,122,.15);padding:22px 20px 60px;animation:modalUp .32s cubic-bezier(.34,1.2,.64,1) both;max-height:92vh;overflow-y:auto;overscroll-behavior:contain;}
 `;
 
 
@@ -1944,7 +1944,11 @@ function ShopApp({shop,data,setData,onBack}) {
   );
 }
 
-function AdminModal({children,onClose}){return <div className="ovl" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>{children}</div></div>;}
+function AdminModal({children,onClose}){
+  const ref=React.useRef();
+  React.useEffect(()=>{if(ref.current)ref.current.scrollTop=0;},[]);
+  return <div className="ovl" onClick={onClose} style={{alignItems:'flex-end'}}><div className="modal" ref={ref} onClick={e=>e.stopPropagation()}>{children}</div></div>;
+}
 function AdminApp({data,setData,onBack}) {
   const [tab,setTab]=useState('dash');
   const [pcTab,setPcTab]=useState('veg');
