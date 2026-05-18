@@ -935,6 +935,7 @@ const [couponMsg, setCouponMsg]=useState('');
 const [dbCoupons, setDbCoupons]=useState([]);
 const [dbNotifs, setDbNotifs]=useState([]);
 const [upiConfirmed, setUpiConfirmed]=useState(false);
+const [upiInitiated, setUpiInitiated]=useState('idle');
 const [showCouponPicker, setShowCouponPicker]=useState(false);
 const [points, setPoints]=useState(312);
 const [usePoints, setUsePoints]=useState(false);
@@ -1202,7 +1203,7 @@ const place=async(addr)=>{
         <div style={{fontSize:12,fontWeight:700,color:'#3DFF7A',marginBottom:10,textAlign:'center'}}>📱 UPI App se Pay karo</div>
         <div style={{display:'flex',gap:8,marginBottom:12}}>
           {[{name:'GPay',pa:'9653895714@ybl',color:'#4285F4'},{name:'PhonePe',pa:'9653895714@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'9653895714@ybl',color:'#00B9F1'},{name:'BHIM',pa:'9653895714@ybl',color:'#FF6B35'}].map(app=>(
-            <button key={app.name} onClick={()=>{const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);window.location.href=`upi://pay?pa=${app.pa}&pn=Daily%20Basket&am=${amt}&cu=INR&tn=Grocery%20Order`;}} style={{flex:1,padding:'8px 2px',borderRadius:10,border:`1.5px solid ${app.color}55`,background:`${app.color}18`,color:app.color,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>{app.name}</button>
+            <button key={app.name} onClick={()=>{const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);setUpiInitiated('waiting');setUpiConfirmed(false);const handler=()=>{if(document.visibilityState==='visible'){setUpiInitiated('returned');document.removeEventListener('visibilitychange',handler);}};document.addEventListener('visibilitychange',handler);setTimeout(()=>window.open(`upi://pay?pa=${app.pa}&pn=Daily%20Basket&am=${amt}&cu=INR&tn=Grocery%20Order`,'_blank'),100);}} style={{flex:1,padding:'8px 2px',borderRadius:10,border:`1.5px solid ${app.color}55`,background:`${app.color}18`,color:app.color,fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>{app.name}</button>
           ))}
         </div>
         <div style={{textAlign:'center',marginBottom:6}}>
@@ -1216,16 +1217,39 @@ const place=async(addr)=>{
       <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:18}}>🪙</span><div><div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>{points} Points available</div><div style={{fontSize:10,color:'var(--t3)'}}>Use to save ₹{Math.floor(points/10)}</div></div></div>
       <div style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${usePoints?'#D4AF37':'rgba(212,175,55,.3)'}`,background:usePoints?'#D4AF37':'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#0A0800',fontWeight:800}}>{usePoints?'✓':''}</div>
     </div>}
-    {payMethod==='upi'&&<div onClick={()=>setUpiConfirmed(u=>!u)} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:`1.5px solid ${upiConfirmed?'rgba(61,255,122,.6)':'rgba(61,255,122,.2)'}`,background:upiConfirmed?'rgba(61,255,122,.10)':'rgba(61,255,122,.03)',transition:'all .2s'}}>
-      <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${upiConfirmed?'#3DFF7A':'rgba(61,255,122,.4)'}`,background:upiConfirmed?'#3DFF7A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .2s'}}>
-        {upiConfirmed&&<svg width={12} height={12} fill="none" stroke="#0A1A0A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>}
+{payMethod==='upi'&&(
+      <div style={{marginBottom:10,animation:'fadeUp .3s ease both'}}>
+        {upiConfirmed?(
+          <div style={{background:'rgba(61,255,122,.1)',border:'1.5px solid rgba(61,255,122,.5)',borderRadius:14,padding:'14px',textAlign:'center'}}>
+            <div style={{fontSize:22,marginBottom:6}}>✅</div>
+            <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>Payment Confirmed!</div>
+            <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Ab "Place Order" dabao</div>
+          </div>
+        ):upiInitiated==='returned'?(
+          <div style={{background:'rgba(212,175,55,.08)',border:'1.5px solid rgba(212,175,55,.4)',borderRadius:14,padding:'16px',animation:'scaleIn .3s cubic-bezier(.34,1.56,.64,1) both'}}>
+            <div style={{fontSize:14,fontWeight:700,color:'#D4AF37',marginBottom:4,textAlign:'center'}}>📱 Payment ho gayi kya?</div>
+            <div style={{fontSize:11,color:'var(--t3)',textAlign:'center',marginBottom:14}}>UPI app se payment complete karne ke baad confirm karo</div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>setUpiConfirmed(true)} style={{flex:2,padding:'12px',borderRadius:12,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontWeight:800,fontSize:14,border:'none',cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>✅ Haan, Pay Ho Gayi!</button>
+              <button onClick={()=>{setUpiInitiated('idle');setUpiConfirmed(false);}} style={{flex:1,padding:'12px',borderRadius:12,background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.25)',color:'#FF6B6B',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>❌ Nahi</button>
+            </div>
+          </div>
+        ):upiInitiated==='waiting'?(
+          <div style={{background:'rgba(61,255,122,.04)',border:'1px solid rgba(61,255,122,.15)',borderRadius:14,padding:'14px',textAlign:'center'}}>
+            <div style={{width:28,height:28,border:'3px solid rgba(61,255,122,.3)',borderTopColor:'#3DFF7A',borderRadius:'50%',animation:'spin .8s linear infinite',margin:'0 auto 10px'}}/>
+            <div style={{fontSize:13,fontWeight:600,color:'#3DFF7A'}}>UPI App mein payment karo...</div>
+            <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Payment ke baad wapas aao — auto detect karega</div>
+            <div onClick={()=>setUpiInitiated('returned')} style={{marginTop:10,fontSize:11,color:'#D4AF37',cursor:'pointer',fontWeight:600}}>Payment kar li? Yahan tap karo →</div>
+          </div>
+        ):(
+          <div style={{background:'rgba(255,255,255,.02)',border:'1px dashed rgba(61,255,122,.15)',borderRadius:14,padding:'12px',textAlign:'center'}}>
+            <div style={{fontSize:11,color:'var(--t3)'}}>⬆️ Upar GPay / PhonePe / Paytm se pay karo</div>
+            <div style={{fontSize:10,color:'var(--t3)',marginTop:4,opacity:.7}}>Payment ke baad automatic confirm popup aayega</div>
+          </div>
+        )}
       </div>
-      <div style={{flex:1}}>
-        <div style={{fontSize:13,fontWeight:700,color:upiConfirmed?'#3DFF7A':'var(--t)'}}>✅ Maine UPI se payment kar di</div>
-        <div style={{fontSize:11,color:'var(--t3)'}}>Tap to confirm you have paid</div>
-      </div>
-    </div>}
-    <button className="btn rip" onClick={()=>{if(payMethod==='upi'&&!upiConfirmed){alert('⚠️ Pehle UPI se payment karo, phir ✅ confirm karo!');return;}place(address);setUpiConfirmed(false);}} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,opacity:payMethod==='upi'&&!upiConfirmed?0.45:1,transition:'opacity .2s'}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
+    )}
+    <button className="btn rip" onClick={()=>{if(payMethod==='upi'&&!upiConfirmed){alert('⚠️ Pehle UPI se payment karke confirm karo!');return;}place(address);setUpiConfirmed(false);setUpiInitiated('idle');}} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,opacity:payMethod==='upi'&&!upiConfirmed?0.5:1,transition:'opacity .2s'}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
   </>}
   </div>}
 </div>
