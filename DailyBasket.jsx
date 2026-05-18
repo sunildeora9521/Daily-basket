@@ -70,7 +70,7 @@ body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflo
 .tog.on{background:linear-gradient(135deg,#3DFF7A,#00C44F);}.tog.on::after{left:25px;box-shadow:0 0 8px rgba(61,255,122,.5);}
 .tog:not(.on){background:rgba(255,255,255,.12);}.tog:not(.on)::after{left:3px;}
 .ovl{position:absolute;inset:0;background:rgba(0,0,0,.75);z-index:300;animation:overlayI .25s ease;display:flex;align-items:flex-end;}
-.modal{width:100%;background:linear-gradient(180deg,#0E160E,#070907);border-radius:28px 28px 0 0;border-top:1px solid rgba(61,255,122,.15);padding:22px 20px 44px;animation:modalUp .32s cubic-bezier(.34,1.2,.64,1) both;}
+.modal{width:100%;background:linear-gradient(180deg,#0E160E,#070907);border-radius:28px 28px 0 0;border-top:1px solid rgba(61,255,122,.15);padding:22px 20px 44px;animation:modalUp .32s cubic-bezier(.34,1.2,.64,1) both;max-height:88vh;overflow-y:auto;}
 `;
 
 
@@ -242,6 +242,7 @@ const T = {
   }
 };
 
+
 /* ═══════════ DATA ═══════════ */
 const ADMIN_ID = 'Sunil14581';
 const ADMIN_PASS = 'Sunil@$14581';
@@ -264,10 +265,7 @@ const mkData = () => ({
     {id:14,name:'Veg Biryani',nameHi:'वेज बिरयानी',price:149,unit:'1 plate',emoji:'🍛',cat:'food',stock:50,tag:'Hot',tagHi:'गरम',active:true},
     {id:15,name:'Dal Makhani',nameHi:'दाल मखनी', price:99, unit:'1 bowl',emoji:'🥘',cat:'food',stock:40,tag:"Chef's",tagHi:'शेफ',active:true},
   ],
-  riders:[
-    {id:'RDR001',name:'Ramesh Kumar',phone:'9876540001',pass:'Rider@001',active:true,online:false,totalOrders:47,totalEarnings:8450,todayEarnings:280,todayOrders:3,rating:4.9},
-    {id:'RDR002',name:'Suresh Meena',phone:'9876540002',pass:'Rider@002',active:true,online:true, totalOrders:32,totalEarnings:5800,todayEarnings:150,todayOrders:2,rating:4.7},
-  ],
+  riders:[],
   shops:[
     {id:'SHP001',name:'Green Leaf Kitchen',owner:'Ravi Sharma', phone:'9876541001',pass:'Shop@001',active:true,cuisine:'Healthy Food',totalOrders:124,totalRevenue:45600,todayOrders:8,todayRevenue:2800},
     {id:'SHP002',name:'Spice Garden',      owner:'Mohit Patel', phone:'9876541002',pass:'Shop@002',active:true,cuisine:'Indian Food', totalOrders:89, totalRevenue:32400,todayOrders:5,todayRevenue:1850},
@@ -392,7 +390,7 @@ function Splash({onDone, onCapSelect}) {
       </div>
 
       {/* ── SIMPLE BASKET ── */}
-      <div style={{marginBottom:36,animation:'floatY 3s ease-in-out infinite'}}>
+        <div style={{marginBottom:36,animation:'floatY 3s ease-in-out infinite'}}>
         <div style={{width:150,height:150,borderRadius:'50%',background:'linear-gradient(135deg,#1A4A1A,#0A2A0A)',border:'3px solid rgba(61,255,122,.45)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto',boxShadow:'0 0 60px rgba(61,255,122,.45),0 0 120px rgba(61,255,122,.15)',animation:'glowPulse 2.5s ease-in-out infinite'}}>
           <div style={{fontSize:82,lineHeight:1}}>🧺</div>
         </div>
@@ -618,7 +616,7 @@ function CustomerLogin({onLogin}) {
   };
 
   return (
-    <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 40% 20%,#0C1C0C,#070907)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 40% 20%,#0C1C0C,#070907)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <SBar/>
       <div style={{flex:1,overflow:'auto',scrollbarWidth:'none',padding:'10px 28px 40px'}}>
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'20px 0 30px',animation:'fadeUp .6s ease both'}}>
@@ -935,6 +933,8 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
 const [discount, setDiscount]=useState(0);
 const [couponMsg, setCouponMsg]=useState('');
 const [dbCoupons, setDbCoupons]=useState([]);
+const [dbNotifs, setDbNotifs]=useState([]);
+const [upiConfirmed, setUpiConfirmed]=useState(false);
 const [showCouponPicker, setShowCouponPicker]=useState(false);
 const [points, setPoints]=useState(312);
 const [usePoints, setUsePoints]=useState(false);
@@ -990,6 +990,16 @@ const [adSlides]=useState([
     getDocs(collection(db,'coupons')).then(snap=>{
       setDbCoupons(snap.docs.map(d=>({id:d.id,...d.data()})));
     }).catch(()=>{});
+  },[]);
+
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'notifications'),snap=>{
+      const notifs=snap.docs.map(d=>({id:d.id,...d.data()}))
+        .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))
+        .slice(0,20);
+      setDbNotifs(notifs);
+    });
+    return()=>unsub();
   },[]);
 
   useEffect(()=>{
@@ -1113,7 +1123,7 @@ const place=async(addr)=>{
             ))}
           </div>
         </div>
-      )}
+         )}
       <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.14)',borderRadius:14,padding:'12px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
         <Ic n="truck" s={16} c="#3DFF7A"/>
         <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`${t.addFreeDelivery}${299-sub}${t.forFreeDelivery}`}</div>
@@ -1206,7 +1216,16 @@ const place=async(addr)=>{
       <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:18}}>🪙</span><div><div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>{points} Points available</div><div style={{fontSize:10,color:'var(--t3)'}}>Use to save ₹{Math.floor(points/10)}</div></div></div>
       <div style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${usePoints?'#D4AF37':'rgba(212,175,55,.3)'}`,background:usePoints?'#D4AF37':'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#0A0800',fontWeight:800}}>{usePoints?'✓':''}</div>
     </div>}
-    <button className="btn rip" onClick={()=>place(address)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
+    {payMethod==='upi'&&<div onClick={()=>setUpiConfirmed(u=>!u)} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:`1.5px solid ${upiConfirmed?'rgba(61,255,122,.6)':'rgba(61,255,122,.2)'}`,background:upiConfirmed?'rgba(61,255,122,.10)':'rgba(61,255,122,.03)',transition:'all .2s'}}>
+      <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${upiConfirmed?'#3DFF7A':'rgba(61,255,122,.4)'}`,background:upiConfirmed?'#3DFF7A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .2s'}}>
+        {upiConfirmed&&<svg width={12} height={12} fill="none" stroke="#0A1A0A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>}
+      </div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:13,fontWeight:700,color:upiConfirmed?'#3DFF7A':'var(--t)'}}>✅ Maine UPI se payment kar di</div>
+        <div style={{fontSize:11,color:'var(--t3)'}}>Tap to confirm you have paid</div>
+      </div>
+    </div>}
+    <button className="btn rip" onClick={()=>{if(payMethod==='upi'&&!upiConfirmed){alert('⚠️ Pehle UPI se payment karo, phir ✅ confirm karo!');return;}place(address);setUpiConfirmed(false);}} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,opacity:payMethod==='upi'&&!upiConfirmed?0.45:1,transition:'opacity .2s'}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
   </>}
   </div>}
 </div>
@@ -1285,8 +1304,9 @@ const place=async(addr)=>{
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
             <div onClick={()=>setShNotif(n=>!n)} style={{width:40,height:40,borderRadius:12,background:shNotif?'rgba(61,255,122,.15)':'var(--glass)',backdropFilter:'blur(10px)',border:`1px solid ${shNotif?'rgba(61,255,122,.5)':'var(--gb)'}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',transition:'all .2s'}}>
               <Ic n="bell" s={18} c={shNotif?'#3DFF7A':'var(--t3)'}/>
-              <span style={{position:'absolute',top:7,right:7,width:9,height:9,borderRadius:'50%',background:'#3DFF7A',border:'2px solid var(--bg)',animation:'statusP 1.5s infinite'}}/>
+              {dbNotifs.filter(n=>!n.read).length>0&&<span style={{position:'absolute',top:5,right:5,width:9,height:9,borderRadius:'50%',background:'#FF6B6B',border:'2px solid var(--bg)'}}/>}
             </div>
+            <div onClick={()=>setThemeOpen(t=>!t)} style={{width:40,height:40,borderRadius:12,background:themeOpen?'rgba(61,255,122,.15)':'var(--glass)',backdropFilter:'blur(10px)',border:`1px solid ${themeOpen?'rgba(61,255,122,.5)':'var(--gb)'}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18,transition:'all .2s'}}>🎨</div>
             <div onClick={()=>setScr('combos')} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18}}>🧺</div>
           </div>
         </div>
@@ -1366,6 +1386,25 @@ const place=async(addr)=>{
   return (
     <div style={{position:'absolute',inset:0}}>
       <div className="scr">{renderScr()}</div>
+      {themeOpen&&<ThemePicker theme={theme} setTheme={setTheme} onClose={()=>setThemeOpen(false)} isHi={isHi}/>}
+      {shNotif&&<div className="ovl" onClick={()=>setShNotif(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div style={{fontSize:18,fontWeight:800}}>{isHi?'🔔 सूचनाएं':'🔔 Notifications'}</div>
+            <div onClick={()=>setShNotif(false)} style={{width:32,height:32,borderRadius:10,background:'var(--glass)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:16}}>✕</div>
+          </div>
+          {dbNotifs.length===0
+            ?<div style={{textAlign:'center',padding:'30px 0'}}><div style={{fontSize:48}}>🔔</div><div style={{fontSize:14,color:'var(--t3)',marginTop:10}}>{isHi?'अभी कोई सूचना नहीं':'No notifications yet'}</div></div>
+            :dbNotifs.map((n,i)=>(
+              <div key={n.id} style={{padding:'12px 14px',borderRadius:14,marginBottom:8,background:n.read?'rgba(255,255,255,.02)':'rgba(61,255,122,.06)',border:`1px solid ${n.read?'rgba(255,255,255,.05)':'rgba(61,255,122,.2)'}`,animation:`fadeUp .3s ease ${i*.05}s both`}}>
+                <div style={{fontSize:14,fontWeight:n.read?600:800,marginBottom:3}}>{n.title||'📢 Update'}</div>
+                <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.5}}>{n.body||n.message||''}</div>
+                {n.createdAt?.seconds&&<div style={{fontSize:10,color:'var(--t3)',marginTop:5}}>{new Date(n.createdAt.seconds*1000).toLocaleString('en-IN')}</div>}
+              </div>
+            ))
+          }
+        </div>
+      </div>}
       {showNav&&(
         <div className="bnav">
           {[{id:'home',n:'home',l:t.home},{id:'combos',n:'grid',l:t.combos},{id:'food',n:'food',l:t.food},{id:'eco',n:'leaf',l:t.eco},{id:'profile',n:'user',l:t.profile}].map(it=>(
@@ -1514,7 +1553,7 @@ function FoodScr({t,fam,isHi}) {
       </div>
     </div>
   );
-}
+  }
 
 function EcoScr({t,fam,isHi}) {
   const stats=[{v:'2.45 kg',l:t.plasticSaved,i:'♻️',c:'#3DFF7A'},{v:'1.8 kg',l:isHi?'CO₂ कम किया':'CO₂ Reduced',i:'🌿',c:'#00C44F'},{v:'49',l:isHi?'बैग बदले':'Bags Replaced',i:'🛍️',c:'#D4AF37'},{v:'0.3',l:isHi?'पेड़ फंड किए':'Trees Funded',i:'🌳',c:'#2ECC60'}];
@@ -1736,7 +1775,7 @@ function RiderApp({rider,data,setData,onBack}) {
                 <span style={{fontSize:11,color:'#D4AF37',fontWeight:600}}>💰 ₹{40+Math.floor(2.4*5)} earn</span>
                 {o.address&&<a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noreferrer" style={{marginLeft:'auto',fontSize:11,color:'#3DFF7A',fontWeight:600,textDecoration:'none'}}>🗺️ Map →</a>}
               </div>
-              <div style={{display:'flex',gap:8}}>
+               <div style={{display:'flex',gap:8}}>
                 <button className="btn rip" onClick={()=>accept(o.id)} style={{flex:1,padding:'10px',fontSize:13}}>✅ Accept</button>
                 <button className="btng rip" style={{flex:1,padding:'10px',fontSize:13,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.2)'}}>✕ Skip</button>
               </div>
@@ -1865,6 +1904,10 @@ function AdminApp({data,setData,onBack}) {
   const [coupons, setCoupons]=useState([]);
   const [newCoupon, setNewCoupon]=useState({code:'',discount:'',minOrder:'0'});
   const [addCoupon, setAddCoupon]=useState(false);
+  const [firestoreRiders, setFirestoreRiders]=useState([]);
+  const [sendNotifOpen, setSendNotifOpen]=useState(false);
+  const [notifForm, setNotifForm]=useState({title:'',body:''});
+  const [sendingNotif, setSendingNotif]=useState(false);
   useEffect(()=>{
     setLoadingOrders(true);
     const unsub=onSnapshot(collection(db,'orders'),snap=>{
@@ -1881,6 +1924,16 @@ function AdminApp({data,setData,onBack}) {
       setCoupons(snap.docs.map(d=>({id:d.id,...d.data()})));
     });
     return()=>unsub2();
+  },[]);
+
+  useEffect(()=>{
+    const unsub3=onSnapshot(collection(db,'riders'),snap=>{
+      const rds=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+      setFirestoreRiders(rds);
+      // Sync to data.riders so login works
+      setData(d=>({...d,riders:rds}));
+    });
+    return()=>unsub3();
   },[]);
 
   const todayOrders=realOrders.filter(o=>{
@@ -1908,12 +1961,17 @@ function AdminApp({data,setData,onBack}) {
     setNsF({name:'',owner:'',phone:'',cuisine:''});
     setAddS(false);
   };
-  const regRider=()=>{
-    const idx=data.riders.length+1;
-    const r={id:`RDR${String(idx).padStart(3,'0')}`,name:nrF.name,phone:nrF.phone,pass:`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
-    setData(d=>({...d,riders:[...d.riders,r]}));
+  const regRider=async()=>{
+    const idx=(firestoreRiders.length||data.riders.length)+1;
+    const rid=nrF.customId||`RDR${String(idx).padStart(3,'0')}`;
+    const r={id:rid,name:nrF.name,phone:nrF.phone,pass:nrF.customPass||`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
+    try{
+      const {doc:fdoc,setDoc}=await import('firebase/firestore');
+      await setDoc(fdoc(db,'riders',rid),r);
+    }catch(e){console.log('Rider save error:',e);}
+    setData(d=>({...d,riders:[...d.riders.filter(x=>x.id!==rid),r]}));
     setCreds({type:'Rider',id:r.id,pass:r.pass});
-    setNrF({name:'',phone:''});
+    setNrF({name:'',phone:'',customId:'',customPass:''});
     setAddR(false);
   };
   const toggleShop=id=>setData(d=>({...d,shops:d.shops.map(s=>s.id===id?{...s,active:!s.active}:s)}));
@@ -2182,7 +2240,7 @@ function AdminApp({data,setData,onBack}) {
               </div>
             </div>
           ))}
-          {addS&&<Modal onClose={()=>setAddS(false)}>
+           {addS&&<Modal onClose={()=>setAddS(false)}>
             <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>Register New Shop</div>
             {[{l:'Shop Name',k:'name',ph:'e.g. Fresh Corner'},{l:'Owner Name',k:'owner',ph:'Full name'},{l:'Phone',k:'phone',ph:'10-digit'},{l:'Cuisine Type',k:'cuisine',ph:'e.g. Indian Food'}].map(f=>(
               <div key={f.k} style={{marginBottom:10}}>
@@ -2202,8 +2260,12 @@ function AdminApp({data,setData,onBack}) {
         </>}
 
         {tab==='riders'&&<>
-          <div className="sh"><div className="st">Riders ({data.riders.length})</div><button className="btn rip" onClick={()=>setAddR(true)} style={{padding:'7px 14px',fontSize:12,background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>+ Register</button></div>
-          {data.riders.map((r,i)=>(
+          <div className="sh"><div className="st">Riders ({firestoreRiders.length||data.riders.length})</div><button className="btn rip" onClick={()=>setAddR(true)} style={{padding:'7px 14px',fontSize:12,background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>+ Register</button></div>
+          <div style={{padding:'10px 14px',borderRadius:12,marginBottom:12,background:'rgba(255,140,66,.06)',border:'1px solid rgba(255,140,66,.15)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{fontSize:12,color:'#FF8C42',fontWeight:600}}>📢 Send Notification to all users</div>
+            <button onClick={()=>setSendNotifOpen(true)} style={{padding:'6px 12px',borderRadius:50,background:'linear-gradient(135deg,#FF8C42,#FF6B20)',color:'#fff',fontWeight:700,fontSize:11,border:'none',cursor:'pointer'}}>Send 📤</button>
+          </div>
+          {(firestoreRiders.length>0?firestoreRiders:data.riders).map((r,i)=>(
             <div key={r.id} className="gc" style={{padding:'14px',marginBottom:10}}>
               <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
                 <div style={{width:46,height:46,borderRadius:14,background:'rgba(0,196,79,.1)',border:'1px solid rgba(0,196,79,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🚲</div>
@@ -2219,12 +2281,16 @@ function AdminApp({data,setData,onBack}) {
                   </div>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <span style={{fontSize:11,color:'var(--t3)'}}>⭐{r.rating} · {r.totalOrders} orders</span>
-                    <Tog on={r.active} onClick={()=>toggleRider(r.id)}/>
+                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <Tog on={r.active} onClick={()=>toggleRider(r.id)}/>
+                      <div onClick={async()=>{if(window.confirm(`Delete rider ${r.name}?`)){try{const {doc:fd,deleteDoc}=await import('firebase/firestore');await deleteDoc(fd(db,'riders',r.id||r.firestoreId));setData(d=>({...d,riders:d.riders.filter(x=>x.id!==r.id)}));}catch(e){alert('Delete failed: '+e.message);}}}} style={{width:28,height:28,borderRadius:8,background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.2)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:13}}>🗑️</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           ))}
+          {(firestoreRiders.length===0&&data.riders.length===0)&&<div style={{textAlign:'center',padding:'30px 0'}}><div style={{fontSize:48}}>🚲</div><div style={{fontSize:14,fontWeight:700,marginTop:10,color:'var(--t3)'}}>No riders yet. Register one!</div></div>}
           {addR&&<AdminModal onClose={()=>setAddR(false)}>
             <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>🚲 Register New Rider</div>
             <div style={{marginBottom:10}}>
@@ -2237,35 +2303,55 @@ function AdminApp({data,setData,onBack}) {
             </div>
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>CUSTOM ID (optional)</div>
-              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={`Auto: RDR${String(data.riders.length+1).padStart(3,'0')}`} value={nrF.customId||''} onChange={e=>setNrF(p=>({...p,customId:e.target.value}))}/>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={`Auto: RDR${String((firestoreRiders.length||data.riders.length)+1).padStart(3,'0')}`} value={nrF.customId||''} onChange={e=>setNrF(p=>({...p,customId:e.target.value}))}/>
             </div>
             <div style={{marginBottom:14}}>
               <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>CUSTOM PASSWORD (optional)</div>
-              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={`Auto: Rider@${String(data.riders.length+1).padStart(3,'0')}`} value={nrF.customPass||''} onChange={e=>setNrF(p=>({...p,customPass:e.target.value}))}/>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={`Auto: Rider@${String((firestoreRiders.length||data.riders.length)+1).padStart(3,'0')}`} value={nrF.customPass||''} onChange={e=>setNrF(p=>({...p,customPass:e.target.value}))}/>
             </div>
             <div style={{background:'rgba(0,196,79,.06)',border:'1px solid rgba(0,196,79,.15)',borderRadius:12,padding:'12px',marginBottom:14}}>
               <div style={{fontSize:11,color:'#00C44F',fontWeight:700,marginBottom:6}}>🔑 Final Credentials:</div>
               <div style={{display:'flex',gap:8}}>
                 <div style={{flex:1,background:'rgba(0,0,0,.3)',borderRadius:8,padding:'8px 10px'}}>
                   <div style={{fontSize:10,color:'var(--t3)'}}>LOGIN ID</div>
-                  <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>{nrF.customId||`RDR${String(data.riders.length+1).padStart(3,'0')}`}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>{nrF.customId||`RDR${String((firestoreRiders.length||data.riders.length)+1).padStart(3,'0')}`}</div>
                 </div>
                 <div style={{flex:1,background:'rgba(0,0,0,.3)',borderRadius:8,padding:'8px 10px'}}>
                   <div style={{fontSize:10,color:'var(--t3)'}}>PASSWORD</div>
-                  <div style={{fontSize:14,fontWeight:800,color:'#D4AF37'}}>{nrF.customPass||`Rider@${String(data.riders.length+1).padStart(3,'0')}`}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:'#D4AF37'}}>{nrF.customPass||`Rider@${String((firestoreRiders.length||data.riders.length)+1).padStart(3,'0')}`}</div>
                 </div>
               </div>
             </div>
             <div style={{display:'flex',gap:8}}>
-              <button className="btn rip" onClick={()=>{
-                const idx=data.riders.length+1;
-                const r={id:nrF.customId||`RDR${String(idx).padStart(3,'0')}`,name:nrF.name,phone:nrF.phone,pass:nrF.customPass||`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
-                setData(d=>({...d,riders:[...d.riders,r]}));
-                setCreds({type:'Rider',id:r.id,pass:r.pass});
-                setNrF({name:'',phone:'',customId:'',customPass:''});
-                setAddR(false);
-              }} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>Register Rider ✓</button>
+              <button className="btn rip" onClick={regRider} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#00C44F,#008835)',color:'#0A1A0A'}}>Register Rider ✓</button>
               <button className="btng" onClick={()=>setAddR(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
+            </div>
+          </AdminModal>}
+          {sendNotifOpen&&<AdminModal onClose={()=>setSendNotifOpen(false)}>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>📢 Send Notification</div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>TITLE</div>
+              <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder="e.g. 🎉 Special Offer!" value={notifForm.title} onChange={e=>setNotifForm(p=>({...p,title:e.target.value}))}/>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>MESSAGE</div>
+              <textarea className="dbi" style={{fontSize:14,padding:'10px 12px',minHeight:80,resize:'none'}} placeholder="Notification message..." value={notifForm.body} onChange={e=>setNotifForm(p=>({...p,body:e.target.value}))}/>
+            </div>
+            <div style={{background:'rgba(255,140,66,.06)',border:'1px solid rgba(255,140,66,.15)',borderRadius:12,padding:'10px 12px',marginBottom:14}}>
+              <div style={{fontSize:11,color:'#FF8C42'}}>📌 Yeh notification sabhi customers ke app mein dikhegi jab woh bell icon tap karenge.</div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn rip" disabled={sendingNotif} onClick={async()=>{
+                if(!notifForm.title||!notifForm.body){alert('Title aur message daalo!');return;}
+                setSendingNotif(true);
+                try{await addDoc(collection(db,'notifications'),{title:notifForm.title,body:notifForm.body,read:false,createdAt:serverTimestamp()});
+                setNotifForm({title:'',body:''});setSendNotifOpen(false);alert('✅ Notification send ho gayi!');}
+                catch(e){alert('Error: '+e.message);}
+                setSendingNotif(false);
+              }} style={{flex:1,padding:'12px',background:'linear-gradient(135deg,#FF8C42,#FF6B20)',color:'#fff'}}>
+                {sendingNotif?'Sending...':'📤 Send Now'}
+              </button>
+              <button className="btng" onClick={()=>setSendNotifOpen(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
             </div>
           </AdminModal>}
         </>}
@@ -2391,7 +2477,7 @@ function AdminApp({data,setData,onBack}) {
       </div></div>}
     </div>
   );
-}
+  }
 
 /* ═══════════ ROOT APP ═══════════ */
 export default function DailyBasket() {
@@ -2464,4 +2550,4 @@ export default function DailyBasket() {
       <div style={{position:'fixed',right:32,top:'50%',transform:'translateY(-50%)',writingMode:'vertical-lr',fontSize:10,color:'rgba(61,255,122,.1)',fontWeight:600,letterSpacing:3,textTransform:'uppercase',pointerEvents:'none'}}>Daily Basket · v4.0</div>
     </div>
   );
-  }
+    }
