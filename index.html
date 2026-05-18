@@ -1,23 +1,131 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#3DFF7A" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#0a1f0f" />
-    <title>Daily Basket 🧺</title>
-    <meta name="description" content="Fresh groceries delivered daily - Bhopalgarh" />
-    <meta name="theme-color" content="#0A1A0A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Daily Basket" />
-    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Icons -->
+    <link rel="icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <!-- SEO -->
+    <title>Daily Basket 🧺 - Fresh Groceries in 30 Min</title>
+    <meta name="description" content="Bhopalgarh ka sabse fast grocery delivery app. Fresh veggies, fruits, dairy delivered in 30 minutes." />
+    
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #0A1A0A; }
+      #install-banner {
+        display: none;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: linear-gradient(135deg, #1A3320, #0E2318);
+        border-top: 1px solid rgba(61,255,122,.3);
+        padding: 14px 20px;
+        z-index: 9999;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        font-family: 'Outfit', sans-serif;
+      }
+      #install-banner.show { display: flex; }
+      #install-btn {
+        background: linear-gradient(135deg, #3DFF7A, #00C44F);
+        color: #0A1A0A;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 50px;
+        font-weight: 800;
+        font-size: 13px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      #install-close {
+        background: none;
+        border: none;
+        color: rgba(255,255,255,.4);
+        font-size: 20px;
+        cursor: pointer;
+        margin-left: auto;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/main.jsx"></script>
+
+    <!-- Install Banner -->
+    <div id="install-banner">
+      <span style="font-size:28px">🧺</span>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#fff">Daily Basket Install karo!</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5)">Home screen pe add karo — App jaisa experience</div>
+      </div>
+      <button id="install-btn">📲 Install</button>
+      <button id="install-close">✕</button>
+    </div>
+
+    <script type="module" src="/src/main.jsx"></script>
+
+    <script>
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
+            // Check for updates every 30 min
+            setInterval(() => reg.update(), 30 * 60 * 1000);
+            
+            reg.addEventListener('updatefound', () => {
+              const newSW = reg.installing;
+              newSW.addEventListener('statechange', () => {
+                if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                  // Auto update silently
+                  newSW.postMessage('SKIP_WAITING');
+                }
+              });
+            });
+          });
+        });
+      }
+
+      // PWA Install Prompt
+      let deferredPrompt;
+      const banner = document.getElementById('install-banner');
+      const installBtn = document.getElementById('install-btn');
+      const closeBtn = document.getElementById('install-close');
+
+      window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Show banner after 3 seconds
+        setTimeout(() => banner.classList.add('show'), 3000);
+      });
+
+      installBtn.addEventListener('click', async () => {
+        banner.classList.remove('show');
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          await deferredPrompt.userChoice;
+          deferredPrompt = null;
+        }
+      });
+
+      closeBtn.addEventListener('click', () => {
+        banner.classList.remove('show');
+      });
+
+      // Hide banner if already installed
+      window.addEventListener('appinstalled', () => {
+        banner.classList.remove('show');
+        deferredPrompt = null;
+      });
+    </script>
   </body>
 </html>
