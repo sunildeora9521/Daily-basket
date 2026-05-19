@@ -1299,18 +1299,27 @@ const place=async(addr)=>{
     title="Live Tracking Map"
     loading="lazy"
   />
-  {l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed',t:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'✅'},{l:isHi?'पैक किया जा रहा':'Being Packed',t:new Date(Date.now()+14*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'📦'},{l:isHi?'डिलीवरी पर':'Out for Delivery',t:new Date(Date.now()+29*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),active:true,icon:'🚴'},{l:isHi?'डिलीवर हो गया':'Delivered',t:'~'+new Date(Date.now()+54*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),icon:'🏠'}
-           <div key={i} style={{display:'flex',gap:12}}>    
-           <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
-                  <div style={{width:36,height:36,borderRadius:12,background:step.done||step.active?'linear-gradient(135deg,#1A3320,#0E2318)':'var(--card)',border:step.done||step.active?'1.5px solid rgba(61,255,122,.4)':'1px solid rgba(61,255,122,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,animation:step.active?'statusP 1.5s infinite':'none'}}>{step.icon}</div>
-                  {i<3&&<div style={{width:2,height:26,background:step.done?'linear-gradient(to bottom,#3DFF7A,#00C44F)':'rgba(255,255,255,.06)',margin:'4px 0',borderRadius:1}}/>}
-                </div>
-                <div style={{flex:1,paddingTop:6}}>
-                  <div style={{fontSize:14,fontWeight:step.active?700:600,color:step.done||step.active?'#fff':'#5A6A5A'}}>{step.l}</div>
-                  <div style={{fontSize:11,color:step.active?'#3DFF7A':'#5A6A5A',marginBottom:6}}>{step.t}</div>
-                </div>
+          <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,.6)',borderRadius:50,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}><div style={{width:7,height:7,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/><span style={{fontSize:11,color:'#fff',fontWeight:700}}>Live</span></div>
+        </div>
+        <div className="gc" style={{padding:'14px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:46,height:46,borderRadius:14,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>👨‍🍳</div>
+          <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700}}>Ramesh Kumar</div><div style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#D4AF37',fontSize:12}}>⭐</span><span style={{fontSize:12,color:'var(--t3)'}}>4.9</span></div></div>
+          <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#00C44F,#008835)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>window.open('tel:+916375565339')}><svg width={18} height={18} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.69 12 19.79 19.79 0 011.61 3.38 2 2 0 013.58 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 8.96a16 16 0 006 6l.92-.92a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div>
+        </div>
+        <div className="gc" style={{padding:'16px'}}>
+          <div style={{fontSize:15,fontWeight:800,marginBottom:14}}>Order Status</div>
+          {(()=>{const now=Date.now();return [{l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed',t:new Date(now).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'✅'},{l:isHi?'पैक किया जा रहा':'Being Packed',t:new Date(now+14*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'📦'},{l:isHi?'डिलीवरी पर':'Out for Delivery',t:new Date(now+29*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),active:true,icon:'🚴'},{l:isHi?'डिलीवर हो गया':'Delivered',t:'~'+new Date(now+54*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),icon:'🏠'}];})().map((step,i)=>(
+            <div key={i} style={{display:'flex',gap:12}}>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+                <div style={{width:36,height:36,borderRadius:12,background:step.done||step.active?'linear-gradient(135deg,#1A3320,#0E2318)':'var(--card)',border:step.done||step.active?'1.5px solid rgba(61,255,122,.4)':'1px solid rgba(61,255,122,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,animation:step.active?'statusP 1.5s infinite':'none'}}>{step.icon}</div>
+                {i<3&&<div style={{width:2,height:26,background:step.done?'linear-gradient(to bottom,#3DFF7A,#00C44F)':'rgba(255,255,255,.06)',margin:'4px 0',borderRadius:1}}/>}
               </div>
-            ))}
+              <div style={{flex:1,paddingTop:6}}>
+                <div style={{fontSize:14,fontWeight:step.active?700:600,color:step.done||step.active?'#fff':'#5A6A5A'}}>{step.l}</div>
+                <div style={{fontSize:11,color:step.active?'#3DFF7A':'#5A6A5A',marginBottom:6}}>{step.t}</div>
+              </div>
+            </div>
+          ))}
           </div>
         </div>
       </div>
