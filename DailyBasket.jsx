@@ -54,7 +54,7 @@ body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflo
 .cp{padding:8px 16px;border-radius:50px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;border:1px solid transparent;}
 .cp.on{background:linear-gradient(135deg,#3DFF7A,#00C44F);color:#0A1A0A;box-shadow:0 4px 15px rgba(61,255,122,.3);}
 .cp:not(.on){background:var(--glass);backdrop-filter:blur(10px);border-color:var(--gb);color:var(--t2);}
-.sbar{height:0;display:none;}
+.sbar{height:0;display:none;background:transparent;}
 .bnav{position:absolute;bottom:0;left:0;right:0;height:80px;background:rgba(7,9,7,.95);backdrop-filter:blur(30px);border-top:1px solid rgba(61,255,122,.08);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px;z-index:100;}
 .ni{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:12px;min-width:58px;}
 .ni.on .nl{color:var(--green);}.nl{font-size:10px;color:var(--t3);font-weight:500;}
@@ -2606,8 +2606,7 @@ export default function DailyBasket() {
     return null;
   };
 
-  const sc=Math.min(window.innerWidth/390,window.innerHeight/844);
-  return (
+  const sc=1;
     <div style={{width:'100vw',height:'100vh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif"}}>
       <style>{CSS}</style>
       <div style={{width:390,height:844,transform:`scale(${sc})`,transformOrigin:'center center',position:'relative',overflow:'hidden',borderRadius:44,flexShrink:0,...getThemeStyle(theme)}}>
