@@ -9,8 +9,7 @@ const CSS = `
 :root{--bg:#070907;--card:#0F160F;--green:#3DFF7A;--g2:#00C44F;--gdim:#1A3320;--gold:#D4AF37;--glass:rgba(255,255,255,.04);--gb:rgba(61,255,122,.12);--t:#F0F4F0;--t2:#8A9A8A;--t3:#5A6A5A;}
 body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflow:hidden;}
 .btn{background:linear-gradient(135deg,var(--btn1),var(--btn2)) !important;color:var(--btnTxt) !important;box-shadow:0 4px 20px var(--shadow) !important;}
-.phone{width:min(390px,100vw);height:min(844px,100vh);background:var(--bg);border-radius:min(44px,4vw);overflow:hidden;position:relative;
-  box-shadow:0 0 0 8px #1A1A1A,0 0 0 10px #222,0 30px 80px rgba(0,0,0,.9),0 0 80px rgba(61,255,122,.08);}
+.phone{width:100vw;height:100vh;background:var(--bg);border-radius:40px;overflow:hidden;position:fixed;top:0;left:0;}
 .scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}
 .scr::-webkit-scrollbar{display:none;}
 .hindi{font-family:'Noto Sans Devanagari','Outfit',sans-serif;}
@@ -2608,9 +2607,9 @@ export default function DailyBasket() {
   };
 
   return (
-    <div style={{minHeight:'100vh',height:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#050705,#070907,#060806)',fontFamily:"'Outfit',sans-serif",overflow:'hidden'}}>
+    <div style={{width:'100vw',height:'100vh',background:'#000',fontFamily:"'Outfit',sans-serif",position:'fixed',inset:0}}>
       <style>{CSS}</style>
       <div className="phone" style={getThemeStyle(theme)}>{renderContent()}</div>
     </div>
   );
-}
+  }
