@@ -9,7 +9,7 @@ const CSS = `
 :root{--bg:#070907;--card:#0F160F;--green:#3DFF7A;--g2:#00C44F;--gdim:#1A3320;--gold:#D4AF37;--glass:rgba(255,255,255,.04);--gb:rgba(61,255,122,.12);--t:#F0F4F0;--t2:#8A9A8A;--t3:#5A6A5A;}
 body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflow:hidden;}
 .btn{background:linear-gradient(135deg,var(--btn1),var(--btn2)) !important;color:var(--btnTxt) !important;box-shadow:0 4px 20px var(--shadow) !important;}
-.phone{width:390px;height:844px;background:var(--bg);border-radius:44px;overflow:hidden;position:relative;
+.phone{width:min(390px,100vw);height:min(844px,100vh);background:var(--bg);border-radius:44px;overflow:hidden;position:relative;
   box-shadow:0 0 0 8px #1A1A1A,0 0 0 10px #222,0 30px 80px rgba(0,0,0,.9),0 0 80px rgba(61,255,122,.08);}
 .scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}
 .scr::-webkit-scrollbar{display:none;}
@@ -2607,8 +2607,9 @@ export default function DailyBasket() {
     return null;
   };
 
-  const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  const isApp=isMobile||window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+  const isMobile=/Android|iPhone|iPad|iPod|Mobile|wv|Version\/[\d.]+.*Safari/i.test(navigator.userAgent);
+  const isWebView=/wv|WebView/.test(navigator.userAgent)||window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+  const isApp=isMobile||isWebView||window.innerWidth<768;
   return isApp ? (
 <div style={{width:'100vw',height:'100vh',background:'var(--bg)',fontFamily:"'Outfit',sans-serif",position:'relative',overflow:'hidden',paddingTop:'env(safe-area-inset-top,0px)',paddingBottom:'env(safe-area-inset-bottom,0px)',boxSizing:'border-box'}}>
       <style>{CSS}</style>
