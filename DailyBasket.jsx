@@ -2607,6 +2607,7 @@ export default function DailyBasket() {
   };
 
   const sc=1;
+  return (
     <div style={{width:'100vw',height:'100vh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif"}}>
       <style>{CSS}</style>
       <div style={{width:390,height:844,transform:`scale(${sc})`,transformOrigin:'center center',position:'relative',overflow:'hidden',borderRadius:44,flexShrink:0,...getThemeStyle(theme)}}>
@@ -2614,4 +2615,4 @@ export default function DailyBasket() {
       </div>
     </div>
   );
-  }
+}
