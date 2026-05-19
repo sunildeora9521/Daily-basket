@@ -2613,3 +2613,4 @@ export default function DailyBasket() {
       <div className="phone" style={getThemeStyle(theme)}>{renderContent()}</div>
     </div>
   );
+}
