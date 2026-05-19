@@ -617,8 +617,8 @@ function CustomerLogin({onLogin}) {
   return (
     <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 40% 20%,#0C1C0C,#070907)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <SBar/>
-      <div style={{flex:1,overflow:'auto',scrollbarWidth:'none',padding:'10px 28px 40px'}}>
-        <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'20px 0 30px',animation:'fadeUp .6s ease both'}}>
+      <div style={{flex:1,overflow:'auto',scrollbarWidth:'none',padding:'10px 28px 40px',display:'flex',flexDirection:'column',justifyContent:'center'}}>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'10px 0 20px',animation:'fadeUp .6s ease both'}}>
           <div style={{fontSize:60,marginBottom:16,animation:'floatY 3s ease-in-out infinite'}}>🧺</div>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:800,textAlign:'center',background:'linear-gradient(135deg,#F0F4F0,#3DFF7A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>Daily Basket</div>
           <div style={{fontSize:14,color:'var(--t3)',marginTop:6,textAlign:'center'}}>Fresh groceries delivered to your door</div>
