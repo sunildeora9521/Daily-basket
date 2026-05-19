@@ -54,7 +54,7 @@ body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflo
 .cp{padding:8px 16px;border-radius:50px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;border:1px solid transparent;}
 .cp.on{background:linear-gradient(135deg,#3DFF7A,#00C44F);color:#0A1A0A;box-shadow:0 4px 15px rgba(61,255,122,.3);}
 .cp:not(.on){background:var(--glass);backdrop-filter:blur(10px);border-color:var(--gb);color:var(--t2);}
-.sbar{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:12px;font-weight:600;}
+.sbar{height:0;display:none;}
 .bnav{position:absolute;bottom:0;left:0;right:0;height:80px;background:rgba(7,9,7,.95);backdrop-filter:blur(30px);border-top:1px solid rgba(61,255,122,.08);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px;z-index:100;}
 .ni{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:12px;min-width:58px;}
 .ni.on .nl{color:var(--green);}.nl{font-size:10px;color:var(--t3);font-weight:500;}
@@ -303,7 +303,7 @@ const Ic = ({n,s=20,c='currentColor'}) => {
   return M[n]||null;
 };
 
-const SBar = () => <div style={{height:44,flexShrink:0}}/>;
+const SBar = () => <div style={{height:'env(safe-area-inset-top,0px)',flexShrink:0}}/>;
 const BBtn = ({onClick}) => <div onClick={onClick} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Ic n="back" s={18} c="#8A9A8A"/></div>;
 const Tog = ({on,onClick}) => <div className={`tog ${on?'on':''}`} onClick={onClick}/>;
 
@@ -2607,9 +2607,11 @@ export default function DailyBasket() {
   };
 
   return (
-    <div style={{width:'100vw',height:'100vh',background:'#000',fontFamily:"'Outfit',sans-serif",position:'fixed',inset:0}}>
+    <div style={{width:'100vw',height:'100vh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif"}}>
       <style>{CSS}</style>
-      <div className="phone" style={getThemeStyle(theme)}>{renderContent()}</div>
+      <div style={{width:390,height:844,transform:`scale(${sc})`,transformOrigin:'center center',position:'relative',overflow:'hidden',borderRadius:window.innerWidth<=430?0:44,flexShrink:0,...getThemeStyle(theme)}}>
+        {renderContent()}
+      </div>
     </div>
   );
   }
