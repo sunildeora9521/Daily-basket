@@ -2606,10 +2606,11 @@ export default function DailyBasket() {
     return null;
   };
 
+  const sc=Math.min(window.innerWidth/390,window.innerHeight/844);
   return (
     <div style={{width:'100vw',height:'100vh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif"}}>
       <style>{CSS}</style>
-      <div style={{width:390,height:844,transform:`scale(${sc})`,transformOrigin:'center center',position:'relative',overflow:'hidden',borderRadius:window.innerWidth<=430?0:44,flexShrink:0,...getThemeStyle(theme)}}>
+      <div style={{width:390,height:844,transform:`scale(${sc})`,transformOrigin:'center center',position:'relative',overflow:'hidden',borderRadius:44,flexShrink:0,...getThemeStyle(theme)}}>
         {renderContent()}
       </div>
     </div>
