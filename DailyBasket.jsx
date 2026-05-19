@@ -9,7 +9,7 @@ const CSS = `
 :root{--bg:#070907;--card:#0F160F;--green:#3DFF7A;--g2:#00C44F;--gdim:#1A3320;--gold:#D4AF37;--glass:rgba(255,255,255,.04);--gb:rgba(61,255,122,.12);--t:#F0F4F0;--t2:#8A9A8A;--t3:#5A6A5A;}
 body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflow:hidden;}
 .btn{background:linear-gradient(135deg,var(--btn1),var(--btn2)) !important;color:var(--btnTxt) !important;box-shadow:0 4px 20px var(--shadow) !important;}
-.phone{width:100vw;height:100vh;background:var(--bg);border-radius:40px;overflow:hidden;position:fixed;top:0;left:0;}
+.phone{width:390px;height:844px;background:var(--bg);border-radius:44px;overflow:hidden;position:relative;touch-action:pan-x pan-y;}
 .scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}
 .scr::-webkit-scrollbar{display:none;}
 .hindi{font-family:'Noto Sans Devanagari','Outfit',sans-serif;}
@@ -2606,13 +2606,13 @@ export default function DailyBasket() {
     return null;
   };
 
-  const sc=1;
+  const sc=Math.min(window.innerWidth/390,window.innerHeight/844);
   return (
-    <div style={{width:'100vw',height:'100vh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif"}}>
+    <div style={{width:'100vw',height:'100vh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif",touchAction:'none'}}>
       <style>{CSS}</style>
-      <div style={{width:390,height:844,transform:`scale(${sc})`,transformOrigin:'center center',position:'relative',overflow:'hidden',borderRadius:44,flexShrink:0,...getThemeStyle(theme)}}>
+      <div className="phone" style={{transform:`scale(${sc})`,transformOrigin:'center center',...getThemeStyle(theme)}}>
         {renderContent()}
       </div>
     </div>
   );
-}
+  }
