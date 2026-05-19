@@ -603,9 +603,11 @@ function CustomerLogin({onLogin}) {
           uid,
           name: name.trim(),
           phone,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          displayName: name.trim()
         });
       } catch(e) { console.log('Profile save:',e); }
+      localStorage.setItem('db_name', name.trim());
       onLogin({name:name.trim(), phone, uid});
     } catch(e) {
       setErr('Galat OTP! Dobara try karo.');
@@ -1297,28 +1299,7 @@ const place=async(addr)=>{
     title="Live Tracking Map"
     loading="lazy"
   />
-  <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(to top,rgba(7,9,7,.95),transparent)',padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-    <div style={{display:'flex',alignItems:'center',gap:8}}>
-      <div style={{fontSize:20,animation:'floatY 2s ease-in-out infinite'}}>🚴‍♂️</div>
-      <div>
-        <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{t.riderOnWay}</div>
-        <div style={{fontSize:11,color:'var(--t3)'}}>~25 {isHi?'मिनट':'min'}</div>
-      </div>
-    </div>
-    <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',borderRadius:50,padding:'4px 10px'}}>
-      <div style={{width:6,height:6,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/>
-      <span style={{fontSize:11,color:'#3DFF7A',fontWeight:600}}>Live</span>
-    </div>
-  </div>
-</div>
-          <div className="gc" style={{padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center'}}>
-            <div style={{width:48,height:48,borderRadius:14,background:'linear-gradient(135deg,#1A3320,#0E2318)',border:'2px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>👨‍🍳</div>
-            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>Ramesh Kumar</div><div style={{fontSize:11,color:'var(--t3)'}}>⭐ 4.9</div></div>
-            <div style={{background:'linear-gradient(135deg,#3DFF7A,#00C44F)',borderRadius:10,padding:'8px 14px',fontSize:12,fontWeight:700,color:'#0A1A0A',cursor:'pointer'}}>📞</div>
-          </div>
-          <div className="gc" style={{padding:16}}>
-            <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>{t.orderStatus}</div>
-            {[{l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed',t:'9:41 AM',done:true,icon:'✅'},{l:isHi?'पैक किया जा रहा':'Being Packed',t:'9:55 AM',done:true,icon:'📦'},{l:isHi?'डिलीवरी पर':'Out for Delivery',t:'10:10 AM',active:true,icon:'🚴'},{l:isHi?'डिलीवर हो गया':'Delivered',t:'~10:35 AM',icon:'🏠'}].map((step,i)=>(
+  <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(to top,rgba(7,9,7,.95),transparent)',padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>{l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed',t:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'✅'},{l:isHi?'पैक किया जा रहा':'Being Packed',t:new Date(Date.now()+14*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'📦'},{l:isHi?'डिलीवरी पर':'Out for Delivery',t:new Date(Date.now()+29*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),active:true,icon:'🚴'},{l:isHi?'डिलीवर हो गया':'Delivered',t:'~'+new Date(Date.now()+54*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),icon:'🏠'}
               <div key={i} style={{display:'flex',gap:12}}>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
                   <div style={{width:36,height:36,borderRadius:12,background:step.done||step.active?'linear-gradient(135deg,#1A3320,#0E2318)':'var(--card)',border:step.done||step.active?'1.5px solid rgba(61,255,122,.4)':'1px solid rgba(61,255,122,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,animation:step.active?'statusP 1.5s infinite':'none'}}>{step.icon}</div>
@@ -2555,6 +2536,17 @@ export default function DailyBasket() {
   // phases: splash → login → otp → location → language → app
   const [phase,  setPhase ] = useState('splash');
   const [user,   setUser  ] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  useEffect(()=>{
+    const unsub=onAuthStateChanged(auth,u=>{
+      if(u){
+        setUser({name:u.displayName||localStorage.getItem('db_name')||'User',phone:u.phoneNumber||'',uid:u.uid});
+        setPhase('app');
+      }
+      setAuthReady(true);
+    });
+    return()=>unsub();
+  },[]);
   const [lang,   setLang  ] = useState('en');
   const [data,   setData  ] = useState(mkData());
   const [portal, setPortal] = useState('customer');
