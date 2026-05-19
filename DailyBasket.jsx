@@ -1299,9 +1299,9 @@ const place=async(addr)=>{
     title="Live Tracking Map"
     loading="lazy"
   />
-  <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(to top,rgba(7,9,7,.95),transparent)',padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>{l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed',t:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'✅'},{l:isHi?'पैक किया जा रहा':'Being Packed',t:new Date(Date.now()+14*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'📦'},{l:isHi?'डिलीवरी पर':'Out for Delivery',t:new Date(Date.now()+29*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),active:true,icon:'🚴'},{l:isHi?'डिलीवर हो गया':'Delivered',t:'~'+new Date(Date.now()+54*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),icon:'🏠'}
-              <div key={i} style={{display:'flex',gap:12}}>
-                <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+  {l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed',t:new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'✅'},{l:isHi?'पैक किया जा रहा':'Being Packed',t:new Date(Date.now()+14*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'📦'},{l:isHi?'डिलीवरी पर':'Out for Delivery',t:new Date(Date.now()+29*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),active:true,icon:'🚴'},{l:isHi?'डिलीवर हो गया':'Delivered',t:'~'+new Date(Date.now()+54*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),icon:'🏠'}
+           <div key={i} style={{display:'flex',gap:12}}>    
+           <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
                   <div style={{width:36,height:36,borderRadius:12,background:step.done||step.active?'linear-gradient(135deg,#1A3320,#0E2318)':'var(--card)',border:step.done||step.active?'1.5px solid rgba(61,255,122,.4)':'1px solid rgba(61,255,122,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,animation:step.active?'statusP 1.5s infinite':'none'}}>{step.icon}</div>
                   {i<3&&<div style={{width:2,height:26,background:step.done?'linear-gradient(to bottom,#3DFF7A,#00C44F)':'rgba(255,255,255,.06)',margin:'4px 0',borderRadius:1}}/>}
                 </div>
