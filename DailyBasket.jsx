@@ -2609,7 +2609,7 @@ export default function DailyBasket() {
 
   const sc=Math.min(window.innerWidth/390,window.innerHeight/844);
   return (
-    <div style={{width:'100vw',height:'100vh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif",touchAction:'none'}}>
+    <div style={{width:'100vw',height:'100dvh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif",touchAction:'none',paddingTop:'env(safe-area-inset-top)',paddingBottom:'env(safe-area-inset-bottom)'}}>
       <style>{CSS}</style>
       <div className="phone" style={{transform:`scale(${sc})`,transformOrigin:'center center',...getThemeStyle(theme)}}>
         {renderContent()}
