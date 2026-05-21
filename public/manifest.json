@@ -1,35 +1,9 @@
 {
   "name": "Daily Basket",
   "short_name": "Daily Basket",
-  "description": "Fresh Groceries Delivered in 30 Minutes",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0A1A0A",
-  "theme_color": "#3DFF7A",
-  "orientation": "portrait",
-  "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow"
-    }
-  ],
-  "categories": ["shopping", "food"],
-  "lang": "hi-IN"
+  "background_color": "#060906",
+  "theme_color": "#060906",
+  "orientation": "portrait"
 }
-
