@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.daily_basket_xi.twa",
+    "sha256_cert_fingerprints": ["B8:40:02:0E:69:57:DA:0D:53:89:FF:63:17:72:BA:59:6C:10:97:A2:1A:50:48:05:F8:AD:1E:1E:C3:81:C9:A5"]
+  }
+}]
