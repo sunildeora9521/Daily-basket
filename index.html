@@ -72,7 +72,12 @@
       <button id="install-close">✕</button>
     </div>
 
-    <script type="module" src="./main.jsx"></script>
+    <script>
+  // Always redirect landing domain to app domain
+  if(window.location.hostname === 'dailybasket-bhopalgarh.vercel.app') {
+    window.location.replace('https://daily-basket-xi.vercel.app');
+  }
+    </script>
     <script>
       // Register Service Worker
       if ('serviceWorker' in navigator) {
