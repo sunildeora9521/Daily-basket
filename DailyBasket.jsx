@@ -1231,12 +1231,16 @@ const [address, setAddress]=useState(null);
 const [ckStep, setCkStep]=useState(1);
 const [savedAddr, setSavedAddr]=useState(null);
 const [adIdx, setAdIdx]=useState(0);
+const [lastOrderId, setLastOrderId]=useState(null);
+const [scrMilk, setScrMilk]=useState(false);
+const [scrBulk, setScrBulk]=useState(false);
 const [adSlides]=useState([
   {bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:'🌱 Eco Friendly',title:'Fresh Veggies Daily',sub:'Farm to doorstep · Bhopalgarh',btn:'Shop Now',act:()=>{}},
   {bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:'💼 Advertise Here',title:'Grow Your Business',sub:'Daily Basket ke saath judo',btn:'Contact Us',act:()=>window.open('https://wa.me/916375565339?text=Ad%20posting%20ke%20liye%20interested%20hoon','_blank')},
   {bg:'linear-gradient(135deg,#0D001A,#080012)',emoji:'🤝',chip:'🌐 Partnership',title:'Partner With Us',sub:'Local brands welcome · Bhopalgarh',btn:'Join Now',act:()=>window.open('https://wa.me/916375565339?text=Partnership%20mein%20interested%20hoon','_blank')},
   {bg:'linear-gradient(135deg,#001A1A,#000E0E)',emoji:'🎁',chip:'⭐ Special Offer',title:'Refer & Earn',sub:'Dosto ko refer karo, ₹50 pao',btn:'Refer Now',act:()=>{}},
-  {bg:'linear-gradient(135deg,#0A0D1A,#060710)',emoji:'🥛',chip:'🌅 Daily Milk',title:'Milk Subscription',sub:'Fresh milk daily at your door',btn:'Subscribe',act:()=>{}},
+  {bg:'linear-gradient(135deg,#0A0D1A,#060710)',emoji:'🥛',chip:'🌅 Daily Milk',title:'Milk Subscription',sub:'Fresh milk daily at your door · ₹65/L',btn:'Subscribe',act:()=>setScrMilk(true)},
+  {bg:'linear-gradient(135deg,#1A0A00,#100600)',emoji:'🎊',chip:'🎉 Bulk Orders',title:'Event & Party Orders',sub:'Wedding, party, pooja · Min ₹500',btn:'Book Now',act:()=>setScrBulk(true)},
 ]);
 
   useEffect(()=>{const iv=setInterval(()=>setAdIdx(i=>(i+1)%5),3000);return()=>clearInterval(iv);},[]);
@@ -1298,7 +1302,7 @@ const place=async(addr)=>{
   const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
   const del=sub>299?0:25;
   try{
-    await addDoc(collection(db,'orders'),{
+    const oRef=await addDoc(collection(db,'orders'),{
       userId:auth.currentUser?.uid,
       userName:user?.name||'Customer',
       userPhone:user?.phone||'',
@@ -1310,7 +1314,8 @@ const place=async(addr)=>{
       status:'confirmed',
       createdAt:serverTimestamp()
     });
- }catch(e){console.log('Order error:',e);}
+setLastOrderId(oRef.id);
+  }catch(e){console.log('Order error:',e);}
   const earned=Math.floor(Math.max(0,sub+del-discount)/10);
   if(usePoints)setPoints(p=>Math.max(0,p-(Math.floor(p/10)*10))+earned);
   else setPoints(p=>p+earned);
@@ -1336,6 +1341,8 @@ const place=async(addr)=>{
   const showFC  = cart.length>0&&navScrs.includes(scr)&&!shCart&&!track&&!selP;
 
   const renderScr=()=>{
+    if(scrMilk) return <MilkSubscriptionScreen onBack={()=>setScrMilk(false)} user={user} fam={fam}/>;
+    if(scrBulk) return <BulkOrderScreen onBack={()=>setScrBulk(false)} user={user} fam={fam}/>;
     if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addr=>{setAddress(addr);setShowAddr(false);setCkStep(3);}} userId={auth.currentUser?.uid} payMethod={payMethod}/>;
     if(shCart) return (
       <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
