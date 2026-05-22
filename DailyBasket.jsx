@@ -9,7 +9,7 @@ const CSS = `
 :root{--bg:#070907;--card:#0F160F;--green:#3DFF7A;--g2:#00C44F;--gdim:#1A3320;--gold:#D4AF37;--glass:rgba(255,255,255,.04);--gb:rgba(61,255,122,.12);--t:#F0F4F0;--t2:#8A9A8A;--t3:#5A6A5A;}
 body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflow:hidden;}
 .btn{background:linear-gradient(135deg,var(--btn1),var(--btn2)) !important;color:var(--btnTxt) !important;box-shadow:0 4px 20px var(--shadow) !important;}
-.phone{width:390px;height:844px;background:var(--bg);border-radius:44px;overflow:hidden;position:relative;touch-action:pan-x pan-y;}
+.phone{width:100vw;height:100dvh;background:var(--bg);border-radius:0;overflow:hidden;position:relative;touch-action:pan-x pan-y;}
 .scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}
 .scr::-webkit-scrollbar{display:none;}
 .hindi{font-family:'Noto Sans Devanagari','Outfit',sans-serif;}
@@ -54,8 +54,8 @@ body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflo
 .cp{padding:8px 16px;border-radius:50px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;border:1px solid transparent;}
 .cp.on{background:linear-gradient(135deg,#3DFF7A,#00C44F);color:#0A1A0A;box-shadow:0 4px 15px rgba(61,255,122,.3);}
 .cp:not(.on){background:var(--glass);backdrop-filter:blur(10px);border-color:var(--gb);color:var(--t2);}
-.sbar{height:0;display:none;background:transparent;}
-.bnav{position:absolute;bottom:0;left:0;right:0;height:80px;background:rgba(7,9,7,.95);backdrop-filter:blur(30px);border-top:1px solid rgba(61,255,122,.08);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px;z-index:100;}
+.sbar{height:env(safe-area-inset-top,44px);display:block;background:var(--bg);}
+.bnav{position:absolute;bottom:0;left:0;right:0;height:calc(80px + env(safe-area-inset-bottom,0px));background:rgba(7,9,7,.95);backdrop-filter:blur(30px);border-top:1px solid rgba(61,255,122,.08);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px;padding-bottom:env(safe-area-inset-bottom,0px);z-index:100;}
 .ni{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:12px;min-width:58px;}
 .ni.on .nl{color:var(--green);}.nl{font-size:10px;color:var(--t3);font-weight:500;}
 .fcart{position:absolute;bottom:88px;left:16px;right:16px;background:linear-gradient(135deg,#1A3320,#0E2318);border:1px solid rgba(61,255,122,.28);border-radius:18px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 24px rgba(61,255,122,.12);z-index:90;animation:slideUp .4s cubic-bezier(.34,1.56,.64,1) both;}
@@ -1355,19 +1355,27 @@ const place=async(addr)=>{
             <div onClick={()=>setScr('combos')} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18}}>🧺</div>
           </div>
         </div>
-        {/* Ad Slider */}
-        <div style={{margin:'0 20px 20px'}}>
-          <div className="gc" style={{background:adSlides[adIdx].bg,padding:20,position:'relative',overflow:'hidden',minHeight:136,transition:'background .5s ease'}}>
-            <div style={{position:'absolute',right:-10,top:0,bottom:0,fontSize:88,display:'flex',alignItems:'center',opacity:.35,transition:'all .5s'}}>{adSlides[adIdx].emoji}</div>
+        {/* Ad Slider - Zomato Style */}
+        <div style={{margin:'0 0 16px',position:'relative',overflow:'hidden'}}>
+          <div onClick={adSlides[adIdx].act} style={{background:adSlides[adIdx].bg,padding:'22px 20px 20px',position:'relative',overflow:'hidden',minHeight:180,cursor:'pointer',transition:'background .5s ease'}}>
+            {/* Big emoji background */}
+            <div style={{position:'absolute',right:-20,top:'50%',transform:'translateY(-50%)',fontSize:130,opacity:.18,transition:'all .5s',filter:'blur(2px)'}}>{adSlides[adIdx].emoji}</div>
+            {/* Decorative circles */}
+            <div style={{position:'absolute',right:60,top:-30,width:120,height:120,borderRadius:'50%',background:'rgba(255,255,255,.04)'}}/>
+            <div style={{position:'absolute',right:20,bottom:-40,width:160,height:160,borderRadius:'50%',background:'rgba(255,255,255,.03)'}}/>
+            {/* Content */}
             <div style={{position:'relative',zIndex:1}}>
-              <div className="chip" style={{marginBottom:10}}>{adSlides[adIdx].chip}</div>
-              <div style={{fontSize:18,fontWeight:800,lineHeight:1.3,maxWidth:200,fontFamily:fam}}>{adSlides[adIdx].title}</div>
-              <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{adSlides[adIdx].sub}</div>
-              <button className="btn rip" onClick={adSlides[adIdx].act} style={{marginTop:12,padding:'9px 20px',fontSize:13,fontFamily:fam}}>{adSlides[adIdx].btn}</button>
+              <div style={{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(255,255,255,.12)',backdropFilter:'blur(10px)',borderRadius:50,padding:'4px 12px',marginBottom:12}}>
+                <span style={{fontSize:11,fontWeight:700,color:'#fff',letterSpacing:.5}}>{adSlides[adIdx].chip}</span>
+              </div>
+              <div style={{fontSize:26,fontWeight:900,lineHeight:1.2,maxWidth:220,fontFamily:fam,color:'#fff',textShadow:'0 2px 12px rgba(0,0,0,.4)'}}>{adSlides[adIdx].title}</div>
+              <div style={{fontSize:13,color:'rgba(255,255,255,.65)',marginTop:6,fontWeight:500}}>{adSlides[adIdx].sub}</div>
+              <button className="btn rip" onClick={e=>{e.stopPropagation();adSlides[adIdx].act();}} style={{marginTop:14,padding:'10px 24px',fontSize:13,fontFamily:fam,fontWeight:800}}>{adSlides[adIdx].btn} →</button>
             </div>
           </div>
-          <div style={{display:'flex',justifyContent:'center',gap:5,marginTop:8}}>
-            {adSlides.map((_,i)=><div key={i} onClick={()=>setAdIdx(i)} style={{width:i===adIdx?20:6,height:6,borderRadius:3,background:i===adIdx?'#3DFF7A':'rgba(61,255,122,.25)',cursor:'pointer',transition:'all .3s'}}/>)}
+          {/* Dots */}
+          <div style={{display:'flex',justifyContent:'center',gap:5,marginTop:10}}>
+            {adSlides.map((_,i)=><div key={i} onClick={()=>setAdIdx(i)} style={{width:i===adIdx?24:6,height:6,borderRadius:3,background:i===adIdx?'#3DFF7A':'rgba(61,255,122,.25)',cursor:'pointer',transition:'all .3s'}}/>)}
           </div>
         </div>
         {/* Search Bar */}
@@ -2607,11 +2615,10 @@ export default function DailyBasket() {
     return null;
   };
 
-  const sc=Math.min(window.innerWidth/390,window.innerHeight/844);
   return (
-    <div style={{width:'100vw',height:'100dvh',background:'#060906',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',fontFamily:"'Outfit',sans-serif",touchAction:'none',paddingTop:'env(safe-area-inset-top)',paddingBottom:'env(safe-area-inset-bottom)'}}>
+    <div style={{width:'100vw',height:'100dvh',background:'#060906',overflow:'hidden',fontFamily:"'Outfit',sans-serif",touchAction:'none'}}>
       <style>{CSS}</style>
-      <div className="phone" style={{transform:`scale(${sc})`,transformOrigin:'center center',...getThemeStyle(theme)}}>
+      <div className="phone" style={{...getThemeStyle(theme)}}>
         {renderContent()}
       </div>
     </div>
