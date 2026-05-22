@@ -702,7 +702,7 @@ function MilkSubscriptionScreen({onBack, user, fam}) {
         <BBtn onClick={onBack}/>
         <div><div style={{fontSize:18,fontWeight:800}}>🥛 Milk Subscription</div><div style={{fontSize:12,color:'var(--t3)'}}>Fresh milk at your door daily</div></div>
       </div>
-      <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
+      <div className="scr" style={{position:'relative',padding:'0 20px 120px'}}>
         <div style={{background:'linear-gradient(135deg,#0A0D1A,#060710)',borderRadius:20,padding:20,marginBottom:16,border:'1px solid rgba(100,100,255,.15)'}}>
           <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>📦 Select Plan</div>
           {plans.map(p=>(
@@ -783,7 +783,7 @@ function BulkOrderScreen({onBack, user, fam}) {
         <BBtn onClick={onBack}/>
         <div><div style={{fontSize:18,fontWeight:800}}>🎊 Bulk / Event Order</div><div style={{fontSize:12,color:'var(--t3)'}}>Min ₹500 · Custom quote milega</div></div>
       </div>
-      <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
+      <div className="scr" style={{position:'relative',padding:'0 20px 120px'}}>
         <div className="gc" style={{padding:16,marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>🎉 Event Type</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
