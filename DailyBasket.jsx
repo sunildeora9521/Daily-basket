@@ -561,6 +561,266 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
     </div>
   );
 }
+
+/* ═══════════ LIVE ORDER TRACKING SCREEN ═══════════ */
+function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
+  const [orderStatus, setOrderStatus] = useState('confirmed');
+  const [orderData, setOrderData] = useState(null);
+
+  useEffect(()=>{
+    if(!lastOrderId) return;
+    const unsub = onSnapshot(
+      require('firebase/firestore').doc(db,'orders',lastOrderId),
+      snap=>{ if(snap.exists()){ setOrderData(snap.data()); setOrderStatus(snap.data().status||'confirmed'); } }
+    );
+    return()=>unsub();
+  },[lastOrderId]);
+
+  const steps = [
+    {id:'confirmed', icon:'✅', l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed'},
+    {id:'packed',    icon:'📦', l:isHi?'पैक किया जा रहा':'Being Packed'},
+    {id:'out',       icon:'🚴', l:isHi?'डिलीवरी पर':'Out for Delivery'},
+    {id:'delivered', icon:'🏠', l:isHi?'डिलीवर हो गया':'Delivered'},
+  ];
+  const si = steps.findIndex(s=>s.id===orderStatus);
+
+  return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+      <SBar/>
+      <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}>
+        <BBtn onClick={onBack}/>
+        <div>
+          <div style={{fontSize:18,fontWeight:800}}>{t.orderTracking}</div>
+          <div style={{fontSize:12,color:'var(--t3)'}}>{lastOrderId?`#DB-${lastOrderId.slice(-6).toUpperCase()}`:'#DB-XXXXXX'}</div>
+        </div>
+        {orderStatus==='delivered'&&<div style={{marginLeft:'auto',background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.3)',borderRadius:50,padding:'4px 12px',fontSize:11,fontWeight:700,color:'#3DFF7A'}}>✅ Delivered!</div>}
+      </div>
+      <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
+        <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
+          <iframe src="https://maps.google.com/maps?q=Bhopalgarh,Rajasthan,India&z=14&output=embed" style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
+          <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,.6)',borderRadius:50,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/>
+            <span style={{fontSize:11,color:'#fff',fontWeight:700}}>Live</span>
+          </div>
+        </div>
+        <div className="gc" style={{padding:'14px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+          <div style={{width:46,height:46,borderRadius:14,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>🚴</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:700}}>Daily Basket Rider</div>
+            <div style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#D4AF37',fontSize:12}}>⭐</span><span style={{fontSize:12,color:'var(--t3)'}}>4.9 · On the way</span></div>
+          </div>
+          <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#00C44F,#008835)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>window.open('tel:+916375565339')}>
+            <svg width={18} height={18} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.69 12 19.79 19.79 0 011.61 3.38 2 2 0 013.58 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 8.96a16 16 0 006 6l.92-.92a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          </div>
+        </div>
+        <div className="gc" style={{padding:'16px',marginBottom:14}}>
+          <div style={{fontSize:15,fontWeight:800,marginBottom:14}}>Order Status</div>
+          {steps.map((step,i)=>{
+            const done=i<si; const active=i===si;
+            return(
+              <div key={i} style={{display:'flex',gap:12}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+                  <div style={{width:36,height:36,borderRadius:12,background:done||active?'linear-gradient(135deg,#1A3320,#0E2318)':'var(--card)',border:done||active?'1.5px solid rgba(61,255,122,.4)':'1px solid rgba(61,255,122,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,animation:active?'statusP 1.5s infinite':'none'}}>{step.icon}</div>
+                  {i<3&&<div style={{width:2,height:26,background:done?'linear-gradient(to bottom,#3DFF7A,#00C44F)':'rgba(255,255,255,.06)',margin:'4px 0',borderRadius:1}}/>}
+                </div>
+                <div style={{flex:1,paddingTop:6}}>
+                  <div style={{fontSize:14,fontWeight:active?700:600,color:done||active?'#fff':'#5A6A5A'}}>{step.l}</div>
+                  <div style={{fontSize:11,color:active?'#3DFF7A':'#5A6A5A',marginBottom:6}}>{active?'In progress...':done?'Done ✓':''}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {orderData&&<div className="gc" style={{padding:'14px'}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>🧾 Order Summary</div>
+          {orderData.items?.map((item,i)=>(
+            <div key={i} style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+              <span style={{fontSize:12,color:'var(--t2)'}}>{item.name} × {item.qty}</span>
+              <span style={{fontSize:12,fontWeight:700}}>₹{item.price*item.qty}</span>
+            </div>
+          ))}
+          <div style={{borderTop:'1px solid rgba(255,255,255,.06)',marginTop:8,paddingTop:8,display:'flex',justifyContent:'space-between'}}>
+            <span style={{fontSize:13,fontWeight:800}}>Total</span>
+            <span style={{fontSize:13,fontWeight:900,color:'#3DFF7A'}}>₹{orderData.total}</span>
+          </div>
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ MILK SUBSCRIPTION SCREEN ═══════════ */
+function MilkSubscriptionScreen({onBack, user, fam}) {
+  const [plan, setPlan] = useState('1L');
+  const [days, setDays] = useState(30);
+  const [time, setTime] = useState('06:00');
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const plans = [
+    {id:'1L', label:'1 Litre/day', price:65, icon:'🥛'},
+    {id:'2L', label:'2 Litre/day', price:125, icon:'🍼'},
+    {id:'500ml', label:'500ml/day', price:35, icon:'🫙'},
+  ];
+  const selPlan = plans.find(p=>p.id===plan);
+  const total = selPlan.price * days;
+
+  const submit = async()=>{
+    setLoading(true);
+    try {
+      await addDoc(collection(db,'milk_subscriptions'),{
+        userId: auth.currentUser?.uid,
+        userName: user?.name,
+        userPhone: user?.phone,
+        plan, qty: selPlan.label, pricePerDay: selPlan.price,
+        days, total, deliveryTime: time,
+        status: 'pending', createdAt: serverTimestamp()
+      });
+      setSubmitted(true);
+    } catch(e){ console.log(e); }
+    setLoading(false);
+  };
+
+  if(submitted) return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'radial-gradient(ellipse at 50% 40%,#0C1C0C,#070907)',padding:28}}>
+      <div style={{fontSize:80,marginBottom:20,animation:'floatY 3s ease-in-out infinite'}}>🥛</div>
+      <div style={{fontSize:24,fontWeight:900,color:'#3DFF7A',marginBottom:8,textAlign:'center'}}>Subscription Confirmed!</div>
+      <div style={{fontSize:14,color:'var(--t3)',textAlign:'center',marginBottom:8}}>Fresh {selPlan.label} milk delivered at {time} daily</div>
+      <div style={{fontSize:13,color:'#D4AF37',marginBottom:28}}>Total: ₹{total} for {days} days</div>
+      <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.2)',borderRadius:14,padding:'12px 16px',marginBottom:24,width:'100%',textAlign:'center'}}>
+        <div style={{fontSize:12,color:'var(--t3)'}}>Hamara team 24 ghante mein contact karega</div>
+        <div style={{fontSize:13,fontWeight:700,color:'#3DFF7A',marginTop:4}}>📞 +91 63755 65339</div>
+      </div>
+      <button className="btn rip" onClick={onBack} style={{width:'100%',padding:16,fontSize:15}}>← Back to Home</button>
+    </div>
+  );
+
+  return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+      <SBar/>
+      <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}>
+        <BBtn onClick={onBack}/>
+        <div><div style={{fontSize:18,fontWeight:800}}>🥛 Milk Subscription</div><div style={{fontSize:12,color:'var(--t3)'}}>Fresh milk at your door daily</div></div>
+      </div>
+      <div className="scr" style={{position:'relative',padding:'0 20px 100px'}}>
+        <div style={{background:'linear-gradient(135deg,#0A0D1A,#060710)',borderRadius:20,padding:20,marginBottom:16,border:'1px solid rgba(100,100,255,.15)'}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>📦 Select Plan</div>
+          {plans.map(p=>(
+            <div key={p.id} onClick={()=>setPlan(p.id)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:14,marginBottom:8,cursor:'pointer',border:`1.5px solid ${plan===p.id?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:plan===p.id?'rgba(61,255,122,.08)':'rgba(255,255,255,.02)'}}>
+              <span style={{fontSize:28}}>{p.icon}</span>
+              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>{p.label}</div><div style={{fontSize:12,color:'var(--t3)'}}>₹{p.price}/day</div></div>
+              <div style={{fontSize:15,fontWeight:800,color:'#3DFF7A'}}>₹{p.price}</div>
+            </div>
+          ))}
+        </div>
+        <div className="gc" style={{padding:16,marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>📅 Duration: {days} days</div>
+          <input type="range" min={7} max={90} value={days} onChange={e=>setDays(Number(e.target.value))} style={{width:'100%',accentColor:'#3DFF7A'}}/>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}><span style={{fontSize:11,color:'var(--t3)'}}>7 days</span><span style={{fontSize:11,color:'var(--t3)'}}>90 days</span></div>
+        </div>
+        <div className="gc" style={{padding:16,marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>⏰ Delivery Time</div>
+          {['06:00','07:00','08:00'].map(t=>(
+            <div key={t} onClick={()=>setTime(t)} style={{display:'inline-flex',marginRight:8,marginBottom:8,padding:'8px 16px',borderRadius:50,cursor:'pointer',border:`1.5px solid ${time===t?'rgba(61,255,122,.5)':'rgba(61,255,122,.12)'}`,background:time===t?'rgba(61,255,122,.1)':'transparent',fontSize:13,fontWeight:600,color:time===t?'#3DFF7A':'var(--t3)'}}>{t} AM</div>
+          ))}
+        </div>
+        <div className="gc" style={{padding:16,marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:'var(--t2)'}}>Plan</span><span style={{fontSize:13,fontWeight:600}}>{selPlan.label} × {days} days</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:13,color:'var(--t2)'}}>Rate</span><span style={{fontSize:13,fontWeight:600}}>₹{selPlan.price}/day</span></div>
+          <div style={{borderTop:'1px solid rgba(255,255,255,.06)',paddingTop:10,display:'flex',justifyContent:'space-between'}}><span style={{fontSize:15,fontWeight:800}}>Total</span><span style={{fontSize:16,fontWeight:900,color:'#3DFF7A'}}>₹{total}</span></div>
+        </div>
+      </div>
+      <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
+        <button className="btn rip" onClick={submit} disabled={loading} style={{width:'100%',padding:16,fontSize:15}}>{loading?'Submitting...':'🥛 Subscribe Now — ₹'+total}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ BULK / EVENT ORDER SCREEN ═══════════ */
+function BulkOrderScreen({onBack, user, fam}) {
+  const [eventType, setEventType] = useState('');
+  const [guests, setGuests] = useState('');
+  const [date, setDate] = useState('');
+  const [note, setNote] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const events = ['🎊 Party','💍 Wedding','🏢 Corporate','🎓 Graduation','🕌 Pooja/Event','📦 Bulk Groceries'];
+
+  const submit = async()=>{
+    if(!eventType||!guests||!date){alert('Sabhi fields bharein');return;}
+    if(Number(guests)<10){alert('Minimum 10 guests required');return;}
+    setLoading(true);
+    try {
+      await addDoc(collection(db,'bulk_orders'),{
+        userId: auth.currentUser?.uid,
+        userName: user?.name,
+        userPhone: user?.phone,
+        eventType, guests: Number(guests), date, note,
+        estimatedAmount: Number(guests)*50,
+        status: 'inquiry', createdAt: serverTimestamp()
+      });
+      setSubmitted(true);
+    } catch(e){ console.log(e); }
+    setLoading(false);
+  };
+
+  if(submitted) return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'radial-gradient(ellipse at 50% 40%,#0C1C0C,#070907)',padding:28}}>
+      <div style={{fontSize:80,marginBottom:20,animation:'floatY 3s ease-in-out infinite'}}>🎊</div>
+      <div style={{fontSize:22,fontWeight:900,color:'#3DFF7A',marginBottom:8,textAlign:'center'}}>Bulk Order Request Sent!</div>
+      <div style={{fontSize:13,color:'var(--t3)',textAlign:'center',marginBottom:24}}>Hamari team 2 ghante mein aapko call karegi aur custom quote degi</div>
+      <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.2)',borderRadius:14,padding:'12px 16px',marginBottom:24,width:'100%',textAlign:'center'}}>
+        <div style={{fontSize:13,fontWeight:700,color:'#3DFF7A'}}>📞 +91 63755 65339</div>
+        <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>WhatsApp pe bhi message kar sakte hain</div>
+      </div>
+      <button className="btn rip" onClick={onBack} style={{width:'100%',padding:16,fontSize:15}}>← Back to Home</button>
+    </div>
+  );
+
+  return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+      <SBar/>
+      <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}>
+        <BBtn onClick={onBack}/>
+        <div><div style={{fontSize:18,fontWeight:800}}>🎊 Bulk / Event Order</div><div style={{fontSize:12,color:'var(--t3)'}}>Min ₹500 · Custom quote milega</div></div>
+      </div>
+      <div className="scr" style={{position:'relative',padding:'0 20px 100px'}}>
+        <div className="gc" style={{padding:16,marginBottom:14}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>🎉 Event Type</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {events.map(e=>(
+              <div key={e} onClick={()=>setEventType(e)} style={{padding:'8px 14px',borderRadius:50,cursor:'pointer',border:`1.5px solid ${eventType===e?'rgba(61,255,122,.5)':'rgba(61,255,122,.12)'}`,background:eventType===e?'rgba(61,255,122,.1)':'transparent',fontSize:13,fontWeight:600,color:eventType===e?'#3DFF7A':'var(--t3)'}}>{e}</div>
+            ))}
+          </div>
+        </div>
+        <div className="gc" style={{padding:16,marginBottom:14}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>👥 Number of Guests</div>
+          <input className="dbi" type="number" placeholder="e.g. 50" value={guests} onChange={e=>setGuests(e.target.value)} min={10}/>
+          <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Minimum 10 guests · ₹500+ minimum order</div>
+        </div>
+        <div className="gc" style={{padding:16,marginBottom:14}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>📅 Event Date</div>
+          <input className="dbi" type="date" value={date} onChange={e=>setDate(e.target.value)} style={{colorScheme:'dark'}}/>
+        </div>
+        <div className="gc" style={{padding:16,marginBottom:14}}>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>📝 Special Requirements</div>
+          <textarea className="dbi" rows={3} placeholder="e.g. Veg only, specific items..." value={note} onChange={e=>setNote(e.target.value)} style={{resize:'none',minHeight:80}}/>
+        </div>
+        {guests&&Number(guests)>=10&&<div style={{background:'rgba(212,175,55,.06)',border:'1px solid rgba(212,175,55,.2)',borderRadius:14,padding:'12px 16px',marginBottom:14}}>
+          <div style={{fontSize:12,color:'var(--t3)'}}>Estimated Budget</div>
+          <div style={{fontSize:18,fontWeight:900,color:'#D4AF37'}}>₹{Number(guests)*50}+</div>
+          <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>Final quote call pe confirm hoga</div>
+        </div>}
+      </div>
+      <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
+        <button className="btn rip" onClick={submit} disabled={loading} style={{width:'100%',padding:16,fontSize:15}}>{loading?'Sending...':'🎊 Send Bulk Order Request'}</button>
+      </div>
+    </div>
+  );
+}
+
 function CustomerLogin({onLogin}) {
   const [name,  setName ] = useState('');
   const [phone, setPhone] = useState('');
@@ -1195,8 +1455,10 @@ const place=async(addr)=>{
         <div onClick={()=>setPayMethod('cod')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='cod'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='cod'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
           <div style={{fontSize:16}}>💵</div><div style={{fontSize:11,fontWeight:600,color:payMethod==='cod'?'#3DFF7A':'var(--t3)'}}>Cash on Delivery</div>
         </div>
-        <div onClick={()=>setPayMethod('upi')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='upi'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='upi'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
-          <div style={{fontSize:16}}>📱</div><div style={{fontSize:11,fontWeight:600,color:payMethod==='upi'?'#3DFF7A':'var(--t3)'}}>UPI</div>
+        <div style={{flex:1,padding:'10px',borderRadius:12,border:'1.5px solid rgba(255,255,255,.08)',background:'rgba(255,255,255,.02)',textAlign:'center',position:'relative',opacity:.6}}>
+          <div style={{fontSize:16}}>📱</div>
+          <div style={{fontSize:11,fontWeight:600,color:'var(--t3)'}}>UPI</div>
+          <div style={{fontSize:9,color:'#D4AF37',fontWeight:700,marginTop:2}}>🔜 Coming Soon</div>
         </div>
       </div>
     </div>
@@ -1288,41 +1550,7 @@ const place=async(addr)=>{
     );
 
     if(track) return (
-      <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
-        <SBar/>
-        <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}><BBtn onClick={()=>{setTrack(false);setScr('home');setNav('home');}}/><div><div style={{fontSize:18,fontWeight:800}}>{t.orderTracking}</div><div style={{fontSize:12,color:'var(--t3)'}}>#DB-20260505-001</div></div></div>
-        <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
-         <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
-  <iframe
-    src="https://maps.google.com/maps?q=Bhopalgarh,Rajasthan,India&z=14&output=embed"
-    style={{width:'100%',height:'100%',border:'none'}}
-    title="Live Tracking Map"
-    loading="lazy"
-  />
-          <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,.6)',borderRadius:50,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}><div style={{width:7,height:7,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/><span style={{fontSize:11,color:'#fff',fontWeight:700}}>Live</span></div>
-        </div>
-        <div className="gc" style={{padding:'14px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{width:46,height:46,borderRadius:14,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>👨‍🍳</div>
-          <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700}}>Ramesh Kumar</div><div style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#D4AF37',fontSize:12}}>⭐</span><span style={{fontSize:12,color:'var(--t3)'}}>4.9</span></div></div>
-          <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#00C44F,#008835)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>window.open('tel:+916375565339')}><svg width={18} height={18} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.69 12 19.79 19.79 0 011.61 3.38 2 2 0 013.58 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 8.96a16 16 0 006 6l.92-.92a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div>
-        </div>
-        <div className="gc" style={{padding:'16px'}}>
-          <div style={{fontSize:15,fontWeight:800,marginBottom:14}}>Order Status</div>
-          {(()=>{const now=Date.now();return [{l:isHi?'ऑर्डर कन्फर्म':'Order Confirmed',t:new Date(now).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'✅'},{l:isHi?'पैक किया जा रहा':'Being Packed',t:new Date(now+14*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),done:true,icon:'📦'},{l:isHi?'डिलीवरी पर':'Out for Delivery',t:new Date(now+29*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),active:true,icon:'🚴'},{l:isHi?'डिलीवर हो गया':'Delivered',t:'~'+new Date(now+54*60000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}),icon:'🏠'}];})().map((step,i)=>(
-            <div key={i} style={{display:'flex',gap:12}}>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
-                <div style={{width:36,height:36,borderRadius:12,background:step.done||step.active?'linear-gradient(135deg,#1A3320,#0E2318)':'var(--card)',border:step.done||step.active?'1.5px solid rgba(61,255,122,.4)':'1px solid rgba(61,255,122,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,animation:step.active?'statusP 1.5s infinite':'none'}}>{step.icon}</div>
-                {i<3&&<div style={{width:2,height:26,background:step.done?'linear-gradient(to bottom,#3DFF7A,#00C44F)':'rgba(255,255,255,.06)',margin:'4px 0',borderRadius:1}}/>}
-              </div>
-              <div style={{flex:1,paddingTop:6}}>
-                <div style={{fontSize:14,fontWeight:step.active?700:600,color:step.done||step.active?'#fff':'#5A6A5A'}}>{step.l}</div>
-                <div style={{fontSize:11,color:step.active?'#3DFF7A':'#5A6A5A',marginBottom:6}}>{step.t}</div>
-              </div>
-            </div>
-          ))}
-          </div>
-        </div>
-      </div>
+      <TrackScreen onBack={()=>{setTrack(false);setScr('home');setNav('home');}} lastOrderId={lastOrderId} isHi={isHi} t={t} fam={fam}/>
     );
 
     if(selP) return (
