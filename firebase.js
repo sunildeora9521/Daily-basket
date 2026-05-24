@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { getFirestore } from "firebase/firestore";
+import { getMessaging, getToken, onMessage as fbOnMessage } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC2AKNq6YSU_NYMU7eSYC8Gm-o84SDW99E",
@@ -15,10 +15,20 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const messaging = getMessaging(app);
+
+let messaging = null;
+try {
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    messaging = getMessaging(app);
+  }
+} catch(err) {
+  console.log('Firebase messaging not supported:', err);
+}
+export { messaging };
 
 export const requestNotificationPermission = async () => {
   try {
+    if (!messaging) return null;
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       const token = await getToken(messaging, {
@@ -30,7 +40,17 @@ export const requestNotificationPermission = async () => {
   } catch(err) {
     console.log('Notification error:', err);
   }
+  return null;
 };
 
-export { onMessage };
+export const onMessage = (msgInstance, callback) => {
+  try {
+    if (!msgInstance) return () => {};
+    return fbOnMessage(msgInstance, callback);
+  } catch(err) {
+    console.log('onMessage error:', err);
+    return () => {};
+  }
+};
+
 export default app;
