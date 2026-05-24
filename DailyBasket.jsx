@@ -1233,7 +1233,6 @@ function CustomerApp({user, lang, data, setData, theme, setTheme}) {
   const [ckStep, setCkStep]=useState(1);
   const [savedAddr, setSavedAddr]=useState(null);
   const [adIdx, setAdIdx]=useState(0);
-  const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
   // Push notification listener
   useEffect(()=>{
     try{if('Notification' in window && Notification.permission==='default') Notification.requestPermission();}catch(e){}
@@ -1293,6 +1292,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   {id:6,bg:'linear-gradient(135deg,#1A0A00,#100600)',emoji:'🎊',chip:'🎉 Bulk Orders',title:'Event & Party Orders',sub:'Wedding, party, pooja · Min ₹500',btn:'Book Now',link:'bulk'},
   ];
   const [adSlides,setAdSlides]=useState(defaultSlides);
+  const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
   // Load slides from Firestore
   useEffect(()=>{
   getDocs(collection(db,'adSlides')).then(snap=>{
@@ -1397,7 +1397,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const filtP = activeProds.filter(p=>{
     const matchCat = catF==='all'||p.cat===catF;
     const q = (searchQ||'').toLowerCase();
-    const matchQ = !q||(p.name||'').toLowerCase().includes(q)||(p.nameHi||'').toLowerCase().includes(q);
+    const matchQ = !q||(p.name||'').toLowerCase().includes(q)||(p.nameHi||'').includes(q);
     return matchCat&&matchQ;
   }).slice(0,20);
 
@@ -2945,7 +2945,7 @@ function AdminApp({data,setData,onBack}) {
 
         {tab==='shops'&&<>
           <div className="sh"><div className="st">Shops ({data.shops.length})</div><button className="btn rip" onClick={()=>setAddS(true)} style={{padding:'7px 14px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>+ Register</button></div>
-          {(data.shops||[]).map((s,i)=>(
+          {data.shops.map((s,i)=>(
             <div key={s.id} className="gc" style={{padding:'14px',marginBottom:10}}>
               <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
                 <div style={{width:46,height:46,borderRadius:14,background:'rgba(212,175,55,.1)',border:'1px solid rgba(212,175,55,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏨</div>
@@ -3137,9 +3137,9 @@ function AdminApp({data,setData,onBack}) {
           </div>
           <div className="gc" style={{padding:'16px'}}>
             <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>Stock Alert ⚠️</div>
-            {(data.products||[]).filter(p=>p&&(p.stock||0)<20).length===0
+            {data.products.filter(p=>p.stock<20).length===0
               ? <div style={{textAlign:'center',color:'#3DFF7A',fontSize:13}}>✅ All products well stocked!</div>
-              : (data.products||[]).filter(p=>p&&(p.stock||0)<20).map(p=>(
+              : data.products.filter(p=>p.stock<20).map(p=>(
                 <div key={p.id} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
                   <span style={{fontSize:13}}>{p.emoji} {p.name}</span>
                   <span style={{fontSize:13,fontWeight:700,color:'#FF6B6B'}}>Stock: {p.stock} ⚠️</span>
