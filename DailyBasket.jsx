@@ -244,7 +244,7 @@ const T = {
 /* ═══════════ DATA ═══════════ */
 const ADMIN_ID = 'Sunil14581';
 const ADMIN_PASS = 'Sunil@$14581';
-
+const DEMO_OTP = '123456';
 const mkData = () => ({
   products:[
     {id:1,name:'Tomatoes',nameHi:'टमाटर',    price:35, unit:'500g',  emoji:'🍅',cat:'veg',  stock:150,tag:'Fresh',  tagHi:'ताजा',  active:true},
