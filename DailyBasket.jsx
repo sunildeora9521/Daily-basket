@@ -2646,7 +2646,7 @@ function AdminApp({data,setData,onBack}) {
     const r={id:rid,name:nrF.name,phone:nrF.phone,pass:nrF.customPass||`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
     try{
       
-      await setDoc(fdoc(db,'riders',rid),r);
+      await setDoc(doc(db,'riders',rid),r);
       setCreds({type:'Rider',id:r.id,pass:r.pass});
       alert(`✅ Rider registered!\nID: ${r.id}\nPass: ${r.pass}`);
     }catch(e){
