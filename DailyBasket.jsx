@@ -244,7 +244,6 @@ const T = {
 /* ═══════════ DATA ═══════════ */
 const ADMIN_ID = 'Sunil14581';
 const ADMIN_PASS = 'Sunil@$14581';
-const DEMO_OTP = '123456';
 
 const mkData = () => ({
   products:[
@@ -3337,20 +3336,27 @@ export default function DailyBasket() {
   // phases: splash → login → otp → location → language → app
   const [phase,  setPhase ] = useState('splash');
   const [user,   setUser  ] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{
-  const unsub=onAuthStateChanged(auth,u=>{
-    if(u){
-      let savedName='User';
-      try { savedName=localStorage.getItem('db_name')||'User'; } catch(e) {}
-      const uData={name:u.displayName||savedName, phone:u.phoneNumber||'', uid:u.uid};
-      setUser(uData);
-      setPhase('app');
-      setDoc(doc(db,'users',u.uid),{name:uData.name,phone:uData.phone,updatedAt:serverTimestamp()},{merge:true}).catch(()=>{});
-    }
+  let unsub=()=>{};
+  try {
+    unsub=onAuthStateChanged(auth,u=>{
+      try {
+        if(u){
+          let savedName='User';
+          try { savedName=localStorage.getItem('db_name')||'User'; } catch(e) {}
+          const uData={name:u.displayName||savedName, phone:u.phoneNumber||'', uid:u.uid};
+          setUser(uData);
+          setPhase('app');
+          setDoc(doc(db,'users',u.uid),{name:uData.name,phone:uData.phone,updatedAt:serverTimestamp()},{merge:true}).catch(()=>{});
+        }
+      } catch(e){ console.log('Auth user error:',e); }
+      setAuthReady(true);
+    });
+  } catch(e) {
+    console.log('Auth init error:',e);
     setAuthReady(true);
-  });
-  return()=>unsub();
+  }
+  return()=>{ try{ unsub(); }catch(e){} };
 },[]);
   const [lang,   setLang  ] = useState('en');
   const [data,   setData  ] = useState(mkData());
