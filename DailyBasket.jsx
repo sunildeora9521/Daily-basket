@@ -868,7 +868,8 @@ function CustomerLogin({onLogin}) {
           displayName: name.trim()
         });
       } catch(e) { console.log('Profile save:',e); }
-      try { localStorage.setItem('db_name', name.trim()); } catch(e) { console.log('localStorage unavailable:', e); }
+    try { localStorage.setItem('db_name', name.trim()); } catch(e) { console.log('localStorage unavailable:', e); }
+      setLoading(false);
       onLogin({name:name.trim(), phone, uid});
     } catch(e) {
       setErr('Galat OTP! Dobara try karo.');
@@ -1267,7 +1268,8 @@ function CustomerApp({user, lang, data, setData, theme, setTheme}) {
           const data={...d.data(),id:d.data().id||d.id,firestoreId:d.id};
           // Restore image from localStorage if not in Firestore
           if(!data.imgUrl){
-            const localImg=localStorage.getItem('prodImg_'+d.id);
+            let localImg=null;
+try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
             if(localImg) data.imgUrl=localImg;
           }
           return data;
@@ -3338,7 +3340,9 @@ export default function DailyBasket() {
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,u=>{
       if(u){
-        const uData={name:u.displayName||localStorage.getItem('db_name')||'User',phone:u.phoneNumber||'',uid:u.uid};
+        let savedName='User';
+try { savedName=localStorage.getItem('db_name')||'User'; } catch(e) {}
+const uData={name:u.displayName||savedName, ...}
         setUser(uData);
         setPhase('app');
         // Save to Firestore for broadcast notifications
