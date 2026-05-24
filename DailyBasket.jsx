@@ -1173,7 +1173,7 @@ function LanguageScreen({user, onSelect}) {
 }
 
 /* ═══════════ MAIN CUSTOMER APP ═══════════ */
-function CustomerApp({user, lang, data, theme, setTheme}) {
+function CustomerApp({user, lang, data, setData, theme, setTheme}) {
   const t = T[lang]||T.en;
   const isHi = lang==='hi';
   const fam = isHi?"'Noto Sans Devanagari','Outfit',sans-serif":"'Outfit',sans-serif";
@@ -1395,7 +1395,7 @@ function CustomerApp({user, lang, data, theme, setTheme}) {
   const filtP = activeProds.filter(p=>{
   const matchCat = catF==='all'||p.cat===catF;
   const q = searchQ.toLowerCase();
-  const matchQ = !q||p.name.toLowerCase().includes(q)||p.nameHi.includes(q);
+  const matchQ = !q||p.name.toLowerCase().includes(q)||(p.nameHi||'').includes(q);
   return matchCat&&matchQ;
   }).slice(0,20);
 
@@ -3377,7 +3377,7 @@ export default function DailyBasket() {
     if(phase==='location') return <LocationScreen user={user} onAllow={()=>setPhase('language')} onSkip={()=>setPhase('language')}/>;
     if(phase==='language') return <LanguageScreen user={user} onSelect={l=>{setLang(l);setPhase('app');}}/>;
     if(phase==='app') {
-      if(portal==='customer') return <CustomerApp user={user} lang={lang} data={data} theme={theme} setTheme={setTheme}/>;
+      if(portal==='customer') return <CustomerApp user={user} lang={lang} data={data} setData={setData} theme={theme} setTheme={setTheme}/>;
       if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>data.riders.find(r=>r.id===id&&r.pass===p&&r.active)||null} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}}/>);
       if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>data.shops.find(s=>s.id===id&&s.pass===p&&s.active)||null} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}}/>);
       if(portal==='admin') {
