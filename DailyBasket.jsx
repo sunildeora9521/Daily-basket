@@ -3338,11 +3338,9 @@ export default function DailyBasket() {
   const [user,   setUser  ] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{
-    const unsub=onAuthStateChanged(auth,u=>{
-      if(u){
-        let savedName='User';
+    let savedName='User';
 try { savedName=localStorage.getItem('db_name')||'User'; } catch(e) {}
-const uData={name:u.displayName||savedName, ...}
+const uData={name:u.displayName||savedName, phone:u.phoneNumber||'', uid:u.uid};
         setUser(uData);
         setPhase('app');
         // Save to Firestore for broadcast notifications
