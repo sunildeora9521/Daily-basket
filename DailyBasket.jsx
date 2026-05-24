@@ -868,7 +868,7 @@ function CustomerLogin({onLogin}) {
           displayName: name.trim()
         });
       } catch(e) { console.log('Profile save:',e); }
-      localStorage.setItem('db_name', name.trim());
+      try { localStorage.setItem('db_name', name.trim()); } catch(e) { console.log('localStorage unavailable:', e); }
       onLogin({name:name.trim(), phone, uid});
     } catch(e) {
       setErr('Galat OTP! Dobara try karo.');
