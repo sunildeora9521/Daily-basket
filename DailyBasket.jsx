@@ -3334,8 +3334,9 @@ class ErrorBoundary extends React.Component {
 
 export default function DailyBasket() {
   // phases: splash → login → otp → location → language → app
-  const [phase,  setPhase ] = useState('splash');
-  const [user,   setUser  ] = useState(null);
+const [phase,  setPhase ] = useState('splash');
+const [user,   setUser  ] = useState(null);
+const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{
   let unsub=()=>{};
   try {
