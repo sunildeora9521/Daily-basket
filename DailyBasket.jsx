@@ -244,6 +244,7 @@ const T = {
 /* ═══════════ DATA ═══════════ */
 const ADMIN_ID = 'Sunil14581';
 const ADMIN_PASS = 'Sunil@$14581';
+const DEMO_OTP = '123456';
 
 const mkData = () => ({
   products:[
