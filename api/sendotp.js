@@ -1,15 +1,27 @@
 const crypto = require('crypto');
 const https  = require('https');
 
+const readBody = req => new Promise((resolve, reject) => {
+  let data = '';
+  req.on('data', chunk => data += chunk);
+  req.on('end', () => {
+    try { resolve(JSON.parse(data)); }
+    catch(e) { resolve({}); }
+  });
+  req.on('error', reject);
+});
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-  const { phone } = req.body || {};
-  if (!phone || !/^\d{10}$/.test(phone))
+  const body  = await readBody(req);
+  const phone = body.phone || '';
+
+  if (!/^\d{10}$/.test(phone))
     return res.status(400).json({ error: 'Invalid phone number' });
 
   const otp     = String(Math.floor(100000 + Math.random() * 900000));
@@ -24,26 +36,30 @@ module.exports = async (req, res) => {
 
   try {
     await new Promise((resolve, reject) => {
-      const path = `/dev/bulkV2?authorization=${key}&route=otp&variables_values=${otp}&flash=0&numbers=${phone}`;
-      const options = { hostname: 'www.fast2sms.com', path, method: 'GET',
-        headers: { 'cache-control': 'no-cache' } };
-      const req2 = https.request(options, r => {
-        let body = '';
-        r.on('data', d => body += d);
+      const path = `/dev/bulkV2?authorization=${encodeURIComponent(key)}&route=otp&variables_values=${otp}&flash=0&numbers=${phone}`;
+      const options = {
+        hostname: 'www.fast2sms.com',
+        path,
+        method: 'GET',
+        headers: { 'cache-control': 'no-cache' }
+      };
+      const r2 = https.request(options, r => {
+        let buf = '';
+        r.on('data', d => buf += d);
         r.on('end', () => {
           try {
-            const d = JSON.parse(body);
+            const d = JSON.parse(buf);
             if (d.return) resolve(d);
-            else reject(new Error(d.message||JSON.stringify(d)));
-          } catch(e) { reject(new Error('Fast2SMS parse error: '+body.slice(0,100))); }
+            else reject(new Error(d.message || JSON.stringify(d)));
+          } catch(e) { reject(new Error('Parse error: ' + buf.slice(0,120))); }
         });
       });
-      req2.on('error', reject);
-      req2.end();
+      r2.on('error', reject);
+      r2.end();
     });
   } catch(e) {
     return res.status(500).json({ error: 'SMS failed: ' + e.message });
   }
 
-  res.json({ success: true, token });
+  return res.json({ success: true, token });
 };
