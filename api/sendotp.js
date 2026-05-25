@@ -20,31 +20,29 @@ module.exports = async (req, res) => {
   const token   = payload + '.' + sig;
 
   const key = process.env.FAST2SMS_API_KEY;
-  if (!key) return res.status(500).json({ error: 'API key not configured' });
+  if (!key) return res.status(500).json({ error: 'API key missing' });
 
   try {
     await new Promise((resolve, reject) => {
-      const path = `/dev/bulkV2?authorization=${key}&route=otp` +
-                   `&variables_values=${otp}&flash=0&numbers=${phone}`;
-      https.get({
-        hostname: 'www.fast2sms.com',
-        path,
-        method: 'GET',
-        headers: { 'cache-control': 'no-cache' }
-      }, r => {
+      const path = `/dev/bulkV2?authorization=${key}&route=otp&variables_values=${otp}&flash=0&numbers=${phone}`;
+      const options = { hostname: 'www.fast2sms.com', path, method: 'GET',
+        headers: { 'cache-control': 'no-cache' } };
+      const req2 = https.request(options, r => {
         let body = '';
-        r.on('data', c => body += c);
+        r.on('data', d => body += d);
         r.on('end', () => {
           try {
             const d = JSON.parse(body);
-            if (!d.return) reject(new Error(d.message || 'SMS failed'));
-            else resolve(d);
-          } catch(e) { reject(new Error('Fast2SMS parse error')); }
+            if (d.return) resolve(d);
+            else reject(new Error(d.message||JSON.stringify(d)));
+          } catch(e) { reject(new Error('Fast2SMS parse error: '+body.slice(0,100))); }
         });
-      }).on('error', reject);
+      });
+      req2.on('error', reject);
+      req2.end();
     });
   } catch(e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: 'SMS failed: ' + e.message });
   }
 
   res.json({ success: true, token });
