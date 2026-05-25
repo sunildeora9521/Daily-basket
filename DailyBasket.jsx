@@ -823,13 +823,14 @@ function BulkOrderScreen({onBack, user, fam}) {
 }
 
 function CustomerLogin({onLogin}) {
-  const [name,  setName ] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp,   setOtp  ] = useState('');
-  const [step,  setStep ] = useState('phone');
-  const [confirmObj, setConfirmObj] = useState(null);
+  const [name,    setName   ] = useState('');
+  const [phone,   setPhone  ] = useState('');
+  const [otp,     setOtp    ] = useState('');
+  const [step,    setStep   ] = useState('phone');
+  const [token,   setToken  ] = useState('');
   const [loading, setLoading] = useState(false);
-  const [err,   setErr  ] = useState('');
+  const [err,     setErr    ] = useState('');
+  const [resend,  setResend ] = useState(0);
 
   const sendOTP = async () => {
     if(!name.trim()){setErr('Please enter your name');return;}
@@ -837,17 +838,18 @@ function CustomerLogin({onLogin}) {
     setErr('');
     setLoading(true);
     try {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth, 'recaptcha-container', {size:'invisible'}
-      );
-      const result = await signInWithPhoneNumber(
-        auth, '+91'+phone, window.recaptchaVerifier
-      );
-      setConfirmObj(result);
+      const res = await fetch('/api/sendotp', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({phone})
+      });
+      const data = await res.json();
+      if(!data.success) throw new Error(data.error||'OTP send failed');
+      setToken(data.token);
       setStep('otp');
+      setResend(30);
     } catch(e) {
       setErr('OTP send nahi hua: '+e.message);
-      if(window.recaptchaVerifier) window.recaptchaVerifier.clear();
     }
     setLoading(false);
   };
@@ -857,25 +859,33 @@ function CustomerLogin({onLogin}) {
     setLoading(true);
     setErr('');
     try {
-      const result = await confirmObj.confirm(otp);
-      const uid = result.user.uid;
+      const res = await fetch('/api/verifyotp', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({token, userOtp:otp})
+      });
+      const data = await res.json();
+      if(!data.success) throw new Error(data.error||'Verification failed');
+      const uid  = 'ph_'+phone;
+      const uData = {name:name.trim(), phone, uid};
       try {
-        await addDoc(collection(db,'users'), {
-          uid,
-          name: name.trim(),
-          phone,
-          createdAt: serverTimestamp(),
-          displayName: name.trim()
-        });
-      } catch(e) { console.log('Profile save:',e); }
-    try { localStorage.setItem('db_name', name.trim()); } catch(e) { console.log('localStorage unavailable:', e); }
+        await setDoc(doc(db,'users',uid),{name:name.trim(),phone,updatedAt:serverTimestamp()},{merge:true});
+        localStorage.setItem('db_cust_user', JSON.stringify(uData));
+        localStorage.setItem('db_name', name.trim());
+      } catch(e){console.log('Save error:',e);}
       setLoading(false);
-      onLogin({name:name.trim(), phone, uid});
+      onLogin(uData);
     } catch(e) {
-      setErr('Galat OTP! Dobara try karo.');
+      setErr(e.message||'Galat OTP! Dobara try karo.');
       setLoading(false);
     }
   };
+
+  useEffect(()=>{
+    if(resend<=0) return;
+    const iv=setInterval(()=>setResend(r=>Math.max(0,r-1)),1000);
+    return()=>clearInterval(iv);
+  },[resend]);
 
   return (
     <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 40% 20%,#0C1C0C,#070907)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
@@ -3373,6 +3383,12 @@ const [authReady, setAuthReady] = useState(false);
           setUser(uData);
           setPhase('app');
           setDoc(doc(db,'users',u.uid),{name:uData.name,phone:uData.phone,updatedAt:serverTimestamp()},{merge:true}).catch(()=>{});
+        } else {
+          // Custom OTP login session restore
+          try {
+            const saved=localStorage.getItem('db_cust_user');
+            if(saved){const u2=JSON.parse(saved);setUser(u2);setPhase('app');}
+          } catch(e){}
         }
       } catch(e){ console.log('Auth user error:',e); }
       setAuthReady(true);
