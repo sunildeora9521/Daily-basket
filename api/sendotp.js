@@ -24,7 +24,8 @@ module.exports = async (req, res) => {
 
   try {
     await new Promise((resolve, reject) => {
-      const path = `/dev/bulkV2?authorization=${encodeURIComponent(key)}&route=otp&variables_values=${otp}&flash=0&numbers=${phone}`;
+      const message = `Your Daily Basket OTP is ${otp}. Valid for 5 minutes. Do not share with anyone.`;
+const path = `/dev/bulkV2?authorization=${encodeURIComponent(key)}&route=q&message=${encodeURIComponent(message)}&flash=0&numbers=${phone}&sender_id=FSTSMS`;
       const r2 = https.request(
         {hostname:'www.fast2sms.com',path,method:'GET',headers:{'cache-control':'no-cache'}},
         r => {
