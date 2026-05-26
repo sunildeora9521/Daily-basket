@@ -1593,9 +1593,10 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
         <div onClick={()=>setPayMethod('cod')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='cod'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='cod'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
           <div style={{fontSize:16}}>💵</div><div style={{fontSize:11,fontWeight:600,color:payMethod==='cod'?'#3DFF7A':'var(--t3)'}}>Cash on Delivery</div>
         </div>
-        <div onClick={()=>setPayMethod('upi')} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${payMethod==='upi'?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:payMethod==='upi'?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
+        <div style={{flex:1,padding:'10px',borderRadius:12,border:'1.5px solid rgba(255,255,255,.06)',background:'rgba(255,255,255,.02)',textAlign:'center',opacity:.55,position:'relative'}}>
           <div style={{fontSize:16}}>📱</div>
-          <div style={{fontSize:11,fontWeight:600,color:payMethod==='upi'?'#3DFF7A':'var(--t3)'}}>UPI</div>
+          <div style={{fontSize:11,fontWeight:600,color:'var(--t3)'}}>UPI</div>
+          <div style={{fontSize:9,color:'#D4AF37',fontWeight:700,marginTop:2}}>🔜 Coming Soon</div>
         </div>
       </div>
     </div>
