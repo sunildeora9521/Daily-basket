@@ -1296,8 +1296,8 @@ function CustomerApp({user, lang, data, setData, theme, setTheme}) {
   // Push notification listener
   useEffect(()=>{
     try{if('Notification' in window && Notification.permission==='default') Notification.requestPermission();}catch(e){}
-    if(!auth.currentUser?.uid) return;
-    const uid=auth.currentUser.uid;
+    const uid=user?.uid||auth.currentUser?.uid;
+    if(!uid) return;
     let unsub=()=>{};
     try{
       unsub=onSnapshot(collection(db,'notifications'),snap=>{
@@ -1356,20 +1356,22 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   ];
   const [adSlides,setAdSlides]=useState(defaultSlides);
   const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
-  // Load slides from Firestore
+  // Load slides from Firestore - realtime listener
   useEffect(()=>{
-  getDocs(collection(db,'adSlides')).then(snap=>{
-    if(snap.docs.length>0){
-      const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-      setAdSlides(fs);
-    }
-  }).catch(()=>{});
+    const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
+      if(snap.docs.length>0){
+        const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+        setAdSlides(fs);
+      }
+    },()=>{});
+    return()=>unsub();
   },[]);
 
   useEffect(()=>{const iv=setInterval(()=>setAdIdx(i=>adSlides.length>0?(i+1)%adSlides.length:0),3000);return()=>clearInterval(iv);},[adSlides.length]);
   useEffect(()=>{
     if(auth.currentUser?.uid){
-      getDocs(collection(db,'users',auth.currentUser.uid,'addresses')).then(snap=>{
+      const _addrUid=user?.uid||auth.currentUser?.uid;
+      if(_addrUid) getDocs(collection(db,'users',_addrUid,'addresses')).then(snap=>{
         if(!snap.empty){const a=snap.docs[snap.docs.length-1].data();if(a.full)setSavedAddr(a.full);}
       }).catch(()=>{});
     }
@@ -1383,7 +1385,8 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
 
   useEffect(()=>{
     if(auth.currentUser?.uid){
-      const uid=auth.currentUser.uid;
+      const uid=user?.uid||auth.currentUser?.uid;
+      if(!uid) return;
       import('firebase/firestore').then(({doc,getDoc,setDoc})=>{
         getDoc(doc(db,'users',uid)).then(d=>{
           if(d.exists()&&d.data().points!=null)setPoints(d.data().points);
@@ -1439,10 +1442,13 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const place=async(addr)=>{
   const addrData=addr||address;
   if(!addrData){alert('⚠️ Address set karo pehle!');return;}
-  if(!auth.currentUser){alert('⚠️ Pehle login karo!');return;}
   if(cart.length===0){alert('⚠️ Cart khali hai!');return;}
+  // Use user state (works for both Firebase auth + custom OTP login)
+  const uid=user?.uid||auth.currentUser?.uid;
+  const userName=user?.name||auth.currentUser?.displayName||'Customer';
+  const userPhone=user?.phone||auth.currentUser?.phoneNumber||'';
   // Support both object and string address
-  const addrText=typeof addrData==='object'?(addrData.full||addrData.text||JSON.stringify(addrData)):addrData;
+  const addrText=typeof addrData==='object'?(addrData.full||addrData.text||''):addrData;
   const addrLat=typeof addrData==='object'?addrData.lat:null;
   const addrLng=typeof addrData==='object'?addrData.lng:null;
   const mapsLink=addrLat&&addrLng?`https://maps.google.com/?q=${addrLat},${addrLng}`:(typeof addrData==='object'?addrData.mapsLink||'':'');
@@ -1451,9 +1457,9 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const total=Math.max(0,sub+del-discount-(usePoints?pointsDiscount:0));
   try{
     const oRef=await addDoc(collection(db,'orders'),{
-      userId:auth.currentUser.uid,
-      userName:user?.name||'Customer',
-      userPhone:user?.phone||auth.currentUser.phoneNumber||'',
+      userId:uid||'guest_'+Date.now(),
+      userName,
+      userPhone,
       items:cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price,emoji:i.emoji||''})),
       subtotal:sub,delivery:del,discount:discount,total,
       payMethod:payMethod,
@@ -1467,10 +1473,12 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     const earned=Math.floor(total/10);
     const newPoints=usePoints?Math.max(0,points-(Math.floor(points/10)*10))+earned:points+earned;
     setPoints(newPoints);
-    try{
-      const {doc:fDoc,setDoc}=await import('firebase/firestore');
-      await setDoc(fDoc(db,'users',auth.currentUser.uid),{points:newPoints,lastOrder:oRef.id,phone:auth.currentUser.phoneNumber||''},{merge:true});
-    }catch(pe){console.log('Points save err:',pe);}
+    if(uid){
+      try{
+        const {doc:fDoc,setDoc}=await import('firebase/firestore');
+        await setDoc(fDoc(db,'users',uid),{points:newPoints,lastOrder:oRef.id,phone:userPhone,name:userName},{merge:true});
+      }catch(pe){console.log('Points save err:',pe);}
+    }
     setUsePoints(false);
     setLastOrderId(oRef.id);
     setCart([]);
@@ -2246,13 +2254,13 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   const [editSaving, setEditSaving]=useState(false);
 
   const fetchOrders=async()=>{
-    if(!auth.currentUser) return;
+    if(!user?.uid&&!auth.currentUser?.uid) return;
     setLoadingOrders(true);
     try{
       const q=await getDocs(collection(db,'orders'));
       const myOrders=q.docs
         .map(d=>({id:d.id,...d.data()}))
-        .filter(o=>o.userId===auth.currentUser.uid)
+        .filter(o=>o.userId===(user?.uid||auth.currentUser?.uid))
         .sort((a,b)=>b.createdAt?.seconds-a.createdAt?.seconds);
       setOrders(myOrders);
     }catch(e){console.log('Orders fetch error:',e);}
@@ -2260,19 +2268,21 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   };
 
   const fetchMilkSubs=async()=>{
-    if(!auth.currentUser) return;
+    if(!user?.uid&&!auth.currentUser?.uid) return;
     try{
       const q=await getDocs(collection(db,'milk_subscriptions'));
-      const my=q.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.userId===auth.currentUser.uid);
+      const my=q.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.userId===(user?.uid||auth.currentUser?.uid));
       setMilkSubs(my);
     }catch(e){console.log(e);}
   };
 
   const saveProfile=async()=>{
-    if(!auth.currentUser||!editName.trim()) return;
+    const uid3=user?.uid||auth.currentUser?.uid;
+    if(!uid3||!editName.trim()) return;
     setEditSaving(true);
     try{
-      await setDoc(doc(db,'users',auth.currentUser.uid),{name:editName.trim(),phone:user?.phone},{merge:true});
+      const uid4=user?.uid||auth.currentUser?.uid;
+      await setDoc(doc(db,'users',uid4),{name:editName.trim(),phone:user?.phone},{merge:true});
       alert('Profile updated!');
       setShowEditProfile(false);
     }catch(e){console.log(e);}
