@@ -1481,9 +1481,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     setTrack(true);
   }catch(e){
     console.log('Order error:',e);
-    alert('❌ Order place nahi hua!
-Error: '+(e.message||'Internet check karo')+'
-Phir try karo.');
+    alert('❌ Order place nahi hua! Error: '+(e.message||'Internet check karo')+'. Phir try karo.');
   }
   };
   const goNav=n=>{setNav(n);setScr(n);setShCart(false);setSelP(null);};
