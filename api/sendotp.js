@@ -12,16 +12,16 @@ module.exports = async (req, res) => {
   if (!/^\d{10}$/.test(phone))
     return res.status(400).json({ error: 'Invalid phone' });
 
-  const otp    = String(Math.floor(100000 + Math.random() * 900000));
+  const otp    = '123456'; // DEV MODE
   const exp    = Date.now() + 5 * 60 * 1000;
   const secret = process.env.OTP_SECRET || 'db_fallback';
   const raw    = Buffer.from(JSON.stringify({phone,otp,exp})).toString('base64');
   const sig    = crypto.createHmac('sha256',secret).update(raw).digest('hex');
   const token  = raw + '.' + sig;
 
-  const key = process.env.FAST2SMS_API_KEY;
-  if (!key) return res.status(500).json({ error: 'API key missing' });
-
+  // DEV MODE - hardcoded OTP (remove after Fast2SMS recharge)
+console.log('DEV OTP for', phone, ':', otp);
+return res.json({ success: true, token });
   try {
     await new Promise((resolve, reject) => {
       const message = `Your Daily Basket OTP is ${otp}. Valid for 5 minutes. Do not share with anyone.`;
