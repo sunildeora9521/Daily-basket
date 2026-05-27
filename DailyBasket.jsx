@@ -1434,14 +1434,13 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   ];
   const [adSlides,setAdSlides]=useState(defaultSlides);
   const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
-  // Load slides from Firestore - realtime listener
+  // Load slides from Firestore - realtime listener (merge with defaults)
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
-      if(snap.docs.length>0){
-        const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-        setAdSlides(fs);
-      }
-    },()=>{});
+      const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+      // Firestore slides + default slides dono dikhao
+      setAdSlides(fs.length>0?[...fs,...defaultSlides]:defaultSlides);
+    },()=>{ setAdSlides(defaultSlides); });
     return()=>unsub();
   },[]);
 
@@ -3740,7 +3739,16 @@ class ErrorBoundary extends React.Component {
 
 export default function DailyBasket() {
   // phases: splash → login → otp → location → language → app
-const [phase,  setPhase ] = useState('splash');
+const [phase,  setPhase ] = useState(()=>{
+  try{
+    const isAdmin=localStorage.getItem('db_admin')==='true';
+    const hasRider=!!localStorage.getItem('db_rider');
+    const hasShop=!!localStorage.getItem('db_shop');
+    const hasCust=!!localStorage.getItem('db_cust_user');
+    if(isAdmin||hasRider||hasShop||hasCust) return 'app';
+    return 'splash';
+  }catch(e){return 'splash';}
+});
 const [user,   setUser  ] = useState(null);
 const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{
@@ -3773,10 +3781,16 @@ const [authReady, setAuthReady] = useState(false);
 },[]);
   const [lang,   setLang  ] = useState('en');
   const [data,   setData  ] = useState(mkData());
-  const [portal, setPortal] = useState('customer');
-  const [riderU, setRiderU] = useState(null);
-  const [shopU,  setShopU ] = useState(null);
-  const [adminA, setAdminA] = useState(false);
+  const [portal, setPortal] = useState(()=>{try{return localStorage.getItem('db_portal')||'customer';}catch(e){return 'customer';}});
+  const [riderU, setRiderU] = useState(()=>{try{const r=localStorage.getItem('db_rider');return r?JSON.parse(r):null;}catch(e){return null;}});
+  const [shopU,  setShopU ] = useState(()=>{try{const s=localStorage.getItem('db_shop');return s?JSON.parse(s):null;}catch(e){return null;}});
+  const [adminA, setAdminA] = useState(()=>{try{return localStorage.getItem('db_admin')==='true';}catch(e){return false;}});
+
+  // Save portal sessions to localStorage
+  useEffect(()=>{try{localStorage.setItem('db_portal',portal);}catch(e){}}, [portal]);
+  useEffect(()=>{try{if(riderU)localStorage.setItem('db_rider',JSON.stringify(riderU));else localStorage.removeItem('db_rider');}catch(e){}}, [riderU]);
+  useEffect(()=>{try{if(shopU)localStorage.setItem('db_shop',JSON.stringify(shopU));else localStorage.removeItem('db_shop');}catch(e){}}, [shopU]);
+  useEffect(()=>{try{localStorage.setItem('db_admin',adminA?'true':'false');}catch(e){}}, [adminA]);
   const [theme, setTheme] = useState(()=>{ try{return localStorage.getItem('db_theme')||'eco';}catch(e){return 'eco';} });
   useEffect(()=>{ try{localStorage.setItem('db_theme',theme);}catch(e){} },[theme]);
 
@@ -3802,11 +3816,11 @@ const [authReady, setAuthReady] = useState(false);
     if(phase==='language') return <LanguageScreen user={user} onSelect={l=>{setLang(l);setPhase('app');}}/>;
     if(phase==='app') {
       if(portal==='customer') return <CustomerApp user={user} lang={lang} data={data} setData={setData} theme={theme} setTheme={setTheme}/>;
-      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>data.riders.find(r=>r.id===id&&r.pass===p&&r.active)||null} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');}}/>);
-      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>data.shops.find(s=>s.id===id&&s.pass===p&&s.active)||null} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');}}/>);
+      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>data.riders.find(r=>r.id===id&&r.pass===p&&r.active)||null} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
+      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>data.shops.find(s=>s.id===id&&s.pass===p&&s.active)||null} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='admin') {
-        if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}} hint={null}/>;
-        return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');}}/>;
+        if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
+        return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}}/>;
       }
       if(portal==='help') return (
         <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
