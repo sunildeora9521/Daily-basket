@@ -885,17 +885,9 @@ function CustomerLogin({onLogin}) {
     if(phone.length!==10){setErr('Valid 10-digit mobile number daalo');return;}
     setErr(''); setLoading(true);
     try {
-      // Send SMS OTP via Fast2SMS
-      const res = await fetch('/api/sendotp', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({phone})
-      });
-      const data = await res.json();
-      if(!data.success) throw new Error(data.error||'OTP send failed');
-      setToken(data.token);
-
-      // Send Email OTP if email provided
-      if(emailOtp && email.includes('@')) {
+      // Step 1: Email OTP pehle bhejo — SMS se independent
+      let emailSent = false;
+      if(emailOtp && email.includes('@') && email.includes('.')) {
         const emailCode = String(Math.floor(100000+Math.random()*900000));
         localStorage.setItem('db_email_otp', emailCode);
         try {
@@ -903,13 +895,30 @@ function CustomerLogin({onLogin}) {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({email, name:name.trim(), otp:emailCode})
           });
+          emailSent = true;
         } catch(e){ console.log('Email OTP err:',e); }
-        setOtpSentTo(phone+'|'+email);
-      } else {
-        setOtpSentTo(phone);
       }
+
+      // Step 2: SMS OTP try karo — fail ho to bhi email se kaam chalega
+      let smsToken = '';
+      try {
+        const res = await fetch('/api/sendotp', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({phone})
+        });
+        const data = await res.json();
+        if(data.success) smsToken = data.token;
+      } catch(e){ console.log('SMS OTP err:',e); }
+
+      // Agar dono fail ho to error do
+      if(!smsToken && !emailSent) {
+        throw new Error('OTP send nahi hua. Internet check karo.');
+      }
+
+      setToken(smsToken);
+      setOtpSentTo(emailOtp && email.includes('@') ? phone+'|'+email : phone);
       setStep('otp'); setResend(30);
-    } catch(e) { setErr('OTP send nahi hua: '+e.message); }
+    } catch(e) { setErr(e.message); }
     setLoading(false);
   };
 
@@ -917,13 +926,31 @@ function CustomerLogin({onLogin}) {
     if(otp.length!==6){setErr('6 digit OTP daalo');return;}
     setLoading(true); setErr('');
     try {
-      const res = await fetch('/api/verifyotp', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({token, userOtp:otp})
-      });
-      const data = await res.json();
-      if(!data.success) throw new Error(data.error||'Verification failed');
-      const uid  = 'ph_'+phone;
+      let verified = false;
+
+      // Email OTP check karo pehle (agar SMS nahi aaya)
+      if(emailOtp && email.includes('@')) {
+        const savedEmailOtp = localStorage.getItem('db_email_otp');
+        if(savedEmailOtp && otp === savedEmailOtp) {
+          verified = true;
+          localStorage.removeItem('db_email_otp');
+        }
+      }
+
+      // Agar email se verify nahi hua to SMS se try karo
+      if(!verified && token) {
+        const res = await fetch('/api/verifyotp', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({token, userOtp:otp})
+        });
+        const data = await res.json();
+        if(data.success) verified = true;
+        else throw new Error('Galat OTP! Dobara check karo.');
+      }
+
+      if(!verified) throw new Error('Galat OTP! Email ya SMS check karo.');
+
+      const uid = 'ph_'+phone;
       const uData = {name:name.trim(), phone, uid, email:email||''};
       try {
         await setDoc(doc(db,'users',uid),{name:name.trim(),phone,email:email||'',updatedAt:serverTimestamp()},{merge:true});
