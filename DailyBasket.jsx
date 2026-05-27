@@ -505,7 +505,7 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
       lng:gpsCoords?.lng||null,
       accuracy:gpsCoords?.accuracy||null,
       mapsLink,
-      full:`${addrText} · ${slot==='morning'?'🌅 8-11 AM':slot==='quick'?'⚡ Quick ~30 min':'🌆 4-7 PM'}${contactless?' · 🚪 Contactless':''}${mapsLink?' · 📍GPS':''}`
+      full:`${addrText} · ${slot==='morning'?'🌅 Morning 6-9 AM':slot==='quick'?'⚡ Quick ~30 min':'🌆 Evening 6-9 PM'}${contactless?' · 🚪 Contactless':''}${mapsLink?' · 📍GPS':''}`
     };
     try{
       if(userId) await addDoc(collection(db,'users',userId,'addresses'),{...addrObj,createdAt:serverTimestamp()});
@@ -548,7 +548,7 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
         <div style={{marginBottom:16}}>
           <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>🕐 Delivery Time Slot</div>
           <div style={{display:'flex',gap:8}}>
-            {[{id:'morning',icon:'🌅',label:'Morning',sub:'8–11 AM'},{id:'quick',icon:'⚡',label:'Quick',sub:'~30 min'},{id:'evening',icon:'🌆',label:'Evening',sub:'4–7 PM'}].map(s=>(
+            {[{id:'morning',icon:'🌅',label:'Morning',sub:'6–9 AM'},{id:'quick',icon:'⚡',label:'Quick',sub:'~30 min'},{id:'evening',icon:'🌆',label:'Evening',sub:'6–9 PM'}].map(s=>(
               <div key={s.id} onClick={()=>setSlot(s.id)} style={{flex:1,padding:'10px 6px',borderRadius:12,border:`1.5px solid ${slot===s.id?(s.id==='quick'?'rgba(212,175,55,.6)':'rgba(61,255,122,.5)'):'rgba(61,255,122,.1)'}`,background:slot===s.id?(s.id==='quick'?'rgba(212,175,55,.1)':'rgba(61,255,122,.08)'):'transparent',cursor:'pointer',textAlign:'center',position:'relative'}}>
                 {s.id==='quick'&&<div style={{position:'absolute',top:-7,left:'50%',transform:'translateX(-50%)',background:'linear-gradient(135deg,#D4AF37,#B8962E)',borderRadius:50,padding:'2px 7px',fontSize:9,fontWeight:700,color:'#0A0800',whiteSpace:'nowrap'}}>DEFAULT</div>}
                 <div style={{fontSize:18,marginTop:s.id==='quick'?4:0}}>{s.icon}</div>
@@ -1530,7 +1530,8 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const addrLng=typeof addrData==='object'?addrData.lng:null;
   const mapsLink=addrLat&&addrLng?`https://maps.google.com/?q=${addrLat},${addrLng}`:(typeof addrData==='object'?addrData.mapsLink||'':'');
   const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
-  const del=sub>299?0:25;
+  const isBulk=cart.some(i=>(i.cat||'').toLowerCase().includes('bulk')||(i.name||'').toLowerCase().includes('bulk')||(i.chip||'').toLowerCase().includes('bulk'));
+  const del=isBulk?100:10;
   const total=Math.max(0,sub+del-discount-(usePoints?pointsDiscount:0));
   try{
     const oRef=await addDoc(collection(db,'orders'),{
@@ -1628,7 +1629,8 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
               ))}
               {(()=>{
   const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
-  const del=sub>299?0:25;
+  const isBulk=cart.some(i=>(i.cat||'').toLowerCase().includes('bulk')||(i.name||'').toLowerCase().includes('bulk'));
+  const del=isBulk?100:10;
   const tot=Math.max(0,sub+del-discount);
   return(
     <>
@@ -1649,7 +1651,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       )}
       <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.14)',borderRadius:14,padding:'12px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
         <Ic n="truck" s={16} c="#3DFF7A"/>
-        <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`${t.addFreeDelivery}${299-sub}${t.forFreeDelivery}`}</div>
+        <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`🚚 Delivery: ₹${del}`}</div>
       </div>
       {(()=>{
         const sub2=cart.reduce((s,i)=>s+i.price*i.qty,0);
@@ -2768,8 +2770,23 @@ function ShopApp({shop,data,setData,onBack}) {
     return()=>unsub();
   },[]);
 
-  const pending=realOrders.filter(o=>['pending','packed'].includes(o.status));
-  const history=realOrders.filter(o=>o.status==='delivered');
+  // Filter orders by shop category
+  const shopCat=(shop.category||shop.cuisine||'').toLowerCase();
+  const matchesShop=(o)=>{
+    const items=o.items||[];
+    if(shopCat.includes('veg')||shopCat.includes('fruit')||shopCat.includes('grocery')){
+      return items.some(i=>(i.cat||'').match(/veg|fruit/i))||items.length>0;
+    }
+    if(shopCat.includes('food')||shopCat.includes('restaurant')){
+      return items.some(i=>(i.cat||'').match(/food/i));
+    }
+    if(shopCat.includes('dairy')||shopCat.includes('milk')){
+      return items.some(i=>(i.cat||'').match(/milk|dairy/i));
+    }
+    return true; // default: sab orders
+  };
+  const pending=realOrders.filter(o=>['pending','confirmed'].includes(o.status)&&matchesShop(o));
+  const history=realOrders.filter(o=>o.status==='delivered'&&matchesShop(o));
   const todayRev=realOrders.filter(o=>{
     if(!o.createdAt?.seconds) return false;
     const d=new Date(o.createdAt.seconds*1000);
@@ -2899,17 +2916,19 @@ function AdminApp({data,setData,onBack}) {
   },[]);
 
   useEffect(()=>{
-    getDocs(collection(db,'adSlides')).then(snap=>{
-      if(snap.docs.length>0) setAdminSlides(snap.docs.map(d=>({...d.data(),firestoreId:d.id})));
-      else {
-        // Seed default slides
+    // Realtime listener - har change turant reflect hoga
+    const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
+      if(snap.docs.length>0){
+        setAdminSlides(snap.docs.map(d=>({...d.data(),firestoreId:d.id})));
+      } else {
         const defaults=[
           {id:1,bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:'🌱 Eco Friendly',title:'Fresh Veggies Daily',sub:'Farm to doorstep · Bhopalgarh',btn:'Shop Now',link:''},
           {id:2,bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:'💼 Advertise Here',title:'Grow Your Business',sub:'Daily Basket ke saath judo',btn:'Contact Us',link:'https://wa.me/916375565339'},
         ];
         setAdminSlides(defaults);
       }
-    }).catch(()=>{});
+    },()=>{});
+    return()=>unsub();
   },[]);
 
   useEffect(()=>{
@@ -3364,12 +3383,20 @@ function AdminApp({data,setData,onBack}) {
               {nsF.imgUrl&&<div onClick={()=>setNsF(p=>({...p,imgUrl:''}))} style={{fontSize:11,color:'#FF6B6B',cursor:'pointer',textAlign:'center',marginBottom:4}}>✕ Remove</div>}
               <input id="shopImgUp" type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setNsF(p=>({...p,imgUrl:ev.target.result}));r.readAsDataURL(f);}}}/>
             </div>
-            {[{l:'Shop Name',k:'name',ph:'e.g. Fresh Corner'},{l:'Owner Name',k:'owner',ph:'Full name'},{l:'Phone',k:'phone',ph:'10-digit'},{l:'Cuisine Type',k:'cuisine',ph:'e.g. Indian Food'},{l:'Badge (optional)',k:'badge',ph:'e.g. Top Rated'},{l:'Delivery Time',k:'deliveryTime',ph:'e.g. 30-40 min'},{l:'Rating',k:'rating',ph:'e.g. 4.5'},{l:'Emoji (if no image)',k:'emoji',ph:'🏪'}].map(f=>(
+            {[{l:'Shop Name',k:'name',ph:'e.g. Fresh Corner'},{l:'Owner Name',k:'owner',ph:'Full name'},{l:'Phone',k:'phone',ph:'10-digit'},{l:'Badge (optional)',k:'badge',ph:'e.g. Top Rated'},{l:'Delivery Time',k:'deliveryTime',ph:'e.g. 30-40 min'},{l:'Rating',k:'rating',ph:'e.g. 4.5'},{l:'Emoji (if no image)',k:'emoji',ph:'🏪'}].map(f=>(
               <div key={f.k} style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{f.l.toUpperCase()}</div>
                 <input className="dbi" style={{fontSize:14,padding:'10px 12px'}} placeholder={f.ph} value={nsF[f.k]||''} onChange={e=>setNsF(p=>({...p,[f.k]:e.target.value}))}/>
               </div>
             ))}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>SHOP CATEGORY <span style={{color:'#FF6B6B'}}>*</span></div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                {[{id:'veggies',l:'🥦 Veggies+Fruits'},{id:'food',l:'🍱 Food'},{id:'dairy',l:'🥛 Dairy'}].map(c=>(
+                  <div key={c.id} onClick={()=>setNsF(p=>({...p,category:c.id}))} style={{padding:'8px 12px',borderRadius:50,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${(nsF.category||'')==c.id?'rgba(212,175,55,.6)':'rgba(212,175,55,.2)'}`,background:(nsF.category||'')==c.id?'rgba(212,175,55,.15)':'transparent',color:(nsF.category||'')==c.id?'#D4AF37':'var(--t3)'}}>{c.l}</div>
+                ))}
+              </div>
+            </div>
             <div style={{background:'rgba(212,175,55,.06)',border:'1px solid rgba(212,175,55,.15)',borderRadius:12,padding:'10px 12px',marginBottom:14}}>
               <div style={{fontSize:11,color:'#D4AF37',fontWeight:600,marginBottom:2}}>Auto Credentials:</div>
               <div style={{fontSize:11,color:'var(--t3)'}}>ID: SHP{String(data.shops.length+1).padStart(3,'0')} · Pass: Shop@{String(data.shops.length+1).padStart(3,'0')}</div>
