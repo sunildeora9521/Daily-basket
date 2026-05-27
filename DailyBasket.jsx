@@ -868,53 +868,65 @@ function BulkOrderScreen({onBack, user, fam}) {
 }
 
 function CustomerLogin({onLogin}) {
-  const [name,    setName   ] = useState('');
-  const [phone,   setPhone  ] = useState('');
-  const [otp,     setOtp    ] = useState('');
-  const [step,    setStep   ] = useState('phone');
-  const [token,   setToken  ] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [err,     setErr    ] = useState('');
-  const [resend,  setResend ] = useState(0);
+  const [name,       setName      ] = useState('');
+  const [phone,      setPhone     ] = useState('');
+  const [email,      setEmail     ] = useState('');
+  const [emailOtp,   setEmailOtp  ] = useState(false);
+  const [otp,        setOtp       ] = useState('');
+  const [step,       setStep      ] = useState('phone');
+  const [token,      setToken     ] = useState('');
+  const [loading,    setLoading   ] = useState(false);
+  const [err,        setErr       ] = useState('');
+  const [resend,     setResend    ] = useState(0);
+  const [otpSentTo,  setOtpSentTo ] = useState('');
 
   const sendOTP = async () => {
-    if(!name.trim()){setErr('Please enter your name');return;}
-    if(phone.length!==10){setErr('Enter a valid 10-digit mobile number');return;}
-    setErr('');
-    setLoading(true);
+    if(!name.trim()){setErr('Apna naam daalo');return;}
+    if(phone.length!==10){setErr('Valid 10-digit mobile number daalo');return;}
+    setErr(''); setLoading(true);
     try {
+      // Send SMS OTP via Fast2SMS
       const res = await fetch('/api/sendotp', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({phone})
       });
       const data = await res.json();
       if(!data.success) throw new Error(data.error||'OTP send failed');
       setToken(data.token);
-      setStep('otp');
-      setResend(30);
-    } catch(e) {
-      setErr('OTP send nahi hua: '+e.message);
-    }
+
+      // Send Email OTP if email provided
+      if(emailOtp && email.includes('@')) {
+        const emailCode = String(Math.floor(100000+Math.random()*900000));
+        localStorage.setItem('db_email_otp', emailCode);
+        try {
+          await fetch('/api/sendemailotp', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({email, name:name.trim(), otp:emailCode})
+          });
+        } catch(e){ console.log('Email OTP err:',e); }
+        setOtpSentTo(phone+'|'+email);
+      } else {
+        setOtpSentTo(phone);
+      }
+      setStep('otp'); setResend(30);
+    } catch(e) { setErr('OTP send nahi hua: '+e.message); }
     setLoading(false);
   };
 
   const verifyOTP = async () => {
     if(otp.length!==6){setErr('6 digit OTP daalo');return;}
-    setLoading(true);
-    setErr('');
+    setLoading(true); setErr('');
     try {
       const res = await fetch('/api/verifyotp', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({token, userOtp:otp})
       });
       const data = await res.json();
       if(!data.success) throw new Error(data.error||'Verification failed');
       const uid  = 'ph_'+phone;
-      const uData = {name:name.trim(), phone, uid};
+      const uData = {name:name.trim(), phone, uid, email:email||''};
       try {
-        await setDoc(doc(db,'users',uid),{name:name.trim(),phone,updatedAt:serverTimestamp()},{merge:true});
+        await setDoc(doc(db,'users',uid),{name:name.trim(),phone,email:email||'',updatedAt:serverTimestamp()},{merge:true});
         localStorage.setItem('db_cust_user', JSON.stringify(uData));
         localStorage.setItem('db_name', name.trim());
       } catch(e){console.log('Save error:',e);}
@@ -932,6 +944,9 @@ function CustomerLogin({onLogin}) {
     return()=>clearInterval(iv);
   },[resend]);
 
+  const sentPhone = otpSentTo.split('|')[0];
+  const sentEmail = otpSentTo.split('|')[1];
+
   return (
     <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 40% 20%,#0C1C0C,#070907)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <SBar/>
@@ -945,9 +960,10 @@ function CustomerLogin({onLogin}) {
         {step==='phone' ? (
           <div style={{animation:'fadeUp .6s ease .15s both'}}>
             <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>Let's get started!</div>
-            <div style={{fontSize:13,color:'var(--t3)',marginBottom:28}}>Enter your details to continue</div>
+            <div style={{fontSize:13,color:'var(--t3)',marginBottom:24}}>Enter your details to continue</div>
 
-            <div style={{marginBottom:16}}>
+            {/* Name */}
+            <div style={{marginBottom:14}}>
               <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Your Name</div>
               <div style={{position:'relative'}}>
                 <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)'}}><Ic n="user" s={16} c="#5A6A5A"/></div>
@@ -955,8 +971,9 @@ function CustomerLogin({onLogin}) {
               </div>
             </div>
 
-            <div style={{marginBottom:20}}>
-              <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Mobile Number</div>
+            {/* Phone - Mandatory */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Mobile Number <span style={{color:'#FF6B6B'}}>*</span></div>
               <div style={{position:'relative'}}>
                 <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',display:'flex',alignItems:'center',gap:6}}>
                   <Ic n="phone" s={16} c="#5A6A5A"/>
@@ -966,11 +983,32 @@ function CustomerLogin({onLogin}) {
               </div>
             </div>
 
+            {/* Email - Optional */}
+            <div style={{marginBottom:6}}>
+              <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Email <span style={{color:'var(--t3)',fontWeight:400,textTransform:'none',fontSize:10}}>(optional)</span></div>
+              <div style={{position:'relative'}}>
+                <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)'}}><span style={{fontSize:16}}>📧</span></div>
+                <input className="dbi" style={{paddingLeft:42}} type="email" placeholder="yourname@gmail.com" value={email} onChange={e=>{setEmail(e.target.value.trim());setErr('');}}/>
+              </div>
+            </div>
 
-            {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',padding:'10px 14px',borderRadius:10,marginBottom:16}}>{err}</div>}
+            {/* Email OTP checkbox - show only if email entered */}
+            {email.includes('@')&&email.includes('.')&&(
+              <div onClick={()=>setEmailOtp(e=>!e)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:emailOtp?'rgba(61,255,122,.08)':'rgba(255,255,255,.03)',border:`1.5px solid ${emailOtp?'rgba(61,255,122,.4)':'rgba(255,255,255,.08)'}`,cursor:'pointer',marginBottom:6,transition:'all .2s'}}>
+                <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${emailOtp?'#3DFF7A':'rgba(255,255,255,.2)'}`,background:emailOtp?'#3DFF7A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .2s'}}>
+                  {emailOtp&&<span style={{fontSize:12,color:'#0A1A0A',fontWeight:800}}>✓</span>}
+                </div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600}}>Email pe bhi OTP bhejo</div>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>OTP {email} pe bhi jayega</div>
+                </div>
+              </div>
+            )}
 
-            <button className="btn rip" onClick={sendOTP} disabled={loading} style={{width:'100%',padding:'17px',fontSize:16,marginTop:8}}>
-              {loading ? 'Sending OTP...' : 'Next — Get OTP →'}
+            {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',padding:'10px 14px',borderRadius:10,marginBottom:12}}>{err}</div>}
+
+            <button className="btn rip" onClick={sendOTP} disabled={loading} style={{width:'100%',padding:'17px',fontSize:16,marginTop:10}}>
+              {loading ? 'OTP bhej raha hoon...' : 'Next — Get OTP →'}
             </button>
           </div>
         ) : (
@@ -979,11 +1017,12 @@ function CustomerLogin({onLogin}) {
               <Ic n="back" s={18} c="#8A9A8A"/>
               <span style={{fontSize:14,color:'var(--t3)'}}>Back</span>
             </div>
-            <div style={{textAlign:'center',marginBottom:28}}>
-              <div style={{fontSize:40,marginBottom:12}}>📱</div>
+            <div style={{textAlign:'center',marginBottom:24}}>
+              <div style={{fontSize:40,marginBottom:12}}>{sentEmail?'📱📧':'📱'}</div>
               <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Verify OTP</div>
-              <div style={{fontSize:13,color:'var(--t3)'}}>We sent a 6-digit OTP to</div>
-              <div style={{fontSize:15,fontWeight:700,color:'var(--green)',marginTop:4}}>+91 {phone}</div>
+              <div style={{fontSize:13,color:'var(--t3)',marginBottom:4}}>OTP bheja gaya:</div>
+              <div style={{fontSize:14,fontWeight:700,color:'var(--green)'}}>📱 +91 {sentPhone}</div>
+              {sentEmail&&<div style={{fontSize:13,fontWeight:600,color:'#3DFF7A',marginTop:4}}>📧 {sentEmail}</div>}
             </div>
 
             <input className="dbi" type="tel" maxLength={6} placeholder="Enter 6-digit OTP" value={otp}
@@ -993,7 +1032,7 @@ function CustomerLogin({onLogin}) {
             {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',padding:'10px 14px',borderRadius:10,marginBottom:16}}>{err}</div>}
 
             <button className="btn rip" onClick={verifyOTP} disabled={loading} style={{width:'100%',padding:'17px',fontSize:16}}>
-              {loading ? 'Verifying...' : 'Verify & Login ✓'}
+              {loading ? 'Verify ho raha hai...' : 'Verify & Login ✓'}
             </button>
             <div style={{textAlign:'center',marginTop:16,fontSize:13,color:'var(--t3)'}}>
               {resend>0
