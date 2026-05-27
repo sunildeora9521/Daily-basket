@@ -885,17 +885,29 @@ function CustomerLogin({onLogin}) {
     if(phone.length!==10){setErr('Valid 10-digit mobile number daalo');return;}
     setErr(''); setLoading(true);
     try {
-      // Step 1: Email OTP pehle bhejo — SMS se independent
+      // Step 1: Email OTP pehle bhejo — EmailJS browser API (client-side)
       let emailSent = false;
       if(emailOtp && email.includes('@') && email.includes('.')) {
         const emailCode = String(Math.floor(100000+Math.random()*900000));
         localStorage.setItem('db_email_otp', emailCode);
         try {
-          await fetch('/api/sendemailotp', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({email, name:name.trim(), otp:emailCode})
+          const ejsRes = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','origin':'http://localhost'},
+            body: JSON.stringify({
+              service_id:'service_stnx9cf',
+              template_id:'template_1zx0d4g',
+              user_id:'d_7tKaWwZUPNIH54P',
+              accessToken:'dwdte_YEIdiFgSomNI1Pi',
+              template_params:{
+                to_name: name.trim(),
+                otp_code: emailCode,
+                to_email: email
+              }
+            })
           });
-          emailSent = true;
+          if(ejsRes.ok) emailSent = true;
+          else console.log('EmailJS err:', await ejsRes.text());
         } catch(e){ console.log('Email OTP err:',e); }
       }
 
