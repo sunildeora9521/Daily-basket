@@ -1434,11 +1434,12 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   ];
   const [adSlides,setAdSlides]=useState(defaultSlides);
   const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
-  // Load slides from Firestore - realtime
+  // Load slides from Firestore - realtime listener (merge with defaults)
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
       const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-      setAdSlides(fs.length>0?fs:defaultSlides);
+      // Firestore slides + default slides dono dikhao
+      setAdSlides(fs.length>0?[...fs,...defaultSlides]:defaultSlides);
     },()=>{ setAdSlides(defaultSlides); });
     return()=>unsub();
   },[]);
@@ -2915,13 +2916,18 @@ function AdminApp({data,setData,onBack}) {
   },[]);
 
   useEffect(()=>{
+    // Realtime listener - har change turant reflect hoga
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
-      const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-      setAdminSlides(fs.length>0?fs:[
-        {id:1,bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:'🌱 Eco Friendly',title:'Fresh Veggies Daily',sub:'Farm to doorstep · Bhopalgarh',btn:'Shop Now',link:''},
-        {id:2,bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:'💼 Advertise Here',title:'Grow Your Business',sub:'Daily Basket ke saath judo',btn:'Contact Us',link:'https://wa.me/916375565339'},
-      ]);
-    },(err)=>{ console.log('Slides load err:',err); });
+      if(snap.docs.length>0){
+        setAdminSlides(snap.docs.map(d=>({...d.data(),firestoreId:d.id})));
+      } else {
+        const defaults=[
+          {id:1,bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:'🌱 Eco Friendly',title:'Fresh Veggies Daily',sub:'Farm to doorstep · Bhopalgarh',btn:'Shop Now',link:''},
+          {id:2,bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:'💼 Advertise Here',title:'Grow Your Business',sub:'Daily Basket ke saath judo',btn:'Contact Us',link:'https://wa.me/916375565339'},
+        ];
+        setAdminSlides(defaults);
+      }
+    },()=>{});
     return()=>unsub();
   },[]);
 
@@ -3617,22 +3623,6 @@ function AdminApp({data,setData,onBack}) {
     </div>
   </div>}
         </>}
-      </div>
-           {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
-        <div style={{textAlign:'center'}}>
-          <div style={{fontSize:28,marginBottom:8}}>🎉</div>
-          <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{creds.type} Registered!</div>
-          <div style={{fontSize:13,color:'var(--t3)',marginBottom:18}}>Share these credentials</div>
-          <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.2)',borderRadius:14,padding:'16px',marginBottom:14}}>
-            <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Login ID</div>
-            <div style={{fontSize:22,fontWeight:800,color:'#3DFF7A'}}>{creds.id}</div>
-            <div className="divr"/>
-            <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Password</div>
-            <div style={{fontSize:20,fontWeight:800,color:'#D4AF37'}}>{creds.pass}</div>
-          </div>
-          <button className="btn rip" onClick={()=>setCreds(null)} style={{width:'100%',padding:'14px',fontSize:14}}>Done ✓</button>
-        </div>
-      </div></div>}
         {tab==='slides'&&<>
           <div className="sh">
             <div className="st">Ad Slides ({adminSlides.length})</div>
@@ -3690,30 +3680,12 @@ function AdminApp({data,setData,onBack}) {
             <div style={{display:'flex',gap:8}}>
               <button className="btn rip" onClick={async()=>{
                 if(!newSlide.title){alert('Title daalo!');return;}
-                // Image ko compress karo - Firestore 1MB limit hai
-                let saveSlide={...newSlide,id:Date.now()};
-                if(saveSlide.imgUrl&&saveSlide.imgUrl.length>500000){
-                  // Large image - canvas se compress karo
-                  try{
-                    const img=new Image();
-                    await new Promise(r=>{img.onload=r;img.src=saveSlide.imgUrl;});
-                    const canvas=document.createElement('canvas');
-                    canvas.width=600;canvas.height=300;
-                    canvas.getContext('2d').drawImage(img,0,0,600,300);
-                    saveSlide.imgUrl=canvas.toDataURL('image/jpeg',0.5);
-                  }catch(ce){console.log('compress err',ce);}
-                }
-                try{
-                  const ref=await addDoc(collection(db,'adSlides'),saveSlide);
-                  saveSlide.firestoreId=ref.id;
-                  alert('✅ Slide saved!');
-                }catch(e){
-                  alert('❌ Save failed: '+e.message);
-                  return;
-                }
-                setAdminSlides(p=>[...p,saveSlide]);
+                const sl={...newSlide,id:Date.now()};
+                try{const ref=await addDoc(collection(db,'adSlides'),sl);sl.firestoreId=ref.id;}catch(e){}
+                setAdminSlides(p=>[...p,sl]);
                 setAddSlide(false);
                 setNewSlide({emoji:'🎯',chip:'New Slide',title:'',sub:'',btn:'Learn More',link:'',imgUrl:'',bg:'linear-gradient(135deg,#0D2010,#0A180A)'});
+                alert('✅ Slide added!');
               }} style={{flex:1,padding:'12px'}}>Save ✓</button>
               <button className="btng" onClick={()=>setAddSlide(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
             </div>
@@ -3746,28 +3718,29 @@ function AdminApp({data,setData,onBack}) {
             </div>
             <div style={{display:'flex',gap:8}}>
               <button className="btn rip" onClick={async()=>{
-                let updSlide={...editSlide};
-                if(updSlide.imgUrl&&updSlide.imgUrl.length>500000){
-                  try{
-                    const img=new Image();
-                    await new Promise(r=>{img.onload=r;img.src=updSlide.imgUrl;});
-                    const canvas=document.createElement('canvas');
-                    canvas.width=600;canvas.height=300;
-                    canvas.getContext('2d').drawImage(img,0,0,600,300);
-                    updSlide.imgUrl=canvas.toDataURL('image/jpeg',0.5);
-                  }catch(ce){}
-                }
-                try{
-                  if(updSlide.firestoreId) await updateDoc(doc(db,'adSlides',updSlide.firestoreId),updSlide);
-                  alert('✅ Updated!');
-                }catch(e){alert('❌ Update failed: '+e.message);return;}
-                setAdminSlides(p=>p.map(s=>(s.firestoreId&&s.firestoreId===updSlide.firestoreId)||s.id===updSlide.id?updSlide:s));
-                setEditSlide(null);
+                try{if(editSlide.firestoreId)await updateDoc(doc(db,'adSlides',editSlide.firestoreId),editSlide);}catch(e){}
+                setAdminSlides(p=>p.map(s=>(s.firestoreId&&s.firestoreId===editSlide.firestoreId)||s.id===editSlide.id?editSlide:s));
+                setEditSlide(null);alert('✅ Updated!');
               }} style={{flex:1,padding:'12px'}}>Update ✓</button>
               <button className="btng" onClick={()=>setEditSlide(null)} style={{flex:1,padding:'12px'}}>Cancel</button>
             </div>
           </AdminModal>}
         </>}
+        {creds&&<div className="ovl" onClick={()=>setCreds(null)}><div className="modal" onClick={e=>e.stopPropagation()}>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:28,marginBottom:8}}>🎉</div>
+            <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{creds.type} Registered!</div>
+            <div style={{fontSize:13,color:'var(--t3)',marginBottom:18}}>Share these credentials</div>
+            <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.2)',borderRadius:14,padding:'16px',marginBottom:14}}>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Login ID</div>
+              <div style={{fontSize:22,fontWeight:800,color:'#3DFF7A'}}>{creds.id}</div>
+              <div className="divr"/>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Password</div>
+              <div style={{fontSize:20,fontWeight:800,color:'#D4AF37'}}>{creds.pass}</div>
+            </div>
+            <button className="btn rip" onClick={()=>setCreds(null)} style={{width:'100%',padding:'14px',fontSize:14}}>Done ✓</button>
+          </div>
+        </div></div>}
     </div>
   );
 }
