@@ -3741,6 +3741,7 @@ function AdminApp({data,setData,onBack}) {
             <button className="btn rip" onClick={()=>setCreds(null)} style={{width:'100%',padding:'14px',fontSize:14}}>Done ✓</button>
           </div>
         </div></div>}
+      </div>
     </div>
   );
 }
