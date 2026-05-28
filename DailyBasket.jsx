@@ -3736,8 +3736,7 @@ function AdminApp({data,setData,onBack}) {
                   setNewSlide({emoji:'🎯',chip:'New Slide',title:'',sub:'',btn:'Learn More',link:'',imgUrl:'',bg:'linear-gradient(135deg,#0D2010,#0A180A)'});
                   alert('✅ Slide saved to cloud!');
                 }catch(e){
-                  alert('❌ Save failed: '+e.message+'
-Image bahut badi hai, emoji use karo ya chhoti image lo.');
+                  alert('❌ Save failed: '+e.message+'. Image bahut badi hai, emoji use karo ya chhoti image lo.');
                 }
               }} style={{flex:1,padding:'12px'}}>Save ✓</button>
               <button className="btng" onClick={()=>setAddSlide(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
