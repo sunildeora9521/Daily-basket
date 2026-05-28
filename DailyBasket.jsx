@@ -643,7 +643,10 @@ function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
         <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
-          <iframe src="https://maps.google.com/maps?q=Bhopalgarh+Jodhpur+Rajasthan+India&z=15&output=embed" style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
+          {lastOrder?.lat&&lastOrder?.lng
+            ? <iframe src={`https://maps.google.com/maps?q=${lastOrder.lat},${lastOrder.lng}&z=17&output=embed`} style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
+            : <iframe src="https://maps.google.com/maps?q=Bhopalgarh,Rajasthan,India&z=15&output=embed" style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
+          }
           <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,.6)',borderRadius:50,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}>
             <div style={{width:7,height:7,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/>
             <span style={{fontSize:11,color:'#fff',fontWeight:700}}>Live</span>
@@ -1439,7 +1442,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
       const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
       // Firestore slides + default slides dono dikhao
-      setAdSlides(fs.length>0?[...fs,...defaultSlides]:defaultSlides);
+      setAdSlides(fs.length>0?fs:defaultSlides);
     },()=>{ setAdSlides(defaultSlides); });
     return()=>unsub();
   },[]);
@@ -1735,7 +1738,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
         <div style={{display:'flex',gap:8,marginBottom:12}}>
           {[{name:'GPay',pa:'9653895714@ybl',color:'#4285F4'},{name:'PhonePe',pa:'9653895714@ybl',color:'#7B2FBE'},{name:'Paytm',pa:'9653895714@ybl',color:'#00B9F1'},{name:'BHIM',pa:'9653895714@ybl',color:'#FF6B35'}].map(app=>(
             <button key={app.name} onClick={()=>{
-              const amt=Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount);
+              const amt=Math.max(0,sub+del-discount-pointsDiscount);
               upiStartTime.current=Date.now();
               setUpiInitiated('waiting');
               setUpiConfirmed(false);
@@ -1807,7 +1810,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       await place(address);
       setUpiConfirmed(false);
       setUpiInitiated('idle');
-    }} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,opacity:payMethod==='upi'&&!upiConfirmed?0.5:1,transition:'opacity .2s'}}>🛍️ {t.placeOrder} — ₹{Math.max(0,cart.reduce((s,i)=>s+i.price*i.qty,0)+(cart.reduce((s,i)=>s+i.price*i.qty,0)>299?0:25)-discount-pointsDiscount)}</button>
+    }} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,opacity:payMethod==='upi'&&!upiConfirmed?0.5:1,transition:'opacity .2s'}}>🛍️ {t.placeOrder} — ₹{Math.max(0,sub+del-discount-pointsDiscount)}</button>
   </>}
   </div>}
   </div>
@@ -1863,11 +1866,12 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
         {adSlides.length>0&&(()=>{const visSlides=adSlides.slice(0,6);const safeIdx=visSlides.length>0?safeAdIdx%visSlides.length:0;const sl=visSlides[safeIdx]||{};return(
         <div style={{margin:'0 16px 16px',position:'relative'}}>
           <div style={{borderRadius:18,overflow:'hidden',border:'1.5px solid rgba(61,255,122,.18)',boxShadow:'0 6px 28px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04)'}}>
-            <div onClick={()=>{try{if(sl.link==='milk')setScrMilk(true);else if(sl.link==='bulk')setScrBulk(true);else if(sl.link)window.open(sl.link,'_blank');}catch(e){}}} style={{background:sl.bg||'#0D2010',padding:'16px 18px 14px',position:'relative',overflow:'hidden',height:148,cursor:'pointer',transition:'background .5s ease'}}>
-              {sl.imgUrl
-                ? <img src={sl.imgUrl} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',opacity:.6}}/>
+            <div onClick={()=>{try{if(sl.link==='milk')setScrMilk(true);else if(sl.link==='bulk')setScrBulk(true);else if(sl.link)window.open(sl.link,'_blank');}catch(e){}}} style={{background:sl.bg||'#0D2010',position:'relative',overflow:'hidden',paddingTop:'56.25%',cursor:'pointer',transition:'background .5s ease'}}>
+              {sl.imgUrl&&sl.imgUrl!=='uploading...'
+                ? <img src={sl.imgUrl} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>
                 : <div style={{position:'absolute',right:-8,top:'50%',transform:'translateY(-50%)',fontSize:105,opacity:.14,filter:'blur(1px)',pointerEvents:'none'}}>{sl.emoji||'🛒'}</div>
               }
+              <div style={{position:'absolute',inset:0,padding:'16px 18px 14px'}}>
               <div style={{position:'absolute',inset:0,background:'linear-gradient(90deg,rgba(0,0,0,.5) 50%,transparent)',pointerEvents:'none'}}/>
               <div style={{position:'absolute',right:40,top:-18,width:90,height:90,borderRadius:'50%',background:'rgba(255,255,255,.03)',pointerEvents:'none'}}/>
               <div style={{position:'relative',zIndex:1}}>
@@ -1877,6 +1881,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
                 <div style={{fontSize:19,fontWeight:900,lineHeight:1.2,maxWidth:195,fontFamily:fam,color:'#fff',textShadow:'0 2px 10px rgba(0,0,0,.6)'}}>{sl.title||''}</div>
                 <div style={{fontSize:11,color:'rgba(255,255,255,.58)',marginTop:3,fontWeight:500}}>{sl.sub||''}</div>
                 <button className="btn rip" onClick={e=>{e.stopPropagation();try{if(sl.link==='milk')setScrMilk(true);else if(sl.link==='bulk')setScrBulk(true);else if(sl.link)window.open(sl.link,'_blank');}catch(e){}}} style={{marginTop:9,padding:'6px 16px',fontSize:12,fontFamily:fam,fontWeight:800}}>{sl.btn||'Learn More'} →</button>
+              </div>
               </div>
             </div>
           </div>
@@ -3657,11 +3662,25 @@ function AdminApp({data,setData,onBack}) {
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>SLIDE IMAGE (optional)</div>
               <div onClick={()=>document.getElementById('slideImgUp').click()} style={{border:'2px dashed rgba(61,255,122,.25)',borderRadius:12,padding:'14px',textAlign:'center',cursor:'pointer',background:newSlide.imgUrl?'rgba(61,255,122,.04)':'transparent',marginBottom:6}}>
-                {newSlide.imgUrl
-                  ? <img src={newSlide.imgUrl} style={{width:'100%',height:80,objectFit:'cover',borderRadius:8}}/>
-                  : <div><div style={{fontSize:28,marginBottom:4}}>📷</div><div style={{fontSize:12,color:'var(--t3)'}}>Tap to upload image</div></div>}
+                {newSlide.imgUrl==='uploading...'
+                  ? <div style={{padding:20,color:'#3DFF7A',fontSize:12}}>⏳ Processing...</div>
+                  : newSlide.imgUrl
+                    ? <img src={newSlide.imgUrl} style={{width:'100%',aspectRatio:'16/9',objectFit:'cover',borderRadius:8}}/>
+                    : <div><div style={{fontSize:28,marginBottom:4}}>📷</div><div style={{fontSize:12,color:'var(--t3)'}}>16:9 image upload karo</div></div>}
               </div>
-              <input id="slideImgUp" type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>{const img=ev.target.result;setNewSlide(p=>({...p,imgUrl:img}));};r.readAsDataURL(f);}}}/>
+              <input id="slideImgUp" type="file" accept="image/*,image/gif" style={{display:'none'}} onChange={async e=>{
+                const file=e.target.files[0];if(!file)return;
+                if(file.size>8*1024*1024){alert('8MB se chhota image choose karo!');return;}
+                setNewSlide(p=>({...p,imgUrl:'uploading...'}));
+                try{
+                  const bmp=await createImageBitmap(file);
+                  const cvs=document.createElement('canvas');
+                  cvs.width=960;cvs.height=540; // 16:9
+                  cvs.getContext('2d').drawImage(bmp,0,0,960,540);
+                  const compressed=cvs.toDataURL('image/jpeg',0.65);
+                  setNewSlide(p=>({...p,imgUrl:compressed,emoji:''}));
+                }catch(e){alert('Image error: '+e.message);setNewSlide(p=>({...p,imgUrl:''}));}
+              }}/>
             </div>
             {[{l:'Emoji (if no image)',k:'emoji',ph:'🎯'},{l:'Badge Text',k:'chip',ph:'e.g. 🔥 Hot Deal'},{l:'Title',k:'title',ph:'Main heading'},{l:'Subtitle',k:'sub',ph:'Short description'},{l:'Button Text',k:'btn',ph:'e.g. Shop Now'},{l:'Link (URL / milk / bulk)',k:'link',ph:'URL ya milk ya bulk ya blank'}].map(f=>(
               <div key={f.k} style={{marginBottom:10}}>
@@ -3680,12 +3699,23 @@ function AdminApp({data,setData,onBack}) {
             <div style={{display:'flex',gap:8}}>
               <button className="btn rip" onClick={async()=>{
                 if(!newSlide.title){alert('Title daalo!');return;}
+                if(newSlide.imgUrl==='uploading...'){alert('Image abhi process ho rahi hai, wait karo!');return;}
                 const sl={...newSlide,id:Date.now()};
-                try{const ref=await addDoc(collection(db,'adSlides'),sl);sl.firestoreId=ref.id;}catch(e){}
-                setAdminSlides(p=>[...p,sl]);
-                setAddSlide(false);
-                setNewSlide({emoji:'🎯',chip:'New Slide',title:'',sub:'',btn:'Learn More',link:'',imgUrl:'',bg:'linear-gradient(135deg,#0D2010,#0A180A)'});
-                alert('✅ Slide added!');
+                // Check image size - Firestore 1MB limit
+                if(sl.imgUrl&&sl.imgUrl.length>900000){
+                  alert('❌ Image bahut badi hai! Chhoti image use karo ya sirf emoji rakho.');return;
+                }
+                try{
+                  const ref=await addDoc(collection(db,'adSlides'),sl);
+                  sl.firestoreId=ref.id;
+                  setAdminSlides(p=>[...p,sl]);
+                  setAddSlide(false);
+                  setNewSlide({emoji:'🎯',chip:'New Slide',title:'',sub:'',btn:'Learn More',link:'',imgUrl:'',bg:'linear-gradient(135deg,#0D2010,#0A180A)'});
+                  alert('✅ Slide saved to cloud!');
+                }catch(e){
+                  alert('❌ Save failed: '+e.message+'
+Image bahut badi hai, emoji use karo ya chhoti image lo.');
+                }
               }} style={{flex:1,padding:'12px'}}>Save ✓</button>
               <button className="btng" onClick={()=>setAddSlide(false)} style={{flex:1,padding:'12px'}}>Cancel</button>
             </div>
