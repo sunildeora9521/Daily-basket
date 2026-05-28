@@ -1522,9 +1522,9 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     return()=>window.removeEventListener('popstate',onBack);
   },[showAddr,selP,track,shCart,scr]);
 
+  const [isPlacing,setIsPlacing]=useState(false);
   const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
-  const [isPlacing,setIsPlacing]=useState(false);
   const place=async(addr)=>{
   if(isPlacing){return;} // Double click protection
   const addrData=addr||address;
