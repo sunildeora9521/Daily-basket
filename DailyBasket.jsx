@@ -1891,7 +1891,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
             {visSlides.map((_,i)=><div key={i} onClick={()=>setAdIdx(i)} style={{width:i===safeIdx?18:5,height:5,borderRadius:3,background:i===safeIdx?'#3DFF7A':'rgba(61,255,122,.18)',cursor:'pointer',transition:'all .3s'}}/>)}
           </div>}
         </div>
-        );})()}
+        ):null}
         {/* Search Bar */}
   <div style={{margin:'0 20px 16px'}}>
   <div style={{background:'var(--card)',border:`1.5px solid ${searchQ?'rgba(61,255,122,.4)':'rgba(61,255,122,.08)'}`,borderRadius:14,padding:'12px 16px',display:'flex',alignItems:'center',gap:10}}>
