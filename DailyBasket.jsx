@@ -1865,7 +1865,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
           </div>
         </div>
         {/* Ad Slider */}
-        {adSlides.length>0?(()=>{const visSlides=adSlides.slice(0,6);const safeIdx=visSlides.length>0?safeAdIdx%visSlides.length:0;const sl=visSlides[safeIdx]||{};return(
+        {adSlides.length>0&&(()=>{const visSlides=adSlides.slice(0,6);const safeIdx=visSlides.length>0?safeAdIdx%visSlides.length:0;const sl=visSlides[safeIdx]||{};return(
         <div style={{margin:'0 16px 16px',position:'relative'}}>
           <div style={{borderRadius:18,overflow:'hidden',border:'1.5px solid rgba(61,255,122,.18)',boxShadow:'0 6px 28px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04)'}}>
             <div onClick={()=>{try{if(sl.link==='milk')setScrMilk(true);else if(sl.link==='bulk')setScrBulk(true);else if(sl.link)window.open(sl.link,'_blank');}catch(e){}}} style={{background:sl.bg||'#0D2010',position:'relative',overflow:'hidden',paddingTop:'56.25%',cursor:'pointer',transition:'background .5s ease'}}>
@@ -1891,7 +1891,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
             {visSlides.map((_,i)=><div key={i} onClick={()=>setAdIdx(i)} style={{width:i===safeIdx?18:5,height:5,borderRadius:3,background:i===safeIdx?'#3DFF7A':'rgba(61,255,122,.18)',cursor:'pointer',transition:'all .3s'}}/>)}
           </div>}
         </div>
-        ):null}
+        );})()}
         {/* Search Bar */}
   <div style={{margin:'0 20px 16px'}}>
   <div style={{background:'var(--card)',border:`1.5px solid ${searchQ?'rgba(61,255,122,.4)':'rgba(61,255,122,.08)'}`,borderRadius:14,padding:'12px 16px',display:'flex',alignItems:'center',gap:10}}>
