@@ -1432,23 +1432,14 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const [scrMilk, setScrMilk]=useState(false);
   const [scrBulk, setScrBulk]=useState(false);
   const [premOpen, setPremOpen]=useState(false);
-  const defaultSlides=[
-  {id:1,bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:'🌱 Eco Friendly',title:'Fresh Veggies Daily',sub:'Farm to doorstep · Bhopalgarh',btn:'Shop Now',link:''},
-  {id:2,bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:'💼 Advertise Here',title:'Grow Your Business',sub:'Daily Basket ke saath judo',btn:'Contact Us',link:'https://wa.me/916375565339?text=Ad%20posting%20ke%20liye%20interested%20hoon'},
-  {id:3,bg:'linear-gradient(135deg,#0D001A,#080012)',emoji:'🤝',chip:'🌐 Partnership',title:'Partner With Us',sub:'Local brands welcome · Bhopalgarh',btn:'Join Now',link:'https://wa.me/916375565339?text=Partnership%20mein%20interested%20hoon'},
-  {id:4,bg:'linear-gradient(135deg,#001A1A,#000E0E)',emoji:'🎁',chip:'⭐ Special Offer',title:'Refer & Earn',sub:'Dosto ko refer karo, ₹50 pao',btn:'Refer Now',link:''},
-  {id:5,bg:'linear-gradient(135deg,#0A0D1A,#060710)',emoji:'🥛',chip:'🌅 Daily Milk',title:'Milk Subscription',sub:'Fresh milk daily at your door · ₹65/L',btn:'Subscribe',link:'milk'},
-  {id:6,bg:'linear-gradient(135deg,#1A0A00,#100600)',emoji:'🎊',chip:'🎉 Bulk Orders',title:'Event & Party Orders',sub:'Wedding, party, pooja · Min ₹500',btn:'Book Now',link:'bulk'},
-  ];
-  const [adSlides,setAdSlides]=useState(defaultSlides);
+  const [adSlides,setAdSlides]=useState([]);
   const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
-  // Load slides from Firestore - realtime listener (merge with defaults)
+  // Load slides from Firestore only - no defaults
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
       const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-      // Firestore slides + default slides dono dikhao
-      setAdSlides(fs.length>0?fs:defaultSlides);
-    },()=>{ setAdSlides(defaultSlides); });
+      setAdSlides(fs);
+    },()=>{});
     return()=>unsub();
   },[]);
 
@@ -1536,7 +1527,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const userName=user?.name||auth.currentUser?.displayName||'Customer';
   const userPhone=user?.phone||auth.currentUser?.phoneNumber||'';
   // Support both object and string address
-  const addrText=typeof addrData==='object'?(addrData.full||addrData.text||''):addrData;
+  const addrText=typeof addrData==='object'?(addrData.full||[addrData.flat,addrData.area,addrData.city].filter(Boolean).join(', ')||''):String(addrData||'');
   const addrLat=typeof addrData==='object'?addrData.lat:null;
   const addrLng=typeof addrData==='object'?addrData.lng:null;
   const mapsLink=addrLat&&addrLng?`https://maps.google.com/?q=${addrLat},${addrLng}`:(typeof addrData==='object'?addrData.mapsLink||'':'');
@@ -1716,9 +1707,9 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
         </div>
         {cart.length>0&&<div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
   {ckStep===1&&<>
-    {savedAddr&&<div onClick={()=>{setAddress(savedAddr);setCkStep(3);}} style={{padding:'10px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:'1.5px solid rgba(61,255,122,.3)',background:'rgba(61,255,122,.06)',display:'flex',alignItems:'center',gap:8}}>
+    {savedAddr&&<div onClick={()=>{setAddress(typeof savedAddr==='object'?savedAddr:savedAddr);setCkStep(3);}} style={{padding:'10px 14px',borderRadius:12,marginBottom:10,cursor:'pointer',border:'1.5px solid rgba(61,255,122,.3)',background:'rgba(61,255,122,.06)',display:'flex',alignItems:'center',gap:8}}>
       <span style={{fontSize:16}}>📍</span>
-      <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,color:'var(--t3)'}}>Saved Address</div><div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{savedAddr}</div></div>
+      <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,color:'var(--t3)'}}>Saved Address</div><div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{typeof savedAddr==='object'?(savedAddr.full||savedAddr):savedAddr}</div></div>
       <span style={{fontSize:12,color:'#3DFF7A',fontWeight:700,flexShrink:0}}>Use →</span>
     </div>}
     <button className="btn rip" onClick={()=>setShowAddr(true)} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam}}>📍 Delivery Address set karo →</button>
@@ -1874,7 +1865,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
           </div>
         </div>
         {/* Ad Slider */}
-        {adSlides.length>0&&(()=>{const visSlides=adSlides.slice(0,6);const safeIdx=visSlides.length>0?safeAdIdx%visSlides.length:0;const sl=visSlides[safeIdx]||{};return(
+        {adSlides.length>0?(()=>{const visSlides=adSlides.slice(0,6);const safeIdx=visSlides.length>0?safeAdIdx%visSlides.length:0;const sl=visSlides[safeIdx]||{};return(
         <div style={{margin:'0 16px 16px',position:'relative'}}>
           <div style={{borderRadius:18,overflow:'hidden',border:'1.5px solid rgba(61,255,122,.18)',boxShadow:'0 6px 28px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04)'}}>
             <div onClick={()=>{try{if(sl.link==='milk')setScrMilk(true);else if(sl.link==='bulk')setScrBulk(true);else if(sl.link)window.open(sl.link,'_blank');}catch(e){}}} style={{background:sl.bg||'#0D2010',position:'relative',overflow:'hidden',paddingTop:'56.25%',cursor:'pointer',transition:'background .5s ease'}}>
@@ -3793,6 +3784,7 @@ function AdminApp({data,setData,onBack}) {
             <button className="btn rip" onClick={()=>setCreds(null)} style={{width:'100%',padding:'14px',fontSize:14}}>Done ✓</button>
           </div>
         </div></div>}
+        </>}
       </div>
     </div>
   );
