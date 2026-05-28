@@ -1322,7 +1322,12 @@ function CustomerApp({user, lang, data, setData, theme, setTheme}) {
 
   const [scr,    setScr   ]=useState('home');
   const [nav,    setNav   ]=useState('home');
-  const [cart,   setCart  ]=useState([]);
+  const [cart,setCart]=useState(()=>{
+    try{const c=localStorage.getItem('db_cart');return c?JSON.parse(c):[];}catch(e){return [];}
+  });
+  useEffect(()=>{
+    try{localStorage.setItem('db_cart',JSON.stringify(cart));}catch(e){}
+  },[cart]);
   const [selP,   setSelP  ]=useState(null);
   const [shCart, setShCart]=useState(false);
   const [track,  setTrack ]=useState(false);
@@ -1519,10 +1524,13 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
 
   const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
+  const [isPlacing,setIsPlacing]=useState(false);
   const place=async(addr)=>{
+  if(isPlacing){return;} // Double click protection
   const addrData=addr||address;
   if(!addrData){alert('⚠️ Address set karo pehle!');return;}
   if(cart.length===0){alert('⚠️ Cart khali hai!');return;}
+  setIsPlacing(true);
   // Use user state (works for both Firebase auth + custom OTP login)
   const uid=user?.uid||auth.currentUser?.uid;
   const userName=user?.name||auth.currentUser?.displayName||'Customer';
@@ -1563,6 +1571,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     setUsePoints(false);
     setLastOrderId(oRef.id);
     setCart([]);
+    try{localStorage.removeItem('db_cart');}catch(e){}
     setDiscount(0);
     setCoupon('');
     setShCart(false);
@@ -1571,6 +1580,8 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   }catch(e){
     console.log('Order error:',e);
     alert('❌ Order place nahi hua! Error: '+(e.message||'Internet check karo')+'. Phir try karo.');
+  }finally{
+    setIsPlacing(false);
   }
   };
   const goNav=n=>{setNav(n);setScr(n);setShCart(false);setSelP(null);};
@@ -1810,7 +1821,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       await place(address);
       setUpiConfirmed(false);
       setUpiInitiated('idle');
-    }} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,opacity:payMethod==='upi'&&!upiConfirmed?0.5:1,transition:'opacity .2s'}}>🛍️ {t.placeOrder} — ₹{Math.max(0,sub+del-discount-pointsDiscount)}</button>
+    }} style={{width:'100%',padding:17,fontSize:16,fontFamily:fam,opacity:payMethod==='upi'&&!upiConfirmed?0.5:1,transition:'opacity .2s'}}>{isPlacing?'⏳ Placing Order...':'🛍️ '+t.placeOrder+' — ₹'+Math.max(0,sub+del-discount-pointsDiscount)}</button>
   </>}
   </div>}
   </div>
@@ -2608,15 +2619,22 @@ function RiderApp({rider,data,setData,onBack}) {
   const accept=async id=>{
     const ord=realOrders.find(o=>o.id===id);
     if(!ord){ alert('Order not found'); return; }
-    if(ord.status!=='packed'){
-      alert('⚠️ Order abhi pack nahi hua! Shop ke pack karne ka wait karo.');
-      return;
-    }
     if(!online){ alert('⚠️ Pehle Online ho jao!'); return; }
     try{
-      await updateDoc(doc(db,'orders',id),{riderId:rider.id,riderName:rider.name,status:'out'});
+      // Transaction - prevents 2 riders accepting same order
+      const {runTransaction}=await import('firebase/firestore');
+      await runTransaction(db,async(tx)=>{
+        const oSnap=await tx.get(doc(db,'orders',id));
+        if(!oSnap.exists()) throw new Error('Order not found');
+        const oData=oSnap.data();
+        if(oData.riderId&&oData.riderId!==rider.id) throw new Error('Order already taken by another rider!');
+        tx.update(doc(db,'orders',id),{riderId:rider.id,riderName:rider.name,status:'out'});
+      });
       setNewOrderAlert(null);
-    }catch(e){console.log(e);}
+    }catch(e){
+      alert('❌ '+(e.message||'Accept failed'));
+      console.log(e);
+    }
   };
 
   const reject=async id=>{
@@ -2884,6 +2902,8 @@ function AdminApp({data,setData,onBack}) {
   const [realOrders,setRealOrders]=useState([]);
   const [loadingOrders,setLoadingOrders]=useState(false);
   const [orderSearch,setOrderSearch]=useState('');
+  const [ordersPage,setOrdersPage]=useState(0);
+  const ORDERS_PER_PAGE=20;
   const [orderStatusFilter,setOrderStatusFilter]=useState('all');
   const [orderSort,setOrderSort]=useState('newest');
   const [assignOrderId,setAssignOrderId]=useState(null);
@@ -2963,6 +2983,9 @@ function AdminApp({data,setData,onBack}) {
         o.userPhone?.includes(orderSearch) ||
         o.id?.slice(-6).toUpperCase().includes(orderSearch.toUpperCase()) ||
         o.items?.some(i=>i.name?.toLowerCase().includes(orderSearch.toLowerCase()));
+      const filteredOrds=adminOrders.filter(o=>matchSearch);
+      const pagedOrds=filteredOrds.slice(ordersPage*ORDERS_PER_PAGE,(ordersPage+1)*ORDERS_PER_PAGE);
+      const totalPg=Math.ceil(filteredOrds.length/ORDERS_PER_PAGE);
       const matchStatus = orderStatusFilter==='all' || o.status===orderStatusFilter;
       return matchSearch && matchStatus;
     })
