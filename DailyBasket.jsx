@@ -1590,6 +1590,11 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const pName=p=>isHi?p.nameHi:p.name;
   const pTag=p=>isHi?p.tagHi:p.tag;
 
+  // ── Derived cart totals (component-level so all JSX can access them) ──
+  const sub = cart.reduce((s,i)=>s+(i.price||0)*i.qty, 0);
+  const isBulkCart = cart.some(i=>(i.cat||'').toLowerCase().includes('bulk')||(i.name||'').toLowerCase().includes('bulk')||(i.chip||'').toLowerCase().includes('bulk'));
+  const del = isBulkCart ? 100 : 10;
+
   const showNav = navScrs.includes(scr)&&!shCart&&!track&&!selP;
   const showFC  = cart.length>0&&navScrs.includes(scr)&&!shCart&&!track&&!selP;
   useEffect(()=>{if(!shCart){setCkStep(1);}},[shCart]);
@@ -1633,9 +1638,6 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
                 </div>
               ))}
               {(()=>{
-  const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
-  const isBulk=cart.some(i=>(i.cat||'').toLowerCase().includes('bulk')||(i.name||'').toLowerCase().includes('bulk'));
-  const del=isBulk?100:10;
   const tot=Math.max(0,sub+del-discount);
   return(
     <>
@@ -3784,6 +3786,7 @@ function AdminApp({data,setData,onBack}) {
             <button className="btn rip" onClick={()=>setCreds(null)} style={{width:'100%',padding:'14px',fontSize:14}}>Done ✓</button>
           </div>
         </div></div>}
+        </>}
       </div>
     </div>
   );
