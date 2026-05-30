@@ -447,7 +447,7 @@ function Splash({onDone, onCapSelect}) {
 }
 
 /* ═══════════ CUSTOMER LOGIN ═══════════ */
-function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
+function AddressScreen({onBack, onConfirm, userId, payMethod='cod', isHi=false}) {
   const [flat, setFlat]=useState('');
   const [area, setArea]=useState('');
   const [city, setCity]=useState('Bhopalgarh');
@@ -460,14 +460,19 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
 
   const getGPS=()=>{
     setGpsLoading(true);
-    navigator.geolocation.getCurrentPosition(async pos=>{
+    if(!navigator.geolocation){alert('GPS is aapke browser mein support nahi hai.');setGpsLoading(false);return;}
+    // watchPosition se best accuracy milti hai - 5 readings lete hain
+    let bestPos=null;
+    let watchId=null;
+    let readingCount=0;
+    const done=async(pos)=>{
+      if(watchId!=null) navigator.geolocation.clearWatch(watchId);
       const {latitude,longitude,accuracy}=pos.coords;
-      // Save exact coordinates — yahi rider ko milega
       setGpsCoords({lat:latitude,lng:longitude,accuracy:Math.round(accuracy)});
       try{
-        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=18&addressdetails=1&accept-language=en`);
+        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=18&addressdetails=1&accept-language=en`,{headers:{'User-Agent':'DailyBasket/1.0'}});
         const data=await res.json();
-        const addr=data.address;
+        const addr=data.address||{};
         const house=addr.house_number||'';
         const road=addr.road||addr.pedestrian||addr.footway||addr.path||'';
         const hamlet=addr.hamlet||addr.isolated_dwelling||'';
@@ -480,32 +485,56 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
         setFlat(flatStr||'GPS Location');
         setArea(areaStr||'');
         setCity(cityStr);
-      }catch(e){
-        // Even if address text fails, coords are saved!
-        setFlat('GPS Location');
-        setArea('');
+      }catch(e){setFlat('GPS Location');setArea('');}
+      setGpsLoading(false);
+    };
+    watchId=navigator.geolocation.watchPosition(
+      pos=>{
+        readingCount++;
+        // Best reading = lowest accuracy number (most precise)
+        if(!bestPos||pos.coords.accuracy<bestPos.coords.accuracy){
+          bestPos=pos;
+        }
+        // After 3 good readings OR accuracy < 30m, accept
+        if(readingCount>=3||pos.coords.accuracy<30){
+          done(bestPos);
+        }
+      },
+      err=>{
+        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+        const msgs={1:'GPS permission denied. Settings > Location > Allow karo.',2:'Location signal nahi mila. Bahar jaake try karo.',3:'GPS timeout. Dobara try karo.'};
+        alert(msgs[err.code]||'GPS error: '+err.message);
+        setGpsLoading(false);
+      },
+      {enableHighAccuracy:true,timeout:25000,maximumAge:0}
+    );
+    // Fallback: after 12s, use best reading so far
+    setTimeout(()=>{
+      if(gpsLoading&&bestPos){done(bestPos);}
+      else if(gpsLoading){
+        if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+        setGpsLoading(false);
+        alert('GPS signal weak hai. Bahar jaake ya window ke paas retry karo.');
       }
-      setGpsLoading(false);
-    },err=>{
-      const msgs={1:'GPS permission denied. Settings > Location > Allow karo.',2:'Location signal nahi mila. Bahar jaake try karo.',3:'GPS timeout. Phir try karo.'};
-      alert(msgs[err.code]||'GPS error');
-      setGpsLoading(false);
-    },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+    },12000);
   };
 
   const save=async()=>{
-    if(!flat.trim()){alert('Flat/House number daalo');return;}
-    if(!area.trim()){alert('Area/Mohalla daalo');return;}
+    if(!flat.trim()){alert(isHi?'मकान नंबर / घर का पता डालें':'Flat/House number daalo');return;}
+    if(!area.trim()){alert(isHi?'मोहल्ला / इलाका डालें':'Area/Mohalla daalo');return;}
     setLoading(true);
     const mapsLink=gpsCoords?`https://maps.google.com/?q=${gpsCoords.lat},${gpsCoords.lng}`:'';
     const addrText=`${flat?flat+', ':''}${area?area+', ':''}${city}`;
+    const slotLabel=isHi
+      ?(slot==='morning'?'🌅 सुबह 6-9 बजे':slot==='quick'?'⚡ जल्दी ~30 मिनट':'🌆 शाम 6-9 बजे')
+      :(slot==='morning'?'🌅 Morning 6-9 AM':slot==='quick'?'⚡ Quick ~30 min':'🌆 Evening 6-9 PM');
     const addrObj={
       flat,area,city,type,slot,contactless,
       lat:gpsCoords?.lat||null,
       lng:gpsCoords?.lng||null,
       accuracy:gpsCoords?.accuracy||null,
       mapsLink,
-      full:`${addrText} · ${slot==='morning'?'🌅 Morning 6-9 AM':slot==='quick'?'⚡ Quick ~30 min':'🌆 Evening 6-9 PM'}${contactless?' · 🚪 Contactless':''}${mapsLink?' · 📍GPS':''}`
+      full:`${addrText} · ${slotLabel}${contactless?(isHi?' · 🚪 बिना संपर्क':' · 🚪 Contactless'):''}${mapsLink?' · 📍GPS':''}`
     };
     try{
       if(userId) await addDoc(collection(db,'users',userId,'addresses'),{...addrObj,createdAt:serverTimestamp()});
@@ -519,25 +548,25 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
       <SBar/>
       <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}>
         <BBtn onClick={onBack}/>
-        <div><div style={{fontSize:18,fontWeight:800}}>🗺️ Delivery Address</div><div style={{fontSize:12,color:'var(--t3)'}}>Where should we deliver?</div></div>
+        <div><div style={{fontSize:18,fontWeight:800}}>🗺️ {isHi?'डिलीवरी पता':'Delivery Address'}</div><div style={{fontSize:12,color:'var(--t3)'}}>{isHi?'हम कहाँ डिलीवर करें?':'Where should we deliver?'}</div></div>
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 100px'}}>
         <button onClick={getGPS} disabled={gpsLoading} style={{width:'100%',padding:'14px',borderRadius:14,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:14,cursor:'pointer',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-          {gpsLoading?'📡 Getting location...':(gpsCoords?`✅ GPS Active (±${gpsCoords.accuracy}m) — Retake?`:'📍 Use Current Location (GPS)')}
+          {gpsLoading?(isHi?'📡 लोकेशन मिल रही है...':'📡 Getting location...'):(gpsCoords?`✅ GPS Active (±${gpsCoords.accuracy}m) — ${isHi?'दोबारा लें?':'Retake?'}`:(isHi?'📍 वर्तमान स्थान (GPS)':'📍 Use Current Location (GPS)'))}
         </button>
 
         {/* Manual Address Input */}
         <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>📝 Manual Address</div>
-          <input className="dbi" placeholder="🏠 Flat / House No / Building" value={flat} onChange={e=>setFlat(e.target.value)} style={{marginBottom:10}}/>
-          <input className="dbi" placeholder="📍 Area / Mohalla / Colony" value={area} onChange={e=>setArea(e.target.value)} style={{marginBottom:10}}/>
-          <input className="dbi" placeholder="🏙️ City" value={city} onChange={e=>setCity(e.target.value)}/>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>📝 {isHi?'पता लिखें':'Manual Address'}</div>
+          <input className="dbi" placeholder={isHi?'🏠 मकान नं / बिल्डिंग / दुकान':'🏠 Flat / House No / Building'} value={flat} onChange={e=>setFlat(e.target.value)} style={{marginBottom:10}}/>
+          <input className="dbi" placeholder={isHi?'📍 मोहल्ला / कॉलोनी / इलाका':'📍 Area / Mohalla / Colony'} value={area} onChange={e=>setArea(e.target.value)} style={{marginBottom:10}}/>
+          <input className="dbi" placeholder={isHi?'🏙️ शहर':'🏙️ City'} value={city} onChange={e=>setCity(e.target.value)}/>
         </div>
 
         <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>Address Type</div>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>{isHi?'पते का प्रकार':'Address Type'}</div>
           <div style={{display:'flex',gap:8}}>
-            {[{id:'home',icon:'🏠',label:'Home'},{id:'work',icon:'💼',label:'Work'},{id:'other',icon:'📍',label:'Other'}].map(tp=>(
+            {[{id:'home',icon:'🏠',label:isHi?'घर':'Home'},{id:'work',icon:'💼',label:isHi?'काम':'Work'},{id:'other',icon:'📍',label:isHi?'अन्य':'Other'}].map(tp=>(
               <div key={tp.id} onClick={()=>setType(tp.id)} style={{flex:1,padding:'10px',borderRadius:12,border:`1.5px solid ${type===tp.id?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:type===tp.id?'rgba(61,255,122,.08)':'transparent',cursor:'pointer',textAlign:'center'}}>
                 <div style={{fontSize:18}}>{tp.icon}</div>
                 <div style={{fontSize:11,fontWeight:600,color:type===tp.id?'#3DFF7A':'var(--t3)',marginTop:4}}>{tp.label}</div>
@@ -546,11 +575,11 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
           </div>
         </div>
         <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>🕐 Delivery Time Slot</div>
+          <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:8,letterSpacing:.8,textTransform:'uppercase'}}>🕐 {isHi?'डिलीवरी का समय':'Delivery Time Slot'}</div>
           <div style={{display:'flex',gap:8}}>
-            {[{id:'morning',icon:'🌅',label:'Morning',sub:'6–9 AM'},{id:'quick',icon:'⚡',label:'Quick',sub:'~30 min'},{id:'evening',icon:'🌆',label:'Evening',sub:'6–9 PM'}].map(s=>(
+            {[{id:'morning',icon:'🌅',label:isHi?'सुबह':'Morning',sub:'6–9 AM'},{id:'quick',icon:'⚡',label:isHi?'जल्दी':'Quick',sub:isHi?'~30 मिनट':'~30 min'},{id:'evening',icon:'🌆',label:isHi?'शाम':'Evening',sub:'6–9 PM'}].map(s=>(
               <div key={s.id} onClick={()=>setSlot(s.id)} style={{flex:1,padding:'10px 6px',borderRadius:12,border:`1.5px solid ${slot===s.id?(s.id==='quick'?'rgba(212,175,55,.6)':'rgba(61,255,122,.5)'):'rgba(61,255,122,.1)'}`,background:slot===s.id?(s.id==='quick'?'rgba(212,175,55,.1)':'rgba(61,255,122,.08)'):'transparent',cursor:'pointer',textAlign:'center',position:'relative'}}>
-                {s.id==='quick'&&<div style={{position:'absolute',top:-7,left:'50%',transform:'translateX(-50%)',background:'linear-gradient(135deg,#D4AF37,#B8962E)',borderRadius:50,padding:'2px 7px',fontSize:9,fontWeight:700,color:'#0A0800',whiteSpace:'nowrap'}}>DEFAULT</div>}
+                {s.id==='quick'&&<div style={{position:'absolute',top:-7,left:'50%',transform:'translateX(-50%)',background:'linear-gradient(135deg,#D4AF37,#B8962E)',borderRadius:50,padding:'2px 7px',fontSize:9,fontWeight:700,color:'#0A0800',whiteSpace:'nowrap'}}>{isHi?'डिफ़ॉल्ट':'DEFAULT'}</div>}
                 <div style={{fontSize:18,marginTop:s.id==='quick'?4:0}}>{s.icon}</div>
                 <div style={{fontSize:11,fontWeight:700,color:slot===s.id?(s.id==='quick'?'#D4AF37':'#3DFF7A'):'var(--t)',marginTop:3}}>{s.label}</div>
                 <div style={{fontSize:10,color:'var(--t3)',marginTop:1}}>{s.sub}</div>
@@ -593,14 +622,14 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod'}) {
         </div>
         {flat&&area&&(
           <div style={{padding:'12px 14px',borderRadius:12,background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.15)',marginBottom:14}}>
-            <div style={{fontSize:11,color:'var(--t3)',marginBottom:4}}>📦 Delivery to:</div>
+            <div style={{fontSize:11,color:'var(--t3)',marginBottom:4}}>📦 {isHi?'डिलीवरी यहाँ होगी:':'Delivery to:'}</div>
             <div style={{fontSize:13,fontWeight:600,color:'#3DFF7A'}}>{flat}, {area}, {city}</div>
           </div>
         )}
       </div>
       <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'14px 20px 30px',background:'rgba(7,9,7,.95)',backdropFilter:'blur(20px)'}}>
         <button className="btn rip" onClick={save} disabled={loading} style={{width:'100%',padding:17,fontSize:16}}>
-          {loading?'Saving...':'✅ Confirm Address & Place Order'}
+          {loading?(isHi?'सेव हो रहा है...':'Saving...'):(isHi?'✅ पता कन्फर्म करें और ऑर्डर दें':'✅ Confirm Address & Place Order')}
         </button>
       </div>
     </div>
@@ -643,8 +672,8 @@ function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
         <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
-          {lastOrder?.lat&&lastOrder?.lng
-            ? <iframe src={`https://maps.google.com/maps?q=${lastOrder.lat},${lastOrder.lng}&z=17&output=embed`} style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
+          {orderData?.lat&&orderData?.lng
+            ? <iframe src={`https://maps.google.com/maps?q=${orderData.lat},${orderData.lng}&z=17&output=embed`} style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
             : <iframe src="https://maps.google.com/maps?q=Bhopalgarh,Rajasthan,India&z=15&output=embed" style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
           }
           <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,.6)',borderRadius:50,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}>
@@ -1434,12 +1463,16 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const [premOpen, setPremOpen]=useState(false);
   const [adSlides,setAdSlides]=useState([]);
   const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
-  // Load slides from Firestore only - no defaults
+  // Load slides from Firestore - with defaults if empty
   useEffect(()=>{
+    const defaultSlides=[
+      {id:'d1',bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:isHi?'🌱 इको फ्रेंडली':'🌱 Eco Friendly',title:isHi?'ताजी सब्जियां रोज':'Fresh Veggies Daily',sub:isHi?'खेत से दरवाजे तक · भोपालगढ़':'Farm to doorstep · Bhopalgarh',btn:isHi?'खरीदें':'Shop Now',link:''},
+      {id:'d2',bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:isHi?'💼 यहाँ विज्ञापन दें':'💼 Advertise Here',title:isHi?'अपना व्यापार बढ़ाएं':'Grow Your Business',sub:isHi?'Daily Basket के साथ जुड़ें':'Join Daily Basket today',btn:isHi?'संपर्क करें':'Contact Us',link:'https://wa.me/916375565339'},
+    ];
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
       const fs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-      setAdSlides(fs);
-    },()=>{});
+      setAdSlides(fs.length>0?fs:defaultSlides);
+    },()=>{ setAdSlides(defaultSlides); });
     return()=>unsub();
   },[]);
 
@@ -1605,7 +1638,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     );
     if(scrMilk) return <MilkSubscriptionScreen onBack={()=>setScrMilk(false)} user={user} fam={fam}/>;
     if(scrBulk) return <BulkOrderScreen onBack={()=>setScrBulk(false)} user={user} fam={fam}/>;
-    if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addrObj=>{setAddress(addrObj);setShowAddr(false);setCkStep(3);}} userId={auth.currentUser?.uid} payMethod={payMethod}/>;
+    if(showAddr) return <AddressScreen onBack={()=>setShowAddr(false)} onConfirm={addrObj=>{setAddress(addrObj);setShowAddr(false);setCkStep(3);}} userId={auth.currentUser?.uid} payMethod={payMethod} isHi={isHi}/>;
     if(shCart) return (
       <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
         <SBar/>
@@ -2936,15 +2969,7 @@ function AdminApp({data,setData,onBack}) {
   useEffect(()=>{
     // Realtime listener - har change turant reflect hoga
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
-      if(snap.docs.length>0){
-        setAdminSlides(snap.docs.map(d=>({...d.data(),firestoreId:d.id})));
-      } else {
-        const defaults=[
-          {id:1,bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:'🌱 Eco Friendly',title:'Fresh Veggies Daily',sub:'Farm to doorstep · Bhopalgarh',btn:'Shop Now',link:''},
-          {id:2,bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:'💼 Advertise Here',title:'Grow Your Business',sub:'Daily Basket ke saath judo',btn:'Contact Us',link:'https://wa.me/916375565339'},
-        ];
-        setAdminSlides(defaults);
-      }
+      setAdminSlides(snap.docs.map(d=>({...d.data(),firestoreId:d.id})));
     },()=>{});
     return()=>unsub();
   },[]);
@@ -2976,9 +3001,6 @@ function AdminApp({data,setData,onBack}) {
         o.userPhone?.includes(orderSearch) ||
         o.id?.slice(-6).toUpperCase().includes(orderSearch.toUpperCase()) ||
         o.items?.some(i=>i.name?.toLowerCase().includes(orderSearch.toLowerCase()));
-      const filteredOrds=adminOrders.filter(o=>matchSearch);
-      const pagedOrds=filteredOrds.slice(ordersPage*ORDERS_PER_PAGE,(ordersPage+1)*ORDERS_PER_PAGE);
-      const totalPg=Math.ceil(filteredOrds.length/ORDERS_PER_PAGE);
       const matchStatus = orderStatusFilter==='all' || o.status===orderStatusFilter;
       return matchSearch && matchStatus;
     })
