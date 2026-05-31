@@ -7,7 +7,7 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 :root{--bg:#070907;--card:#0F160F;--green:#3DFF7A;--g2:#00C44F;--gdim:#1A3320;--gold:#D4AF37;--glass:rgba(255,255,255,.04);--gb:rgba(61,255,122,.12);--t:#F0F4F0;--t2:#8A9A8A;--t3:#5A6A5A;}
-body{background:var(--bg);font-family:'Outfit',sans-serif;color:var(--t);overflow:hidden;}
+html,body{background:#070907;}body{font-family:'Outfit',sans-serif;color:var(--t);overflow:hidden;margin:0;padding:0;}
 .btn{background:linear-gradient(135deg,var(--btn1),var(--btn2)) !important;color:var(--btnTxt) !important;box-shadow:0 4px 20px var(--shadow) !important;}
 .phone{width:390px;background:var(--bg);border-radius:0;overflow:hidden;position:relative;touch-action:pan-x pan-y;}
 .scr{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}
@@ -1344,7 +1344,7 @@ function LanguageScreen({user, onSelect}) {
 }
 
 /* ═══════════ MAIN CUSTOMER APP ═══════════ */
-function CustomerApp({user, lang, data, setData, theme, setTheme}) {
+function CustomerApp({user, lang, setLang, data, setData, theme, setTheme}) {
   const t = T[lang]||T.en;
   const isHi = lang==='hi';
   const fam = isHi?"'Noto Sans Devanagari','Outfit',sans-serif":"'Outfit',sans-serif";
@@ -1646,7 +1646,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
           <BBtn onClick={()=>setShCart(false)}/>
           <div><div style={{fontSize:18,fontWeight:800}}>{t.myBasket}</div><div style={{fontSize:12,color:'var(--t3)'}}>{cart.reduce((s,i)=>s+i.qty,0)} {t.items}</div></div>
         </div>
-        <div className="scr" style={{position:'relative',padding:'0 20px 160px'}}>
+        <div className="scr" style={{position:'relative',padding:`0 20px ${ckStep===3?'380px':'160px'}`}}>
           {cart.length===0
             ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'60%',gap:14}}><div style={{fontSize:64}}>🧺</div><div style={{fontSize:18,fontWeight:700}}>{isHi?'टोकरी खाली है':'Basket is empty'}</div></div>
             :<>
@@ -1882,6 +1882,10 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
               <Ic n="bell" s={18} c={shNotif?'#3DFF7A':'var(--t3)'}/>
               {dbNotifs.filter(n=>!n.read).length>0&&<span style={{position:'absolute',top:5,right:5,width:9,height:9,borderRadius:'50%',background:'#FF6B6B',border:'2px solid var(--bg)'}}/>}
             </div>
+            <div onClick={()=>setLang&&setLang(isHi?'en':'hi')} style={{width:40,height:40,borderRadius:12,background:'var(--glass)',backdropFilter:'blur(10px)',border:'1px solid var(--gb)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:13,fontWeight:800,color:isHi?'#3DFF7A':'var(--t3)',transition:'all .2s',flexDirection:'column',gap:1}}>
+              <span style={{fontSize:10,lineHeight:1}}>{isHi?'अ':'A'}</span>
+              <span style={{fontSize:9,color:'var(--t3)',lineHeight:1}}>{isHi?'EN':'हि'}</span>
+            </div>
             <div onClick={()=>setThemeOpen(t=>!t)} style={{width:40,height:40,borderRadius:12,background:themeOpen?'rgba(61,255,122,.15)':'var(--glass)',backdropFilter:'blur(10px)',border:`1px solid ${themeOpen?'rgba(61,255,122,.5)':'var(--gb)'}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18,transition:'all .2s'}}>🎨</div>
             <div style={{position:'relative'}}>
               <div onClick={()=>setPremOpen(p=>!p)} style={{width:40,height:40,borderRadius:12,background:premOpen?'rgba(212,175,55,.2)':'var(--glass)',backdropFilter:'blur(10px)',border:`1px solid ${premOpen?'rgba(212,175,55,.6)':'var(--gb)'}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:18,transition:'all .2s'}}>👑</div>
@@ -2051,6 +2055,9 @@ function AddBtn({inCart, onAdd}) {
 /* Product detail inner */
 function ProdDetailInner({prod,pName,pTag,t,fam,onAdd,cart}) {
   const [qty,setQty]=useState(1);const [added,setAdded]=useState(false);
+  const [detailTab,setDetailTab]=useState('about');
+  const nut=prod.nutrition||{};
+  const hasNut=nut.calories||nut.protein||nut.carbs||nut.fat||nut.fiber;
   return (
     <div style={{padding:20,fontFamily:fam}}>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:8}}>
@@ -2061,7 +2068,42 @@ function ProdDetailInner({prod,pName,pTag,t,fam,onAdd,cart}) {
         {['🌿 Organic','📍 Local','✨ Fresh','💚 Eco'].map(tg=><div key={tg} style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:11,fontWeight:600,padding:'5px 10px',borderRadius:50}}>{tg}</div>)}
       </div>
       <div className="divr"/>
-      <div style={{marginBottom:20}}><div style={{fontSize:15,fontWeight:700,marginBottom:8}}>{t.about}</div><div style={{fontSize:13,color:'var(--t2)',lineHeight:1.7}}>Farm-fresh {pName(prod).toLowerCase()} from local farmers in Bhopalgarh. Delivered within 24 hours.</div></div>
+      {/* Detail Tabs */}
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        {[{id:'about',l:'📋 About'},{id:'nutrition',l:'🥗 Nutrition'}].map(tab=>(
+          <div key={tab.id} onClick={()=>setDetailTab(tab.id)} style={{padding:'6px 14px',borderRadius:50,fontSize:12,fontWeight:700,cursor:'pointer',border:`1.5px solid ${detailTab===tab.id?'rgba(61,255,122,.5)':'rgba(61,255,122,.1)'}`,background:detailTab===tab.id?'rgba(61,255,122,.1)':'transparent',color:detailTab===tab.id?'#3DFF7A':'var(--t3)',transition:'all .2s'}}>{tab.l}</div>
+        ))}
+      </div>
+      {detailTab==='about'&&(
+        <div style={{marginBottom:20}}><div style={{fontSize:13,color:'var(--t2)',lineHeight:1.7}}>Farm-fresh {pName(prod).toLowerCase()} from local farmers in Bhopalgarh. Delivered within 24 hours.</div></div>
+      )}
+      {detailTab==='nutrition'&&(
+        <div style={{marginBottom:20}}>
+          {hasNut?(
+            <div className="gc" style={{padding:16}}>
+              <div style={{fontSize:12,color:'var(--t3)',fontWeight:700,marginBottom:12,letterSpacing:.8}}>PER 100g / SERVING</div>
+              {[
+                {l:'🔥 Calories',v:nut.calories,u:'kcal',c:'#FF8C42'},
+                {l:'💪 Protein',v:nut.protein,u:'g',c:'#3DFF7A'},
+                {l:'🌾 Carbs',v:nut.carbs,u:'g',c:'#D4AF37'},
+                {l:'🥑 Fat',v:nut.fat,u:'g',c:'#FF6B6B'},
+                {l:'🌿 Fiber',v:nut.fiber,u:'g',c:'#00C44F'},
+              ].filter(r=>r.v!=null&&r.v!=='').map(r=>(
+                <div key={r.l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span>
+                  <span style={{fontSize:14,fontWeight:800,color:r.c}}>{r.v} <span style={{fontSize:11,fontWeight:500,color:'var(--t3)'}}>{r.u}</span></span>
+                </div>
+              ))}
+              {nut.note&&<div style={{fontSize:11,color:'var(--t3)',marginTop:8,borderTop:'1px solid rgba(61,255,122,.08)',paddingTop:8}}>📝 {nut.note}</div>}
+            </div>
+          ):(
+            <div style={{textAlign:'center',padding:'30px 0',color:'var(--t3)'}}>
+              <div style={{fontSize:32,marginBottom:8}}>🥗</div>
+              <div style={{fontSize:13}}>Nutrition info available nahi hai</div>
+            </div>
+          )}
+        </div>
+      )}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
         <div style={{fontSize:15,fontWeight:700}}>{t.quantity}</div>
         <div style={{display:'flex',alignItems:'center',gap:14,background:'var(--card)',borderRadius:14,padding:'4px 6px',border:'1px solid rgba(61,255,122,.1)'}}>
@@ -2938,7 +2980,7 @@ function AdminApp({data,setData,onBack}) {
   const [editSlide,setEditSlide]=useState(null);
   const [addSlide,setAddSlide]=useState(false);
   const [newSlide,setNewSlide]=useState({emoji:'🎯',chip:'New Slide',title:'',sub:'',btn:'Learn More',link:'',imgUrl:'',bg:'linear-gradient(135deg,#0D2010,#0A180A)'});
-  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50'});
+  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',nutrition:{calories:'',protein:'',carbs:'',fat:'',fiber:'',note:''}});
   const [nsF,setNsF]=useState({name:'',owner:'',phone:'',cuisine:'',imgUrl:'',emoji:'🏪',badge:'',deliveryTime:'30-40 min',rating:'4.5'});
   const [nrF,setNrF]=useState({name:'',phone:''});
   const [coupons, setCoupons]=useState([]);
@@ -3048,7 +3090,7 @@ function AdminApp({data,setData,onBack}) {
     if(!npF.name||!npF.price){alert('Name aur price bharein!');return;}
     const catTagMap={veg:'Fresh',fruit:'Fresh',milk:'Fresh',food:'Hot'};
     const catTagHiMap={veg:'ताजा',fruit:'ताजा',milk:'ताजा',food:'गरम'};
-    const p={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock,tag:catTagMap[npF.cat]||'New',tagHi:catTagHiMap[npF.cat]||'नया',active:true,createdAt:new Date().toISOString()};
+    const p={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock,tag:catTagMap[npF.cat]||'New',tagHi:catTagHiMap[npF.cat]||'नया',active:true,createdAt:new Date().toISOString(),nutrition:npF.nutrition||{}};
     try{
       const ref=await addDoc(collection(db,'products'),p);
       p.firestoreId=ref.id;
@@ -3059,7 +3101,7 @@ function AdminApp({data,setData,onBack}) {
       setData(d=>({...d,products:[...d.products,p]}));
     }
     // Note: onSnapshot will auto-update products list from Firestore
-    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50'});
+    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',nutrition:{calories:'',protein:'',carbs:'',fat:'',fiber:'',note:''}});
     setAddP(false);
   };
   const deleteProd=async(id)=>{
@@ -3383,6 +3425,20 @@ function AdminApp({data,setData,onBack}) {
               <div style={{display:'flex',gap:6}}>
                 {['veg','fruit','milk','food'].map(c=>(<div key={c} className={`cp ${npF.cat===c?'on':''}`} onClick={()=>setNpF(p=>({...p,cat:c}))} style={{fontSize:11,padding:'6px 12px',textTransform:'capitalize'}}>{c}</div>))}
               </div>
+            </div>
+            {/* Nutrition - Optional */}
+            <div style={{marginBottom:14,padding:'12px 14px',borderRadius:14,border:'1px solid rgba(61,255,122,.1)',background:'rgba(61,255,122,.03)'}}>
+              <div style={{fontSize:11,color:'#3DFF7A',fontWeight:700,marginBottom:10}}>🥗 Nutrition Info (Optional) — per 100g</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                {[{k:'calories',l:'🔥 Calories (kcal)',ph:'e.g. 34'},{k:'protein',l:'💪 Protein (g)',ph:'e.g. 1.2'},{k:'carbs',l:'🌾 Carbs (g)',ph:'e.g. 7.9'},{k:'fat',l:'🥑 Fat (g)',ph:'e.g. 0.2'},{k:'fiber',l:'🌿 Fiber (g)',ph:'e.g. 2.1'}].map(f=>(
+                  <div key={f.k}>
+                    <div style={{fontSize:9,color:'var(--t3)',marginBottom:3}}>{f.l}</div>
+                    <input className="dbi" style={{fontSize:13,padding:'7px 10px'}} placeholder={f.ph} value={npF.nutrition?.[f.k]||''} onChange={e=>{const v=e.target.value;setNpF(p=>({...p,nutrition:{...(p.nutrition||{}),[f.k]:v}}));}}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:9,color:'var(--t3)',marginBottom:3}}>📝 Note (optional)</div>
+              <input className="dbi" style={{fontSize:12,padding:'7px 10px'}} placeholder="e.g. Rich in Vitamin C" value={npF.nutrition?.note||''} onChange={e=>{const v=e.target.value;setNpF(p=>({...p,nutrition:{...(p.nutrition||{}),note:v}}));}}/>
             </div>
             <div style={{display:'flex',gap:8}}>
               <button className="btn rip" onClick={addNewProd} style={{flex:1,padding:'12px'}}>Add Product ✓</button>
@@ -3850,14 +3906,17 @@ const [authReady, setAuthReady] = useState(false);
   try {
     unsub=onAuthStateChanged(auth,u=>{
       try {
-        if(u){
+        // Admin portal mein hain to phase/portal override mat karo
+        const currentPortal=localStorage.getItem('db_portal')||'customer';
+        const isAdminPortal=currentPortal==='admin'||localStorage.getItem('db_admin')==='true';
+        if(u && !isAdminPortal){
           let savedName='User';
           try { savedName=localStorage.getItem('db_name')||'User'; } catch(e) {}
           const uData={name:u.displayName||savedName, phone:u.phoneNumber||'', uid:u.uid};
           setUser(uData);
           setPhase('app');
           setDoc(doc(db,'users',u.uid),{name:uData.name,phone:uData.phone,updatedAt:serverTimestamp()},{merge:true}).catch(()=>{});
-        } else {
+        } else if(!u && !isAdminPortal) {
           // Custom OTP login session restore
           try {
             const saved=localStorage.getItem('db_cust_user');
@@ -3909,7 +3968,7 @@ const [authReady, setAuthReady] = useState(false);
     if(phase==='location') return <LocationScreen user={user} onAllow={()=>setPhase('language')} onSkip={()=>setPhase('language')}/>;
     if(phase==='language') return <LanguageScreen user={user} onSelect={l=>{setLang(l);setPhase('app');}}/>;
     if(phase==='app') {
-      if(portal==='customer') return <CustomerApp user={user} lang={lang} data={data} setData={setData} theme={theme} setTheme={setTheme}/>;
+      if(portal==='customer') return <CustomerApp user={user} lang={lang} setLang={setLang} data={data} setData={setData} theme={theme} setTheme={setTheme}/>;
       if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>data.riders.find(r=>r.id===id&&r.pass===p&&r.active)||null} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>data.shops.find(s=>s.id===id&&s.pass===p&&s.active)||null} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='admin') {
@@ -3953,7 +4012,7 @@ const [authReady, setAuthReady] = useState(false);
   }
   return (
     <ErrorBoundary>
-      <div style={{width:'100vw',height:'100dvh',background:'#060906',overflow:'hidden',position:'fixed',top:0,left:0}}>
+      <div style={{width:'100vw',height:'100dvh',background:'#070907',overflow:'hidden',position:'fixed',top:0,left:0}}>
         <style>{CSS}</style>
         <div className="phone" style={{width:390,height:vh,transform:`scale(${sc})`,transformOrigin:'top left',...getThemeStyle(theme)}}>
           {safeContent}
