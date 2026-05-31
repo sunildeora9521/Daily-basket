@@ -1573,16 +1573,20 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       userId:uid||'guest_'+Date.now(),
       userName,
       userPhone,
-      items:cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price,emoji:i.emoji||''})),
+      items:cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price,emoji:i.emoji||'',cat:i.cat||''})),
       subtotal:sub,delivery:del,discount:discount,total,
       payMethod:payMethod,
       address:addrText,
       lat:addrLat,
       lng:addrLng,
       mapsLink,
-      status:'confirmed',
+      status:'pending',
       createdAt:serverTimestamp()
     });
+    // Push notification to admin/shop - order placed
+    try{
+      await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'shops',title:'🛒 Naya Order!',body:`${userName} ne ₹${total} ka order kiya`})});
+    }catch(ne){console.log('Push skipped:',ne);}
     const earned=Math.floor(total/10);
     const newPoints=usePoints?Math.max(0,points-(Math.floor(points/10)*10))+earned:points+earned;
     setPoints(newPoints);
@@ -2075,7 +2079,7 @@ function ProdDetailInner({prod,pName,pTag,t,fam,onAdd,cart}) {
         ))}
       </div>
       {detailTab==='about'&&(
-        <div style={{marginBottom:20}}><div style={{fontSize:13,color:'var(--t2)',lineHeight:1.7}}>Farm-fresh {pName(prod).toLowerCase()} from local farmers in Bhopalgarh. Delivered within 24 hours.</div></div>
+        <div style={{marginBottom:20}}><div style={{fontSize:13,color:'var(--t2)',lineHeight:1.7}}>{prod.about||`Farm-fresh ${pName(prod).toLowerCase()} from local farmers in Bhopalgarh. Delivered within 24 hours.`}</div></div>
       )}
       {detailTab==='nutrition'&&(
         <div style={{marginBottom:20}}>
@@ -2091,7 +2095,7 @@ function ProdDetailInner({prod,pName,pTag,t,fam,onAdd,cart}) {
               ].filter(r=>r.v!=null&&r.v!=='').map(r=>(
                 <div key={r.l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                   <span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span>
-                  <span style={{fontSize:14,fontWeight:800,color:r.c}}>{r.v} <span style={{fontSize:11,fontWeight:500,color:'var(--t3)'}}>{r.u}</span></span>
+                  <span style={{fontSize:14,fontWeight:800,color:r.c}}>{String(r.v).replace(/[^\d.]/g,'')} <span style={{fontSize:11,fontWeight:500,color:'var(--t3)'}}>{r.u}</span></span>
                 </div>
               ))}
               {nut.note&&<div style={{fontSize:11,color:'var(--t3)',marginTop:8,borderTop:'1px solid rgba(61,255,122,.08)',paddingTop:8}}>📝 {nut.note}</div>}
@@ -2924,9 +2928,10 @@ function RiderApp({rider,data,setData,onBack}) {
 }
 
 function ShopApp({shop,data,setData,onBack}) {
-  const [tab,setTab]=useState('dash');
+  const [tab,setTab]=useState('orders');
   const [isOpen,setIsOpen]=useState(shop.active||true);
   const [realOrders,setRealOrders]=useState([]);
+  const fam="'Outfit',sans-serif";
 
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'orders'),snap=>{
@@ -2935,90 +2940,161 @@ function ShopApp({shop,data,setData,onBack}) {
     return()=>unsub();
   },[]);
 
-  // Filter orders by shop category
+  // Category-based order routing
   const shopCat=(shop.category||shop.cuisine||'').toLowerCase();
   const matchesShop=(o)=>{
     const items=o.items||[];
-    if(shopCat.includes('veg')||shopCat.includes('fruit')||shopCat.includes('grocery')){
-      return items.some(i=>(i.cat||'').match(/veg|fruit/i))||items.length>0;
-    }
-    if(shopCat.includes('food')||shopCat.includes('restaurant')){
+    if(shopCat.includes('veg')||shopCat.includes('fruit')||shopCat.includes('grocery'))
+      return items.some(i=>(i.cat||'').match(/veg|fruit/i));
+    if(shopCat.includes('food')||shopCat.includes('restaurant'))
       return items.some(i=>(i.cat||'').match(/food/i));
-    }
-    if(shopCat.includes('dairy')||shopCat.includes('milk')){
+    if(shopCat.includes('dairy')||shopCat.includes('milk'))
       return items.some(i=>(i.cat||'').match(/milk|dairy/i));
-    }
-    return true; // default: sab orders
+    return true;
   };
-  const pending=realOrders.filter(o=>['pending','confirmed'].includes(o.status)&&matchesShop(o));
-  const history=realOrders.filter(o=>o.status==='delivered'&&matchesShop(o));
+
+  const newOrders=realOrders.filter(o=>o.status==='pending'&&matchesShop(o));
+  const confirmedOrders=realOrders.filter(o=>o.status==='confirmed'&&matchesShop(o));
+  const packedOrders=realOrders.filter(o=>o.status==='packed'&&matchesShop(o));
+  const history=realOrders.filter(o=>['delivered','out'].includes(o.status)&&matchesShop(o));
+  const pendingCount=newOrders.length+confirmedOrders.length;
+
   const todayRev=realOrders.filter(o=>{
     if(!o.createdAt?.seconds) return false;
-    const d=new Date(o.createdAt.seconds*1000);
-    const now=new Date();
-    return d.toDateString()===now.toDateString()&&o.status==='delivered';
+    return new Date(o.createdAt.seconds*1000).toDateString()===new Date().toDateString()&&o.status==='delivered'&&matchesShop(o);
   }).reduce((s,o)=>s+(o.total||0),0);
 
-  const acceptO=async id=>{
-    try{ await updateDoc(doc(db,'orders',id),{status:'packed',packedAt:serverTimestamp(),shopConfirmedAt:serverTimestamp()}); }catch(e){console.log(e);}
+  // Step 1: Confirm order (shop ne dekha)
+  const confirmO=async id=>{
+    try{ await updateDoc(doc(db,'orders',id),{status:'confirmed',confirmedAt:serverTimestamp(),shopId:shop.id,shopName:shop.name}); }
+    catch(e){alert('Error: '+e.message);}
+  };
+  // Step 2: Mark as Packed → Rider auto-notified
+  const packO=async id=>{
+    try{
+      await updateDoc(doc(db,'orders',id),{status:'packed',packedAt:serverTimestamp()});
+      // Push to riders
+      try{ await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'riders',title:'📦 Order Ready for Pickup!',body:'Ek order pack ho gaya. Abhi pickup karo!'})}); }catch(ne){}
+    }
+    catch(e){alert('Error: '+e.message);}
   };
   const rejectO=async id=>{
-    try{ await updateDoc(doc(db,'orders',id),{status:'pending'}); }catch(e){console.log(e);}
+    try{ await updateDoc(doc(db,'orders',id),{status:'rejected',rejectedAt:serverTimestamp(),shopId:shop.id}); }
+    catch(e){alert('Error: '+e.message);}
   };
-  const upd=(id,s)=>{}; // legacy
-  return(
-    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
-      <SBar/>
-      <div style={{padding:'4px 20px 10px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}><BBtn onClick={onBack}/><div><div style={{fontSize:15,fontWeight:800}}>🏨 {shop.name}</div><div style={{fontSize:11,color:'var(--t3)'}}>{shop.cuisine} · {shop.id}</div></div></div>
-        <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 11px',background:isOpen?'rgba(61,255,122,.1)':'rgba(255,255,255,.05)',border:`1px solid ${isOpen?'rgba(61,255,122,.3)':'rgba(255,255,255,.08)'}`,borderRadius:50}}>
-          <span style={{fontSize:11,fontWeight:700,color:isOpen?'#3DFF7A':'#5A6A5A'}}>{isOpen?'Open':'Closed'}</span><Tog on={isOpen} onClick={()=>setIsOpen(v=>!v)}/>
+
+  const OrderCard=({o,showConfirm,showPack})=>(
+    <div className="gc" style={{padding:14,marginBottom:10,border:`2px solid ${o.status==='packed'?'rgba(61,255,122,.4)':o.status==='confirmed'?'rgba(212,175,55,.4)':'rgba(255,140,66,.25)'}`,animation:'fadeUp .3s ease both'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700}}>{o.userName||'Customer'}</div>
+          <div style={{fontSize:10,color:'var(--t3)'}}>#{o.id?.slice(-6).toUpperCase()} · {o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):''}</div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:15,fontWeight:900,color:'#3DFF7A'}}>₹{o.total}</div>
+          <div style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50,background:o.status==='packed'?'rgba(61,255,122,.15)':o.status==='confirmed'?'rgba(212,175,55,.15)':'rgba(255,140,66,.15)',color:o.status==='packed'?'#3DFF7A':o.status==='confirmed'?'#D4AF37':'#FF8C42'}}>
+            {o.status==='packed'?'📦 Packed':o.status==='confirmed'?'✅ Confirmed':'🆕 New'}
+          </div>
         </div>
       </div>
-      <div style={{padding:'0 20px 10px',display:'flex',gap:8}}>
-        {[{id:'dash',l:'Dashboard'},{id:'orders',l:`Orders${pending.length>0?` (${pending.length})`:''}`},{id:'history',l:'History'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{flex:1,textAlign:'center',padding:'8px 0',fontSize:12}}>{t.l}</div>))}
+      <div style={{marginBottom:8,padding:'8px 10px',background:'rgba(61,255,122,.03)',borderRadius:10}}>
+        {o.items?.map((item,j)=><div key={j} style={{fontSize:12,color:'var(--t2)',marginBottom:2}}>• {item.name} × {item.qty} — ₹{(item.price||0)*item.qty}</div>)}
       </div>
-      <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
-        {tab==='dash'&&<>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
-            {[{i:'📦',v:pending.length,l:'Pending Orders'},{i:'💰',v:`₹${todayRev.toLocaleString()}`,l:'Today Revenue',c:'#D4AF37'},{i:'📊',v:shop.totalOrders,l:'Total Orders'},{i:'🏆',v:`₹${((shop.totalRevenue||0)/1000).toFixed(1)}K`,l:'Total Revenue',c:'#D4AF37'}].map((s,i)=>(<div key={i} className="gc" style={{padding:'14px 16px'}}><div style={{fontSize:22,marginBottom:6}}>{s.i}</div><div style={{fontSize:20,fontWeight:800,color:s.c||'#3DFF7A'}}>{s.v}</div><div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{s.l}</div></div>))}
+      {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>📍 {o.address}</div>}
+      <div style={{fontSize:11,color:'#D4AF37',fontWeight:600,marginBottom:10}}>{o.payMethod==='cod'?'💵 Cash on Delivery':'📱 UPI Paid'}</div>
+      {showConfirm&&<div style={{display:'flex',gap:8}}>
+        <button className="btn rip" onClick={()=>confirmO(o.id)} style={{flex:2,padding:'10px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>✅ Confirm Order</button>
+        <button onClick={()=>rejectO(o.id)} style={{flex:1,padding:'10px',fontSize:12,borderRadius:12,background:'rgba(255,107,107,.1)',color:'#FF6B6B',border:'1px solid rgba(255,107,107,.3)',cursor:'pointer',fontFamily:fam}}>❌ Reject</button>
+      </div>}
+      {showPack&&<button className="btn rip" onClick={()=>packO(o.id)} style={{width:'100%',padding:'11px',fontSize:13,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A'}}>📦 Mark as Packed → Rider ko bhejo</button>}
+      {o.status==='packed'&&<div style={{padding:'10px',textAlign:'center',color:'#3DC8FF',fontSize:12,fontWeight:700,background:'rgba(61,200,255,.06)',borderRadius:10}}>🚴 Rider assign ho raha hai...</div>}
+    </div>
+  );
+
+  return(
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+      <SBar/>
+      <div style={{padding:'4px 16px 10px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <BBtn onClick={onBack}/>
+          <div>
+            <div style={{fontSize:15,fontWeight:800}}>🏪 {shop.name}</div>
+            <div style={{fontSize:10,color:'var(--t3)'}}>{shop.cuisine} · {shop.id}</div>
           </div>
-          {pending.length>0&&<div style={{background:'rgba(212,175,55,.08)',border:'1px solid rgba(212,175,55,.25)',borderRadius:16,padding:'14px 16px',marginBottom:14}}><div style={{fontSize:14,fontWeight:700,color:'#D4AF37'}}>⚡ {pending.length} Order{pending.length>1?'s':''} Needs Attention</div></div>}
-        </>}
+        </div>
+        <div onClick={()=>setIsOpen(v=>!v)} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 13px',background:isOpen?'rgba(61,255,122,.1)':'rgba(255,255,255,.05)',border:`1.5px solid ${isOpen?'rgba(61,255,122,.3)':'rgba(255,255,255,.08)'}`,borderRadius:50,cursor:'pointer'}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:isOpen?'#3DFF7A':'#5A6A5A'}}/>
+          <span style={{fontSize:11,fontWeight:800,color:isOpen?'#3DFF7A':'#5A6A5A'}}>{isOpen?'OPEN':'CLOSED'}</span>
+        </div>
+      </div>
+
+      {/* Alert banner */}
+      {newOrders.length>0&&<div style={{margin:'0 16px 10px',padding:'10px 14px',borderRadius:12,background:'rgba(255,140,66,.08)',border:'1px solid rgba(255,140,66,.3)',display:'flex',alignItems:'center',gap:8,animation:'pulseD 2s infinite'}}>
+        <div style={{width:8,height:8,borderRadius:'50%',background:'#FF8C42',animation:'statusP 1s infinite'}}/>
+        <div style={{fontSize:12,color:'#FF8C42',fontWeight:700}}>{newOrders.length} naya order aaya! Confirm karo</div>
+      </div>}
+
+      <div style={{padding:'0 16px 10px',display:'flex',gap:8,overflowX:'auto',scrollbarWidth:'none'}}>
+        {[{id:'orders',l:`🆕 New${newOrders.length>0?' ('+newOrders.length+')':''}`},{id:'confirm',l:`✅ Confirmed${confirmedOrders.length>0?' ('+confirmedOrders.length+')':''}`},{id:'packed',l:`📦 Packed${packedOrders.length>0?' ('+packedOrders.length+')':''}`},{id:'history',l:'📋 History'},{id:'dash',l:'📊 Dash'}].map(t=>(
+          <div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{flexShrink:0,padding:'8px 12px',fontSize:11,fontWeight:700}}>{t.l}</div>
+        ))}
+      </div>
+
+      <div className="scr" style={{position:'relative',padding:'0 16px 24px'}}>
         {tab==='orders'&&<>
-          <div className="sh"><div className="st">Orders ({pending.length})</div><div style={{fontSize:11,color:'#D4AF37',fontWeight:600}}>Live 🟡</div></div>
-          {pending.length===0
-            ?<div style={{textAlign:'center',padding:40}}><div style={{fontSize:48}}>📭</div><div style={{fontSize:16,fontWeight:700,marginTop:12}}>No new orders</div><div style={{fontSize:13,color:'var(--t3)',marginTop:6}}>Naye orders aane pe yahan dikhenge</div></div>
-            :pending.map((o,i)=>(
-              <div key={o.id} className="gc" style={{padding:14,marginBottom:10,border:`1px solid ${o.status==='packed'?'rgba(61,255,122,.3)':'rgba(212,175,55,.2)'}`}}>
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                  <div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>#{o.id.slice(-6).toUpperCase()}</div>
-                  <div style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:50,background:o.status==='packed'?'rgba(61,255,122,.15)':'rgba(255,140,66,.15)',color:o.status==='packed'?'#3DFF7A':'#FF8C42'}}>{o.status==='packed'?'📦 Packed':'🕐 New Order'}</div>
-                </div>
-                <div style={{marginBottom:8}}>{o.items?.map((item,j)=><div key={j} style={{fontSize:12,color:'var(--t2)'}}>• {item.name} × {item.qty} — ₹{(item.price||0)*item.qty}</div>)}</div>
-                {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:6}}>📍 {o.address}</div>}
-                <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A',marginBottom:10}}>₹{o.total} · {o.payMethod==='cod'?'💵 COD':'📱 UPI'}</div>
-                <div style={{display:'flex',gap:8}}>
-                  {o.status==='pending'&&<button className="btn rip" onClick={()=>acceptO(o.id)} style={{flex:1,padding:'10px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>📦 Accept & Pack</button>}
-                  {o.status==='pending'&&<button className="btng rip" onClick={()=>rejectO(o.id)} style={{flex:1,padding:'10px',fontSize:12}}>❌ Reject</button>}
-                  {o.status==='packed'&&<div style={{flex:1,padding:'10px',fontSize:12,textAlign:'center',color:'#3DC8FF',fontWeight:700}}>🚴 Waiting for Rider...</div>}
-                </div>
+          <div className="sh"><div className="st">Naye Orders</div><div style={{fontSize:11,color:'#FF8C42',fontWeight:600}}>{newOrders.length} pending</div></div>
+          {newOrders.length===0
+            ?<div style={{textAlign:'center',padding:'40px 20px',color:'var(--t3)'}}>
+                <div style={{fontSize:48,marginBottom:12}}>📭</div>
+                <div style={{fontSize:14,fontWeight:700}}>Koi naya order nahi</div>
+                <div style={{fontSize:12,marginTop:6}}>Jab order aayega, yahan dikhega</div>
               </div>
-            ))
+            :newOrders.map(o=><OrderCard key={o.id} o={o} showConfirm={true} showPack={false}/>)
+          }
+        </>}
+        {tab==='confirm'&&<>
+          <div className="sh"><div className="st">Confirmed — Pack karo</div></div>
+          {confirmedOrders.length===0
+            ?<div style={{textAlign:'center',padding:'40px 20px',color:'var(--t3)'}}>
+                <div style={{fontSize:48,marginBottom:12}}>✅</div>
+                <div style={{fontSize:13}}>Koi confirmed order nahi</div>
+              </div>
+            :confirmedOrders.map(o=><OrderCard key={o.id} o={o} showConfirm={false} showPack={true}/>)
+          }
+        </>}
+        {tab==='packed'&&<>
+          <div className="sh"><div className="st">Packed — Rider ka intezaar</div></div>
+          {packedOrders.length===0
+            ?<div style={{textAlign:'center',padding:'40px 20px',color:'var(--t3)'}}>
+                <div style={{fontSize:48,marginBottom:12}}>📦</div>
+                <div style={{fontSize:13}}>Koi packed order nahi</div>
+              </div>
+            :packedOrders.map(o=><OrderCard key={o.id} o={o} showConfirm={false} showPack={false}/>)
           }
         </>}
         {tab==='history'&&<>
           <div className="sh"><div className="st">History ({history.length})</div></div>
-          {history.length===0?<div style={{textAlign:'center',padding:40,color:'var(--t3)'}}>No completed orders yet</div>:history.map((o,i)=>(
-            <div key={o.id} className="gc" style={{padding:'14px',marginBottom:10}}>
+          {history.length===0?<div style={{textAlign:'center',padding:40,color:'var(--t3)'}}>No history yet</div>:history.map((o,i)=>(
+            <div key={o.id} className="gc" style={{padding:'12px 14px',marginBottom:8}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                <div style={{fontSize:12,fontWeight:700,color:'var(--t3)'}}>#{o.id.slice(-6).toUpperCase()}</div>
-                <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
+                <div style={{fontSize:12,fontWeight:700}}>#{o.id?.slice(-6).toUpperCase()}</div>
+                <div style={{fontSize:13,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
               </div>
-              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{o.items?.map(i=>i.name+' ×'+i.qty).join(', ')}</div>
-              <div style={{fontSize:11,color:'var(--t3)'}}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleDateString('en-IN'):''}</div>
+              <div style={{fontSize:11,color:'var(--t2)',marginBottom:2}}>{o.items?.map(i=>i.name+' ×'+i.qty).join(', ')}</div>
+              <div style={{fontSize:10,color:'var(--t3)'}}>{o.createdAt?.seconds?new Date(o.createdAt.seconds*1000).toLocaleString('en-IN'):''}</div>
             </div>
           ))}
+        </>}
+        {tab==='dash'&&<>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+            {[{i:'🆕',v:newOrders.length,l:'New Orders',c:'#FF8C42'},{i:'💰',v:`₹${todayRev}`,l:'Today Revenue',c:'#D4AF37'},{i:'📦',v:packedOrders.length,l:'Packed',c:'#3DFF7A'},{i:'📋',v:history.length,l:'Delivered',c:'#3DFF7A'}].map((s,i)=>(
+              <div key={i} className="gc" style={{padding:'16px 14px'}}>
+                <div style={{fontSize:24,marginBottom:6}}>{s.i}</div>
+                <div style={{fontSize:20,fontWeight:800,color:s.c}}>{s.v}</div>
+                <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{s.l}</div>
+              </div>
+            ))}
+          </div>
         </>}
       </div>
     </div>
@@ -3054,7 +3130,7 @@ function AdminApp({data,setData,onBack}) {
   const [editSlide,setEditSlide]=useState(null);
   const [addSlide,setAddSlide]=useState(false);
   const [newSlide,setNewSlide]=useState({emoji:'🎯',chip:'New Slide',title:'',sub:'',btn:'Learn More',link:'',imgUrl:'',bg:'linear-gradient(135deg,#0D2010,#0A180A)'});
-  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',nutrition:{calories:'',protein:'',carbs:'',fat:'',fiber:'',note:''}});
+  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:'',nutrition:{calories:'',protein:'',carbs:'',fat:'',fiber:'',note:''}});
   const [nsF,setNsF]=useState({name:'',owner:'',phone:'',cuisine:'',imgUrl:'',emoji:'🏪',badge:'',deliveryTime:'30-40 min',rating:'4.5'});
   const [nrF,setNrF]=useState({name:'',phone:''});
   const [coupons, setCoupons]=useState([]);
@@ -3164,7 +3240,7 @@ function AdminApp({data,setData,onBack}) {
     if(!npF.name||!npF.price){alert('Name aur price bharein!');return;}
     const catTagMap={veg:'Fresh',fruit:'Fresh',milk:'Fresh',food:'Hot'};
     const catTagHiMap={veg:'ताजा',fruit:'ताजा',milk:'ताजा',food:'गरम'};
-    const p={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock,tag:catTagMap[npF.cat]||'New',tagHi:catTagHiMap[npF.cat]||'नया',active:true,createdAt:new Date().toISOString(),nutrition:npF.nutrition||{}};
+    const p={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock,about:npF.about||'',tag:catTagMap[npF.cat]||'New',tagHi:catTagHiMap[npF.cat]||'नया',active:true,createdAt:new Date().toISOString(),nutrition:npF.nutrition||{}};
     try{
       const ref=await addDoc(collection(db,'products'),p);
       p.firestoreId=ref.id;
@@ -3175,7 +3251,7 @@ function AdminApp({data,setData,onBack}) {
       setData(d=>({...d,products:[...d.products,p]}));
     }
     // Note: onSnapshot will auto-update products list from Firestore
-    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',nutrition:{calories:'',protein:'',carbs:'',fat:'',fiber:'',note:''}});
+    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:'',nutrition:{calories:'',protein:'',carbs:'',fat:'',fiber:'',note:''}});
     setAddP(false);
   };
   const deleteProd=async(id)=>{
@@ -3499,6 +3575,12 @@ function AdminApp({data,setData,onBack}) {
               <div style={{display:'flex',gap:6}}>
                 {['veg','fruit','milk','food'].map(c=>(<div key={c} className={`cp ${npF.cat===c?'on':''}`} onClick={()=>setNpF(p=>({...p,cat:c}))} style={{fontSize:11,padding:'6px 12px',textTransform:'capitalize'}}>{c}</div>))}
               </div>
+            </div>
+            {/* About Description */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>📝 ABOUT (Optional · max 5 lines)</div>
+              <textarea className="dbi" placeholder="e.g. Fresh onion from local Bhopalgarh farm. Rich in antioxidants." value={npF.about||''} onChange={e=>{const lines=e.target.value.split('\n');if(lines.length<=5)setNpF(p=>({...p,about:e.target.value}));}} style={{resize:'none',height:80,fontSize:12,lineHeight:1.6,fontFamily:"'Outfit',sans-serif"}} maxLength={300}/>
+              <div style={{fontSize:10,color:'var(--t3)',textAlign:'right',marginTop:2}}>{(npF.about||'').length}/300</div>
             </div>
             {/* Nutrition - Optional */}
             <div style={{marginBottom:14,padding:'12px 14px',borderRadius:14,border:'1px solid rgba(61,255,122,.1)',background:'rgba(61,255,122,.03)'}}>
