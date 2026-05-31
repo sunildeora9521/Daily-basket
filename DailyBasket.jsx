@@ -640,15 +640,34 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod', isHi=false})
 function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
   const [orderStatus, setOrderStatus] = useState('confirmed');
   const [orderData, setOrderData] = useState(null);
+  const [riderLoc, setRiderLoc] = useState(null);
 
   useEffect(()=>{
     if(!lastOrderId) return;
     const unsub = onSnapshot(
       doc(db,'orders',lastOrderId),
-      snap=>{ if(snap.exists()){ setOrderData(snap.data()); setOrderStatus(snap.data().status||'pending'); } }
+      snap=>{ if(snap.exists()){
+        const d=snap.data();
+        setOrderData(d);
+        setOrderStatus(d.status||'pending');
+        // Rider assigned hone ke baad unka live location lo
+        if(d.riderId){
+          onSnapshot(query(collection(db,'riders'),where('id','==',d.riderId)),rSnap=>{
+            const r=rSnap.docs[0]?.data();
+            if(r?.location?.lat) setRiderLoc(r.location);
+          });
+        }
+      }}
     );
     return()=>unsub();
   },[lastOrderId]);
+
+  // Map URL: rider live location > customer GPS > Bhopalgarh default
+  const mapUrl = riderLoc
+    ? `https://maps.google.com/maps?q=${riderLoc.lat},${riderLoc.lng}&z=17&output=embed`
+    : orderData?.lat&&orderData?.lng
+      ? `https://maps.google.com/maps?q=${orderData.lat},${orderData.lng}&z=17&output=embed`
+      : `https://maps.google.com/maps?q=Bhopalgarh,Rajasthan,India&z=15&output=embed`;
 
   const steps = [
     {id:'pending',   icon:'🕐', l:isHi?'ऑर्डर मिला':'Order Received',       sub:isHi?'आपका ऑर्डर मिल गया':'Your order has been placed'},
@@ -658,6 +677,7 @@ function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
     {id:'delivered', icon:'🏠', l:isHi?'डिलीवर हो गया':'Delivered',            sub:isHi?'ऑर्डर डिलीवर हो गया! धन्यवाद':'Order delivered! Thank you'},
   ];
   const si = steps.findIndex(s=>s.id===orderStatus);
+  const isOut = orderStatus==='out';
 
   return (
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
@@ -668,31 +688,39 @@ function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
           <div style={{fontSize:18,fontWeight:800}}>{t.orderTracking}</div>
           <div style={{fontSize:12,color:'var(--t3)'}}>{lastOrderId?`#DB-${lastOrderId.slice(-6).toUpperCase()}`:'#DB-XXXXXX'}</div>
         </div>
-        {orderStatus==='delivered'&&<div style={{marginLeft:'auto',background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.3)',borderRadius:50,padding:'4px 12px',fontSize:11,fontWeight:700,color:'#3DFF7A'}}>✅ Delivered!</div>}
+        {orderStatus==='delivered'&&<div style={{marginLeft:'auto',background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.3)',borderRadius:50,padding:'4px 12px',fontSize:11,fontWeight:700,color:'#3DFF7A'}}>✅ {isHi?'डिलीवर!':'Delivered!'}</div>}
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
-        <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:'1px solid rgba(61,255,122,.2)'}}>
-          {orderData?.lat&&orderData?.lng
-            ? <iframe src={`https://maps.google.com/maps?q=${orderData.lat},${orderData.lng}&z=17&output=embed`} style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
-            : <iframe src="https://maps.google.com/maps?q=Bhopalgarh,Rajasthan,India&z=15&output=embed" style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
-          }
-          <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,.6)',borderRadius:50,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}>
-            <div style={{width:7,height:7,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/>
-            <span style={{fontSize:11,color:'#fff',fontWeight:700}}>Live</span>
+        {/* Live Map */}
+        <div style={{height:220,borderRadius:20,marginBottom:18,overflow:'hidden',position:'relative',border:`1px solid ${isOut&&riderLoc?'rgba(61,255,122,.5)':'rgba(61,255,122,.2)'}`}}>
+          <iframe src={mapUrl} style={{width:'100%',height:'100%',border:'none'}} title="Live Tracking Map" loading="lazy"/>
+          <div style={{position:'absolute',bottom:8,right:8,background:'rgba(0,0,0,.7)',borderRadius:50,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:isOut&&riderLoc?'#3DFF7A':'#FF8C42',animation:'statusP 1.5s infinite'}}/>
+            <span style={{fontSize:11,color:'#fff',fontWeight:700}}>{isOut&&riderLoc?'🚴 Rider Live':'📍 Live'}</span>
           </div>
         </div>
-        <div className="gc" style={{padding:'14px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{width:46,height:46,borderRadius:14,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>🚴</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:15,fontWeight:700}}>Daily Basket Rider</div>
-            <div style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#D4AF37',fontSize:12}}>⭐</span><span style={{fontSize:12,color:'var(--t3)'}}>4.9 · On the way</span></div>
+
+        {/* Rider Card */}
+        {orderData?.riderId&&(
+          <div className="gc" style={{padding:'14px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:46,height:46,borderRadius:14,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>🚴</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:700}}>{orderData.riderName||'Daily Basket Rider'}</div>
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{color:'#D4AF37',fontSize:12}}>⭐</span>
+                <span style={{fontSize:12,color:'var(--t3)'}}>{isHi?'रास्ते में':'On the way'}</span>
+                {riderLoc&&<span style={{fontSize:10,color:'#3DFF7A',marginLeft:4}}>📍 Live</span>}
+              </div>
+            </div>
+            <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#00C44F,#008835)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>window.open(`tel:+91${orderData.userPhone||'6375565339'}`)}>
+              <svg width={18} height={18} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.69 12 19.79 19.79 0 011.61 3.38 2 2 0 013.58 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 8.96a16 16 0 006 6l.92-.92a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+            </div>
           </div>
-          <div style={{width:42,height:42,borderRadius:12,background:'linear-gradient(135deg,#00C44F,#008835)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>window.open('tel:+916375565339')}>
-            <svg width={18} height={18} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.69 12 19.79 19.79 0 011.61 3.38 2 2 0 013.58 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.91 8.96a16 16 0 006 6l.92-.92a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-          </div>
-        </div>
+        )}
+
+        {/* Status Steps */}
         <div className="gc" style={{padding:'16px',marginBottom:14}}>
-          <div style={{fontSize:15,fontWeight:800,marginBottom:14}}>Order Status</div>
+          <div style={{fontSize:15,fontWeight:800,marginBottom:14}}>{isHi?'ऑर्डर स्टेटस':'Order Status'}</div>
           {steps.map((step,i)=>{
             const done=i<si; const active=i===si;
             return(
@@ -709,8 +737,10 @@ function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
             );
           })}
         </div>
+
+        {/* Order Summary */}
         {orderData&&<div className="gc" style={{padding:'14px'}}>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>🧾 Order Summary</div>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>🧾 {isHi?'ऑर्डर सारांश':'Order Summary'}</div>
           {orderData.items?.map((item,i)=>(
             <div key={i} style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
               <span style={{fontSize:12,color:'var(--t2)'}}>{item.name} × {item.qty}</span>
@@ -718,7 +748,7 @@ function TrackScreen({onBack, lastOrderId, isHi, t, fam}) {
             </div>
           ))}
           <div style={{borderTop:'1px solid rgba(255,255,255,.06)',marginTop:8,paddingTop:8,display:'flex',justifyContent:'space-between'}}>
-            <span style={{fontSize:13,fontWeight:800}}>Total</span>
+            <span style={{fontSize:13,fontWeight:800}}>{isHi?'कुल':'Total'}</span>
             <span style={{fontSize:13,fontWeight:900,color:'#3DFF7A'}}>₹{orderData.total}</span>
           </div>
         </div>}
@@ -1462,6 +1492,14 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const [scrBulk, setScrBulk]=useState(false);
   const [premOpen, setPremOpen]=useState(false);
   const [adSlides,setAdSlides]=useState([]);
+  const [mandiRates,setMandiRates]=useState([]);
+
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'mandiRates'),snap=>{
+      setMandiRates(snap.docs.map(d=>({...d.data(),fid:d.id})));
+    },()=>{});
+    return()=>unsub();
+  },[]);
   const safeAdIdx=adSlides.length>0?adIdx%adSlides.length:0;
   // Load slides from Firestore - with defaults if empty
   useEffect(()=>{
@@ -1957,6 +1995,25 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
         </div>
         {/* Products */}
         <div style={{padding:'0 20px'}}>
+          {/* Mandi Rate Today */}
+          {mandiRates.length>0&&(
+            <div style={{marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                <div style={{fontSize:13,fontWeight:800}}>🌾 {isHi?'आज के मंडी भाव':'Mandi Rate Today'}</div>
+                <div style={{fontSize:10,color:'var(--t3)'}}>{new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</div>
+              </div>
+              <div style={{display:'flex',gap:8,overflowX:'auto',scrollbarWidth:'none',paddingBottom:4}}>
+                {mandiRates.map(r=>(
+                  <div key={r.fid} style={{flexShrink:0,padding:'8px 12px',borderRadius:12,background:'rgba(61,255,122,.05)',border:'1px solid rgba(61,255,122,.15)',display:'flex',flexDirection:'column',alignItems:'center',gap:2,minWidth:70}}>
+                    <div style={{fontSize:22}}>{r.emoji||'🥦'}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--t)',textAlign:'center'}}>{r.item}</div>
+                    <div style={{fontSize:13,fontWeight:900,color:'#3DFF7A'}}>₹{r.price}</div>
+                    <div style={{fontSize:9,color:'var(--t3)'}}>/{r.unit}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="sh"><div className="st">{t.bestSellers}</div><div className="sl">{t.seeAll}</div></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
             {filtP.map((p,i)=>(
@@ -3138,6 +3195,15 @@ function AdminApp({data,setData,onBack}) {
   const [addCoupon, setAddCoupon]=useState(false);
   const [firestoreRiders, setFirestoreRiders]=useState([]);
   const [sendNotifOpen, setSendNotifOpen]=useState(false);
+  const [mandiRates, setMandiRates]=useState([]);
+  const [newRate, setNewRate]=useState({item:'',price:'',unit:'kg',emoji:'🥦'});
+
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'mandiRates'),snap=>{
+      setMandiRates(snap.docs.map(d=>({...d.data(),fid:d.id})).sort((a,b)=>a.item?.localeCompare(b.item)));
+    },()=>{});
+    return()=>unsub();
+  },[]);
   const [notifForm, setNotifForm]=useState({title:'',body:''});
   const [sendingNotif, setSendingNotif]=useState(false);
   useEffect(()=>{
@@ -3314,7 +3380,7 @@ function AdminApp({data,setData,onBack}) {
 </div>
       </div>
 <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none',WebkitOverflowScrolling:'touch',msOverflowStyle:'none',flexShrink:0}}>
-        {[{id:'dash',l:'📊 Dash'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦 Prods'},{id:'shops',l:'🏨 Shops'},{id:'riders',l:'🚲 Riders'},{id:'coupons',l:'🏷️ Coupons'},{id:'slides',l:'🎨 Slides'},{id:'reports',l:'📈 Reports'}].map(t=>(<div key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',fontSize:11,fontWeight:600,flexShrink:0,borderRadius:50,cursor:'pointer',whiteSpace:'nowrap',background:tab===t.id?'linear-gradient(135deg,#FF8C42,#FF6B20)':'rgba(255,140,66,.08)',color:tab===t.id?'#fff':'#FF8C42',border:`1px solid ${tab===t.id?'transparent':'rgba(255,140,66,.2)'}`}}>{t.l}</div>))}
+        {[{id:'dash',l:'📊 Dash'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦 Prods'},{id:'shops',l:'🏨 Shops'},{id:'riders',l:'🚲 Riders'},{id:'coupons',l:'🏷️ Coupons'},{id:'slides',l:'🎨 Slides'},{id:'mandi',l:'🌾 Mandi'},{id:'reports',l:'📈 Reports'}].map(t=>(<div key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',fontSize:11,fontWeight:600,flexShrink:0,borderRadius:50,cursor:'pointer',whiteSpace:'nowrap',background:tab===t.id?'linear-gradient(135deg,#FF8C42,#FF6B20)':'rgba(255,140,66,.08)',color:tab===t.id?'#fff':'#FF8C42',border:`1px solid ${tab===t.id?'transparent':'rgba(255,140,66,.2)'}`}}>{t.l}</div>))}
       </div>
       <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'0 20px 24px',WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
 
@@ -3775,6 +3841,56 @@ function AdminApp({data,setData,onBack}) {
           </AdminModal>}
         </>}
 
+        {tab==='mandi'&&<>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div className="st">🌾 Mandi Rate Today</div>
+            <div style={{fontSize:11,color:'var(--t3)'}}>{new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</div>
+          </div>
+          {/* Add new rate */}
+          <div className="gc" style={{padding:14,marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:'#FF8C42',marginBottom:10}}>+ Naya Rate Add Karo</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+              <div>
+                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>Sabzi/Fal</div>
+                <input className="dbi" style={{fontSize:13,padding:'8px 10px'}} placeholder="e.g. Tomato" value={newRate.item} onChange={e=>setNewRate(r=>({...r,item:e.target.value}))}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>Emoji</div>
+                <input className="dbi" style={{fontSize:18,padding:'6px 10px',textAlign:'center'}} placeholder="🥦" value={newRate.emoji} onChange={e=>setNewRate(r=>({...r,emoji:e.target.value}))}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>Rate (₹)</div>
+                <input className="dbi" style={{fontSize:13,padding:'8px 10px'}} placeholder="e.g. 40" type="number" value={newRate.price} onChange={e=>setNewRate(r=>({...r,price:e.target.value}))}/>
+              </div>
+              <div>
+                <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>Unit</div>
+                <select className="dbi" style={{fontSize:13,padding:'8px 10px',background:'var(--card)',color:'var(--t)',border:'1px solid rgba(61,255,122,.15)'}} value={newRate.unit} onChange={e=>setNewRate(r=>({...r,unit:e.target.value}))}>
+                  {['kg','250g','500g','piece','dozen','bundle'].map(u=><option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
+            <button className="btn rip" onClick={async()=>{
+              if(!newRate.item||!newRate.price){alert('Item aur rate daalo!');return;}
+              await addDoc(collection(db,'mandiRates'),{...newRate,price:+newRate.price,date:new Date().toDateString(),updatedAt:serverTimestamp()});
+              setNewRate({item:'',price:'',unit:'kg',emoji:'🥦'});
+            }} style={{width:'100%',padding:'10px',fontSize:13}}>✅ Rate Save Karo</button>
+          </div>
+          {/* Today's rates list */}
+          {mandiRates.length===0
+            ?<div style={{textAlign:'center',padding:'30px',color:'var(--t3)'}}>Koi rate nahi add hua</div>
+            :mandiRates.map(r=>(
+              <div key={r.fid} className="gc" style={{padding:'12px 14px',marginBottom:8,display:'flex',alignItems:'center',gap:12}}>
+                <div style={{fontSize:26}}>{r.emoji||'🥦'}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700}}>{r.item}</div>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>per {r.unit}</div>
+                </div>
+                <div style={{fontSize:18,fontWeight:900,color:'#3DFF7A'}}>₹{r.price}</div>
+                <button onClick={async()=>{try{await deleteDoc(doc(db,'mandiRates',r.fid));}catch(e){}}} style={{width:32,height:32,borderRadius:10,background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.2)',color:'#FF6B6B',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>🗑</button>
+              </div>
+            ))
+          }
+        </>}
         {tab==='reports'&&<>
           <div className="sh"><div className="st">Sales Reports 📈</div></div>
           <div style={{background:'linear-gradient(135deg,rgba(255,140,66,.08),rgba(255,140,66,.04))',border:'1px solid rgba(255,140,66,.2)',borderRadius:20,padding:'20px',marginBottom:14,textAlign:'center'}}>
