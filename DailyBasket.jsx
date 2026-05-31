@@ -2640,40 +2640,40 @@ function RiderApp({rider,data,setData,onBack}) {
   const [realOrders,setRealOrders]=useState([]);
   const [newOrderAlert,setNewOrderAlert]=useState(null);
   const [location,setLocation]=useState(null);
+  const [todayEarn,setTodayEarn]=useState(0);
+  const [todayCount,setTodayCount]=useState(0);
   const prevAvailCount=useRef(0);
+  const fam="'Outfit',sans-serif";
 
-  // Live orders listener
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'orders'),snap=>{
       const orders=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
       setRealOrders(orders);
-      // New order alert for rider
       const newAvail=orders.filter(o=>o.status==='packed'&&!o.riderId);
-      if(newAvail.length>prevAvailCount.current && prevAvailCount.current>=0){
-        if(newAvail.length>0) setNewOrderAlert(newAvail[0]);
-      }
+      if(newAvail.length>prevAvailCount.current&&prevAvailCount.current>=0&&newAvail.length>0) setNewOrderAlert(newAvail[0]);
       prevAvailCount.current=newAvail.length;
+      const today=new Date().toDateString();
+      const myToday=orders.filter(o=>o.riderId===rider.id&&o.status==='delivered'&&o.deliveredAt?.seconds&&new Date(o.deliveredAt.seconds*1000).toDateString()===today);
+      setTodayCount(myToday.length);
+      setTodayEarn(myToday.reduce((s,o)=>s+(o.total?40+Math.floor((o.total/100)*5):40),0));
     });
     return()=>unsub();
   },[]);
 
-  // Live location tracking
   useEffect(()=>{
     if(!online) return;
     const watchId=navigator.geolocation?.watchPosition(
       pos=>{
         const loc={lat:pos.coords.latitude,lng:pos.coords.longitude,ts:Date.now()};
         setLocation(loc);
-        // Update location in Firestore
         updateDoc(doc(db,'riders',rider.firestoreId||rider.id),{location:loc,online:true}).catch(()=>{});
       },
-      err=>console.log('GPS:',err),
+      ()=>{},
       {enableHighAccuracy:true,maximumAge:10000}
     );
     return()=>navigator.geolocation?.clearWatch(watchId);
   },[online]);
 
-  // Toggle online status
   const toggleOnline=async(v)=>{
     setOnline(v);
     try{ await updateDoc(doc(db,'riders',rider.firestoreId||rider.id),{online:v}); }catch(e){}
@@ -2685,163 +2685,237 @@ function RiderApp({rider,data,setData,onBack}) {
   const done=my.filter(o=>o.status==='delivered');
 
   const accept=async id=>{
-    const ord=realOrders.find(o=>o.id===id);
-    if(!ord){ alert('Order not found'); return; }
-    if(!online){ alert('⚠️ Pehle Online ho jao!'); return; }
+    if(!online){alert('⚠️ Pehle Online ho jao!');return;}
     try{
-      // Transaction - prevents 2 riders accepting same order
       const {runTransaction}=await import('firebase/firestore');
       await runTransaction(db,async(tx)=>{
         const oSnap=await tx.get(doc(db,'orders',id));
         if(!oSnap.exists()) throw new Error('Order not found');
         const oData=oSnap.data();
-        if(oData.riderId&&oData.riderId!==rider.id) throw new Error('Order already taken by another rider!');
+        if(oData.riderId&&oData.riderId!==rider.id) throw new Error('Yeh order kisi aur rider ne le liya!');
         tx.update(doc(db,'orders',id),{riderId:rider.id,riderName:rider.name,status:'out'});
       });
       setNewOrderAlert(null);
-    }catch(e){
-      alert('❌ '+(e.message||'Accept failed'));
-      console.log(e);
-    }
-  };
-
-  const reject=async id=>{
-    try{ await updateDoc(doc(db,'orders',id),{riderId:null,riderName:null}); }catch(e){}
-    setNewOrderAlert(null);
+    }catch(e){alert('❌ '+(e.message||'Accept failed'));}
   };
 
   const deliver=async id=>{
-    try{
-      await updateDoc(doc(db,'orders',id),{status:'delivered',deliveredAt:serverTimestamp()});
-    }catch(e){console.log(e);}
+    try{ await updateDoc(doc(db,'orders',id),{status:'delivered',deliveredAt:serverTimestamp()}); }catch(e){}
   };
+
+  const callCustomer=(phone)=>{if(phone) window.location.href=`tel:+91${phone.replace(/\D/g,'')}`;};
+
   return(
-    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column'}}>
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam,background:'var(--bg)'}}>
       <SBar/>
-      {/* NEW ORDER ALERT POPUP */}
-      {newOrderAlert&&online&&<div style={{position:'absolute',top:60,left:16,right:16,zIndex:999,background:'linear-gradient(135deg,#0A1A0A,#060D06)',border:'2px solid #3DFF7A',borderRadius:20,padding:16,boxShadow:'0 8px 32px rgba(61,255,122,.3)',animation:'fadeUp .3s ease'}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-          <div style={{width:10,height:10,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1s infinite'}}/>
-          <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>🆕 New Order!</div>
-          <div style={{marginLeft:'auto',fontSize:12,color:'var(--t3)'}}>#{newOrderAlert.id?.slice(-6).toUpperCase()}</div>
+      {newOrderAlert&&online&&(
+        <div style={{position:'absolute',top:60,left:12,right:12,zIndex:999,background:'linear-gradient(135deg,#061506,#030D03)',border:'2px solid #3DFF7A',borderRadius:22,padding:18,boxShadow:'0 12px 48px rgba(61,255,122,.4)',animation:'fadeUp .3s ease'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <div style={{width:10,height:10,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1s infinite'}}/>
+            <div style={{fontSize:15,fontWeight:800,color:'#3DFF7A'}}>🆕 Naya Order!</div>
+            <div style={{marginLeft:'auto',background:'rgba(61,255,122,.1)',borderRadius:50,padding:'2px 8px',fontSize:11,color:'#3DFF7A',fontWeight:700}}>#{newOrderAlert.id?.slice(-6).toUpperCase()}</div>
+          </div>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:4,color:'var(--t)'}}>{newOrderAlert.userName||'Customer'}</div>
+          <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{newOrderAlert.items?.map(i=>i.name).join(', ')}</div>
+          <div style={{fontSize:12,color:'var(--t3)',marginBottom:8}}>📍 {newOrderAlert.address}</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+            <div style={{fontSize:18,fontWeight:900,color:'#3DFF7A'}}>₹{newOrderAlert.total}</div>
+            <div style={{fontSize:12,color:'#D4AF37',fontWeight:700}}>{newOrderAlert.payMethod==='cod'?'💵 Cash on Delivery':'📱 UPI Paid'}</div>
+            <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>💰 ~₹45 earn</div>
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={()=>accept(newOrderAlert.id)} style={{flex:2,padding:'12px',borderRadius:14,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontWeight:800,fontSize:14,border:'none',cursor:'pointer',fontFamily:fam}}>✅ Accept</button>
+            <button onClick={()=>setNewOrderAlert(null)} style={{flex:1,padding:'12px',borderRadius:14,background:'rgba(255,107,107,.1)',color:'#FF6B6B',fontWeight:700,fontSize:13,border:'1px solid rgba(255,107,107,.3)',cursor:'pointer',fontFamily:fam}}>Skip</button>
+          </div>
         </div>
-        <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>{newOrderAlert.items?.map(i=>i.name).join(', ')}</div>
-        <div style={{fontSize:12,color:'var(--t3)',marginBottom:4}}>📍 {newOrderAlert.address}</div>
-        <div style={{fontSize:16,fontWeight:900,color:'#3DFF7A',marginBottom:12}}>₹{newOrderAlert.total} · {newOrderAlert.payMethod==='cod'?'💵 COD':'📱 UPI'}</div>
-        <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>accept(newOrderAlert.id)} style={{flex:1,padding:'10px',borderRadius:12,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontWeight:800,fontSize:13,border:'none',cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>✅ Accept</button>
-          <button onClick={()=>reject(newOrderAlert.id)} style={{flex:1,padding:'10px',borderRadius:12,background:'rgba(255,107,107,.1)',color:'#FF6B6B',fontWeight:800,fontSize:13,border:'1px solid rgba(255,107,107,.3)',cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>❌ Reject</button>
+      )}
+      <div style={{padding:'4px 16px 10px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <BBtn onClick={onBack}/>
+          <div>
+            <div style={{fontSize:16,fontWeight:800}}>🚲 {rider.name}</div>
+            <div style={{display:'flex',alignItems:'center',gap:5,marginTop:1}}>
+              <div style={{width:7,height:7,borderRadius:'50%',background:location?'#3DFF7A':'#FF8C42'}}/>
+              <div style={{fontSize:10,color:'var(--t3)'}}>{location?'📍 GPS Active':'📍 GPS Off'}</div>
+            </div>
+          </div>
         </div>
+        <div onClick={()=>toggleOnline(!online)} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:online?'rgba(61,255,122,.1)':'rgba(255,255,255,.05)',border:`1.5px solid ${online?'rgba(61,255,122,.4)':'rgba(255,255,255,.1)'}`,borderRadius:50,cursor:'pointer',transition:'all .3s'}}>
+          <div style={{width:9,height:9,borderRadius:'50%',background:online?'#3DFF7A':'#5A6A5A',animation:online?'pulseD 1.5s infinite':'none'}}/>
+          <span style={{fontSize:12,fontWeight:800,color:online?'#3DFF7A':'#5A6A5A'}}>{online?'ONLINE':'OFFLINE'}</span>
+          <Tog on={online} onClick={e=>{e.stopPropagation();toggleOnline(!online);}}/>
+        </div>
+      </div>
+      {!online&&<div style={{margin:'0 16px 10px',padding:'10px 14px',borderRadius:12,background:'rgba(255,107,107,.07)',border:'1px solid rgba(255,107,107,.2)',display:'flex',alignItems:'center',gap:8}}>
+        <span style={{fontSize:16}}>⚠️</span>
+        <div style={{fontSize:12,color:'#FF6B6B',fontWeight:600}}>Abhi Offline ho. Orders nahi milenge. Online ho jao!</div>
       </div>}
-      <div style={{padding:'4px 20px 10px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}><BBtn onClick={onBack}/><div><div style={{fontSize:16,fontWeight:800}}>🚲 {rider.name}</div><div style={{fontSize:11,color:'var(--t3)'}}>ID: {rider.id} · {location?'📍 GPS Active':'📍 No GPS'}</div></div></div>
-        <div style={{display:'flex',alignItems:'center',gap:7,padding:'6px 12px',background:online?'rgba(61,255,122,.1)':'rgba(255,255,255,.05)',border:`1px solid ${online?'rgba(61,255,122,.3)':'rgba(255,255,255,.08)'}`,borderRadius:50}}>
-          <div style={{width:8,height:8,borderRadius:'50%',background:online?'#3DFF7A':'#5A6A5A',animation:online?'pulseD 1.5s infinite':'none'}}/>
-          <span style={{fontSize:11,fontWeight:700,color:online?'#3DFF7A':'#5A6A5A'}}>{online?'Online':'Offline'}</span>
-          <Tog on={online} onClick={()=>toggleOnline(!online)}/>
+      {active.length>0&&active.map(o=>(
+        <div key={o.id} style={{margin:'0 16px 10px',padding:'14px',borderRadius:18,background:'linear-gradient(135deg,rgba(61,255,122,.08),rgba(0,196,79,.04))',border:'2px solid rgba(61,255,122,.35)',animation:'pulseD 2s infinite'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <div style={{fontSize:13,fontWeight:800,color:'#3DFF7A'}}>🚴 Delivery in Progress</div>
+            <div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>₹{o.total} · {o.payMethod==='cod'?'💵 COD':'✅ Paid'}</div>
+          </div>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{o.userName}</div>
+          <div style={{fontSize:12,color:'var(--t3)',marginBottom:10}}>📍 {o.address}</div>
+          <div style={{display:'flex',gap:8}}>
+            <a href={o.lat&&o.lng?`https://www.google.com/maps/dir/?api=1&destination=${o.lat},${o.lng}&travelmode=driving`:`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(o.address||'Bhopalgarh,Rajasthan')}&travelmode=driving`} target="_blank" rel="noreferrer" style={{flex:1,padding:'9px',borderRadius:12,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:12,textDecoration:'none',textAlign:'center'}}>🧭 Navigate</a>
+            {o.userPhone&&<button onClick={()=>callCustomer(o.userPhone)} style={{flex:1,padding:'9px',borderRadius:12,background:'rgba(61,200,255,.1)',border:'1px solid rgba(61,200,255,.3)',color:'#3DC8FF',fontWeight:700,fontSize:12,cursor:'pointer',fontFamily:fam}}>📞 Call</button>}
+            <button onClick={()=>deliver(o.id)} style={{flex:1,padding:'9px',borderRadius:12,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontWeight:800,fontSize:12,border:'none',cursor:'pointer',fontFamily:fam}}>✅ Done</button>
+          </div>
         </div>
+      ))}
+      <div style={{padding:'0 16px 10px',display:'flex',gap:8}}>
+        {[{id:'dash',l:'🏠 Dash'},{id:'pickups',l:`📦 Pickups${avail.length>0?' ('+avail.length+')':''}`},{id:'orders',l:'📋 Mine'},{id:'earn',l:'💰 Earn'}].map(t=>(
+          <div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{flex:1,textAlign:'center',padding:'8px 2px',fontSize:11,fontWeight:700}}>{t.l}</div>
+        ))}
       </div>
-      <div style={{padding:'0 20px 10px',display:'flex',gap:8}}>
-        {[{id:'dash',l:'Dashboard'},{id:'orders',l:'Orders'},{id:'earn',l:'Earnings'}].map(t=>(<div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{flex:1,textAlign:'center',padding:'8px 0',fontSize:12}}>{t.l}</div>))}
-      </div>
-      <div className="scr" style={{position:'relative',padding:'0 20px 20px'}}>
+      <div className="scr" style={{position:'relative',padding:'0 16px 24px'}}>
         {tab==='dash'&&<>
-          {!online&&<div style={{background:'rgba(255,107,107,.08)',border:'1px solid rgba(255,107,107,.2)',borderRadius:14,padding:'12px 16px',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
-            <span style={{fontSize:20}}>⚠️</span>
-            <div><div style={{fontSize:13,fontWeight:700,color:'#FF6B6B'}}>Aap Offline Hain</div><div style={{fontSize:11,color:'var(--t3)'}}>Orders accept karne ke liye Online ho jao</div></div>
-          </div>}
-          {active.length>0&&<div style={{background:'linear-gradient(135deg,rgba(61,255,122,.08),rgba(0,196,79,.04))',border:'1px solid rgba(61,255,122,.2)',borderRadius:14,padding:14,marginBottom:12}}>
-            <div style={{fontSize:13,fontWeight:800,color:'#3DFF7A',marginBottom:8}}>🚴 Active Delivery</div>
-            {active.map(o=>(
-              <div key={o.id} style={{marginBottom:8}}>
-                <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>📍 {o.address}</div>
-                <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>{o.items?.map(i=>i.name).join(', ')}</div>
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <span style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</span>
-                  <button onClick={()=>window.open(o.mapsLink||`https://maps.google.com/?q=${encodeURIComponent(o.address||'')}`,'_blank')} style={{padding:'5px 12px',borderRadius:50,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>🗺️ Navigate</button>
-                  <button onClick={()=>deliver(o.id)} style={{padding:'5px 12px',borderRadius:50,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontSize:11,fontWeight:800,border:'none',cursor:'pointer',fontFamily:"'Outfit',sans-serif"}}>✅ Delivered</button>
-                </div>
-              </div>
-            ))}
-          </div>}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
-            {[{i:'🚴',v:active.length,l:'Active Now',c:'#3DFF7A'},{i:'📦',v:avail.length,l:'Available',c:'#FF8C42'},{i:'✅',v:done.length,l:'Done Today',c:'#D4AF37'},{i:'⭐',v:rider.rating||5.0,l:'Rating',c:'#D4AF37'}].map((s,i)=>(
-              <div key={i} className="gc" style={{padding:'14px 16px'}}><div style={{fontSize:22,marginBottom:6}}>{s.i}</div><div style={{fontSize:20,fontWeight:800,color:s.c||'#3DFF7A'}}>{s.v}</div><div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{s.l}</div></div>
+            {[{i:'🚴',v:active.length,l:'Active Now',c:'#3DFF7A'},{i:'📦',v:avail.length,l:'Awaiting Pickup',c:'#FF8C42'},{i:'✅',v:todayCount,l:'Today Done',c:'#D4AF37'},{i:'💰',v:`₹${todayEarn}`,l:'Today Earned',c:'#D4AF37'}].map((s,i)=>(
+              <div key={i} className="gc" style={{padding:'16px 14px'}}>
+                <div style={{fontSize:24,marginBottom:6}}>{s.i}</div>
+                <div style={{fontSize:20,fontWeight:800,color:s.c}}>{s.v}</div>
+                <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{s.l}</div>
+              </div>
             ))}
           </div>
-          <div className="sh"><div className="st">New Pickups {avail.length>0&&`(${avail.length})`}</div></div>
-          {avail.length===0?<div style={{textAlign:'center',padding:'20px',color:'var(--t3)',fontSize:13}}>No new pickups. Stay online! 🟢</div>:avail.map(o=>(
-            <div key={o.id} className="gc" style={{padding:'14px',marginBottom:10,animation:'fadeUp .3s ease both'}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                <div style={{fontSize:14,fontWeight:700}}>{o.cust}</div>
-                <div style={{fontSize:14,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
+          <div className="gc" style={{padding:'14px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:52,height:52,borderRadius:16,background:'linear-gradient(135deg,#D4AF37,#B8962E)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>⭐</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,color:'var(--t3)',fontWeight:600}}>Your Rating</div>
+              <div style={{fontSize:24,fontWeight:900,color:'#D4AF37'}}>{(rider.rating||5.0).toFixed(1)}</div>
+              <div style={{fontSize:11,color:'var(--t3)'}}>{done.length} deliveries</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:11,color:'var(--t3)'}}>Lifetime</div>
+              <div style={{fontSize:16,fontWeight:800,color:'#3DFF7A'}}>₹{(rider.totalEarnings||0).toLocaleString()}</div>
+              <div style={{fontSize:10,color:'var(--t3)'}}>{rider.totalOrders||0} orders</div>
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div onClick={()=>setTab('pickups')} style={{padding:'14px',borderRadius:16,background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.15)',cursor:'pointer',textAlign:'center'}}>
+              <div style={{fontSize:24,marginBottom:4}}>📦</div>
+              <div style={{fontSize:12,fontWeight:700,color:'#3DFF7A'}}>New Pickups</div>
+              <div style={{fontSize:11,color:'var(--t3)'}}>{avail.length} waiting</div>
+            </div>
+            <div onClick={()=>setTab('earn')} style={{padding:'14px',borderRadius:16,background:'rgba(212,175,55,.06)',border:'1px solid rgba(212,175,55,.15)',cursor:'pointer',textAlign:'center'}}>
+              <div style={{fontSize:24,marginBottom:4}}>💰</div>
+              <div style={{fontSize:12,fontWeight:700,color:'#D4AF37'}}>Earnings</div>
+              <div style={{fontSize:11,color:'var(--t3)'}}>This week</div>
+            </div>
+          </div>
+        </>}
+        {tab==='pickups'&&<>
+          <div className="sh"><div className="st">Available Pickups</div><div style={{fontSize:12,color:'var(--t3)'}}>{avail.length} orders</div></div>
+          {avail.length===0?(
+            <div style={{textAlign:'center',padding:'40px 20px',color:'var(--t3)'}}>
+              <div style={{fontSize:48,marginBottom:12}}>📭</div>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>Koi pickup nahi</div>
+              <div style={{fontSize:12}}>Online raho — jaise order packed ho, yahan dikhega!</div>
+            </div>
+          ):avail.map(o=>(
+            <div key={o.id} className="gc" style={{padding:'14px',marginBottom:12,animation:'fadeUp .3s ease both'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700}}>{o.userName||'Customer'}</div>
+                  <div style={{fontSize:11,color:'var(--t3)',marginTop:1}}>#{o.id?.slice(-6).toUpperCase()}</div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:16,fontWeight:900,color:'#3DFF7A'}}>₹{o.total}</div>
+                  <div style={{fontSize:10,color:'#D4AF37',fontWeight:600}}>{o.payMethod==='cod'?'💵 COD':'✅ Paid'}</div>
+                </div>
               </div>
-              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{o.items.map(i=>i.name).join(', ')}</div>
-              {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:4}}>📍 {o.address}</div>}
-              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
-                <span style={{fontSize:11,color:'#3DFF7A',fontWeight:600}}>🛵 ~2.4 km</span>
-                <span style={{fontSize:11,color:'var(--t3)'}}>·</span>
-                <span style={{fontSize:11,color:'#D4AF37',fontWeight:600}}>💰 ₹{40+Math.floor(2.4*5)} earn</span>
-                {o.address&&<a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noreferrer" style={{marginLeft:'auto',fontSize:11,color:'#3DFF7A',fontWeight:600,textDecoration:'none'}}>🗺️ Map →</a>}
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:6}}>{o.items?.map(i=>`${i.name} ×${i.qty}`).join(', ')}</div>
+              {o.address&&<div style={{fontSize:12,color:'var(--t3)',marginBottom:8}}>📍 {o.address}</div>}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,padding:'8px 12px',background:'rgba(61,255,122,.04)',borderRadius:10}}>
+                <span style={{fontSize:12,color:'#3DFF7A',fontWeight:700}}>💰 ~₹45 earn</span>
+                <span style={{fontSize:11,color:'var(--t3)'}}>· Base ₹40 + bonus</span>
+                {o.lat&&o.lng&&<a href={`https://www.google.com/maps/dir/?api=1&destination=${o.lat},${o.lng}&travelmode=driving`} target="_blank" rel="noreferrer" style={{marginLeft:'auto',fontSize:11,color:'#3DFF7A',fontWeight:700,textDecoration:'none'}}>🗺️ Map →</a>}
               </div>
               <div style={{display:'flex',gap:8}}>
-                <button className="btn rip" onClick={()=>accept(o.id)} style={{flex:1,padding:'10px',fontSize:13}}>✅ Accept</button>
-                <button className="btng rip" style={{flex:1,padding:'10px',fontSize:13,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.2)'}}>✕ Skip</button>
+                <button className="btn rip" onClick={()=>accept(o.id)} style={{flex:2,padding:'11px',fontSize:13}}>✅ Accept Order</button>
+                <button className="btng rip" onClick={()=>setNewOrderAlert(null)} style={{flex:1,padding:'11px',fontSize:12,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.2)'}}>✕ Skip</button>
               </div>
             </div>
           ))}
         </>}
         {tab==='orders'&&<>
-          <div className="sh"><div className="st">My Orders</div></div>
-          {my.length===0?<div style={{textAlign:'center',padding:'20px',color:'var(--t3)'}}>No orders yet</div>:my.map((o,i)=>(
+          <div className="sh"><div className="st">My Orders</div><div style={{fontSize:12,color:'var(--t3)'}}>{my.length} total</div></div>
+          {my.length===0?(
+            <div style={{textAlign:'center',padding:'40px 20px',color:'var(--t3)'}}>
+              <div style={{fontSize:48,marginBottom:12}}>🚲</div>
+              <div style={{fontSize:14}}>Abhi tak koi order nahi</div>
+            </div>
+          ):my.map((o,i)=>(
             <div key={o.id} className="gc" style={{padding:'14px',marginBottom:10,animation:`fadeUp .4s ease ${i*.06}s both`}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><div style={{fontSize:14,fontWeight:700}}>{o.cust}</div><div style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:50,background:o.status==='delivered'?'rgba(61,255,122,.15)':'rgba(212,175,55,.15)',color:o.status==='delivered'?'#3DFF7A':'#D4AF37',border:`1px solid ${o.status==='delivered'?'rgba(61,255,122,.3)':'rgba(212,175,55,.3)'}`}}>{o.status==='delivered'?'✅ Delivered':'🚴 Delivering'}</div></div>
-              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{o.items.map(i=>i.name).join(', ')} · ₹{o.total}</div>
-              {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:6}}>📍 {o.address}</div>}
-              {o.status==='out_for_delivery'&&<>
-                <div style={{height:160,borderRadius:14,overflow:'hidden',marginBottom:8,border:'1px solid rgba(61,255,122,.2)'}}>
-                  <iframe
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(o.address||'Bhopalgarh,Rajasthan')}&z=14&output=embed`}
-                    style={{width:'100%',height:'100%',border:'none'}}
-                    title="Delivery Location"
-                    loading="lazy"
-                  />
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700}}>{o.userName||'Customer'}</div>
+                  <div style={{fontSize:10,color:'var(--t3)'}}>#{o.id?.slice(-6).toUpperCase()}</div>
                 </div>
-                <div style={{display:'flex',gap:8,marginBottom:8}}>
-                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((o.address||'Bhopalgarh, Rajasthan'))}&travelmode=driving`} target="_blank" rel="noreferrer" style={{flex:1,padding:'9px',borderRadius:12,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontWeight:700,fontSize:12,textDecoration:'none',textAlign:'center',display:'block'}}>🧭 Google Maps Navigate</a>
-                  <a href={o.mapsLink||`https://maps.google.com/?q=${encodeURIComponent(o.address||'Bhopalgarh')}`} target="_blank" rel="noreferrer" style={{flex:1,padding:'9px',borderRadius:12,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',color:'#3DFF7A',fontWeight:700,fontSize:12,textDecoration:'none',textAlign:'center',display:'block'}}>🗺️ View Map</a>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+                  <div style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:50,background:o.status==='delivered'?'rgba(61,255,122,.15)':'rgba(212,175,55,.15)',color:o.status==='delivered'?'#3DFF7A':'#D4AF37',border:`1px solid ${o.status==='delivered'?'rgba(61,255,122,.3)':'rgba(212,175,55,.3)'}`}}>
+                    {o.status==='delivered'?'✅ Delivered':'🚴 Delivering'}
+                  </div>
+                  <div style={{fontSize:13,fontWeight:800,color:'#3DFF7A'}}>₹{o.total}</div>
                 </div>
-                <button className="btn rip" onClick={()=>deliver(o.id)} style={{width:'100%',padding:'9px',fontSize:13}}>Mark as Delivered ✓</button>
-              </>}
+              </div>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>{o.items?.map(i=>i.name).join(', ')}</div>
+              {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:o.status==='out'?10:0}}>📍 {o.address}</div>}
+              {o.status==='out'&&<div style={{display:'flex',gap:8,marginTop:8}}>
+                <a href={o.lat&&o.lng?`https://www.google.com/maps/dir/?api=1&destination=${o.lat},${o.lng}&travelmode=driving`:`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(o.address||'Bhopalgarh,Rajasthan')}&travelmode=driving`} target="_blank" rel="noreferrer" style={{flex:1,padding:'8px',borderRadius:10,background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',color:'#3DFF7A',fontWeight:700,fontSize:11,textDecoration:'none',textAlign:'center'}}>🧭 Navigate</a>
+                {o.userPhone&&<button onClick={()=>callCustomer(o.userPhone)} style={{flex:1,padding:'8px',borderRadius:10,background:'rgba(61,200,255,.1)',border:'1px solid rgba(61,200,255,.2)',color:'#3DC8FF',fontWeight:700,fontSize:11,cursor:'pointer',fontFamily:fam}}>📞 Call</button>}
+                <button onClick={()=>deliver(o.id)} style={{flex:1,padding:'8px',borderRadius:10,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A',fontWeight:800,fontSize:11,border:'none',cursor:'pointer',fontFamily:fam}}>✅ Done</button>
+              </div>}
+              {o.status==='delivered'&&o.deliveredAt?.seconds&&(
+                <div style={{fontSize:10,color:'var(--t3)',marginTop:6}}>✅ {new Date(o.deliveredAt.seconds*1000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>
+              )}
             </div>
           ))}
         </>}
         {tab==='earn'&&<>
           <div style={{background:'linear-gradient(135deg,#1A3320,#0D2010)',border:'1px solid rgba(61,255,122,.2)',borderRadius:20,padding:'20px',marginBottom:14,textAlign:'center'}}>
-            <div style={{fontSize:12,color:'var(--t3)'}}>Total Lifetime Earnings</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:38,fontWeight:800,color:'#3DFF7A',marginTop:4}}>₹{rider.totalEarnings.toLocaleString()}</div>
-            <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{rider.totalOrders} orders delivered</div>
+            <div style={{fontSize:11,color:'var(--t3)',letterSpacing:.8}}>LIFETIME EARNINGS</div>
+            <div style={{fontSize:38,fontWeight:900,color:'#3DFF7A',marginTop:4}}>₹{(rider.totalEarnings||0).toLocaleString()}</div>
+            <div style={{fontSize:12,color:'var(--t3)',marginTop:4}}>{rider.totalOrders||0} orders delivered</div>
+          </div>
+          <div className="gc" style={{padding:'14px 16px',marginBottom:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontSize:11,color:'var(--t3)',fontWeight:600}}>TODAY</div>
+                <div style={{fontSize:24,fontWeight:900,color:'#D4AF37'}}>₹{todayEarn}</div>
+                <div style={{fontSize:11,color:'var(--t3)'}}>{todayCount} deliveries</div>
+              </div>
+              <div style={{fontSize:48}}>💰</div>
+            </div>
           </div>
           <div className="gc" style={{padding:'16px',marginBottom:12}}>
-            <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>📅 This Week</div>
-            {[{d:'Mon',e:320},{d:'Tue',e:450},{d:'Wed',e:280},{d:'Thu',e:510},{d:'Fri',e:390},{d:'Sat',e:620},{d:'Sun',e:rider.todayEarnings}].map((day,i)=>{
+            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>📅 This Week</div>
+            {[{d:'Mon',e:320},{d:'Tue',e:450},{d:'Wed',e:280},{d:'Thu',e:510},{d:'Fri',e:390},{d:'Sat',e:620},{d:'Sun',e:todayEarn}].map((day,i)=>{
               const max=620;const pct=Math.round((day.e/max)*100);
               return(<div key={day.d} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                 <div style={{fontSize:11,color:'var(--t3)',width:28}}>{day.d}</div>
                 <div style={{flex:1,height:6,background:'rgba(61,255,122,.08)',borderRadius:99,overflow:'hidden'}}>
-                  <div style={{width:`${pct}%`,height:'100%',background:`linear-gradient(90deg,#3DFF7A,#00C44F)`,borderRadius:99,transition:'width .5s ease'}}/>
+                  <div style={{width:`${pct}%`,height:'100%',background:'linear-gradient(90deg,#3DFF7A,#00C44F)',borderRadius:99,transition:'width .5s ease'}}/>
                 </div>
                 <div style={{fontSize:11,fontWeight:700,color:'#3DFF7A',width:36,textAlign:'right'}}>₹{day.e}</div>
               </div>);
             })}
             <div style={{display:'flex',justifyContent:'space-between',marginTop:10,paddingTop:10,borderTop:'1px solid rgba(61,255,122,.08)'}}>
               <span style={{fontSize:12,color:'var(--t3)'}}>Week Total</span>
-              <span style={{fontSize:14,fontWeight:800,color:'#D4AF37'}}>₹{320+450+280+510+390+620+rider.todayEarnings}</span>
+              <span style={{fontSize:14,fontWeight:800,color:'#D4AF37'}}>₹{320+450+280+510+390+620+todayEarn}</span>
             </div>
           </div>
           <div className="gc" style={{padding:'16px'}}>
-            <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>Per Delivery Rates</div>
-            {[{l:'Base Pay',v:'₹40/order'},{l:'Distance Bonus',v:'₹5/km'},{l:'Weekend Bonus',v:'₹20'},{l:'Rating Bonus (4.5+)',v:'₹10'},{l:'Late Night (10PM+)',v:'₹30'}].map(r=>(<div key={r.l} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}><span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span><span style={{fontSize:13,fontWeight:600,color:'#3DFF7A'}}>{r.v}</span></div>))}
+            <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>💡 Pay Structure</div>
+            {[{l:'🚀 Base Pay',v:'₹40/order'},{l:'📍 Distance Bonus',v:'₹5/km'},{l:'🌙 Night Bonus (10PM+)',v:'+₹30'},{l:'⭐ Rating (4.5+)',v:'+₹10'},{l:'📅 Weekend Bonus',v:'+₹20'}].map(r=>(
+              <div key={r.l} style={{display:'flex',justifyContent:'space-between',marginBottom:10,paddingBottom:10,borderBottom:'1px solid rgba(61,255,122,.05)'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>{r.l}</span>
+                <span style={{fontSize:13,fontWeight:700,color:'#3DFF7A'}}>{r.v}</span>
+              </div>
+            ))}
           </div>
         </>}
       </div>
