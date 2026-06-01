@@ -2291,35 +2291,25 @@ function EcoScr({t,fam,isHi,user,points=0}) {
   const [orders,setOrders]=useState([]);
   const [anim,setAnim]=useState(false);
   const [leaderboard,setLeaderboard]=useState([]);
+  const canvasRef=useRef(null);
+  const animRef=useRef(null);
   const hour=new Date().getHours();
-  const month=new Date().getMonth(); // 0-11
-  const isDay=hour>=6&&hour<19;
+  const month=new Date().getMonth();
+  const isDay=hour>=6&&hour<18;
   const isNight=hour>=20||hour<5;
   const isDusk=!isDay&&!isNight;
-
-  // Season based on month (India)
   const season=month>=2&&month<=4?'spring':month>=5&&month<=6?'summer':month>=7&&month<=9?'monsoon':'winter';
-  const seasonData={
-    spring:{sky:'linear-gradient(180deg,#87CEEB 0%,#E0F7E9 100%)',ground:'#4CAF50',label:isHi?'🌸 बसंत':'🌸 Spring',emoji:'🌸'},
-    summer:{sky:'linear-gradient(180deg,#FF8C00 0%,#FFD700 40%,#87CEEB 100%)',ground:'#8BC34A',label:isHi?'☀️ गर्मी':'☀️ Summer',emoji:'☀️'},
-    monsoon:{sky:'linear-gradient(180deg,#4A6FA5 0%,#6B9BD2 60%,#A8D5A2 100%)',ground:'#2E7D32',label:isHi?'🌧️ बरसात':'🌧️ Monsoon',emoji:'🌧️'},
-    winter:{sky:'linear-gradient(180deg,#B0C4DE 0%,#E8F4FD 100%)',ground:'#6B8E23',label:isHi?'❄️ सर्दी':'❄️ Winter',emoji:'❄️'},
-  };
-  const sd=seasonData[season];
-  const nightSky='linear-gradient(180deg,#0A0A2E 0%,#1A1A4E 50%,#0D1F0D 100%)';
-  const skyGrad=isNight?nightSky:isDusk?'linear-gradient(180deg,#FF6B35 0%,#FF8C00 30%,#4A6FA5 100%)':sd.sky;
 
   useEffect(()=>{
     const uid=user?.uid;
     if(!uid) return;
     const q2=query(collection(db,'orders'),where('userId','==',uid));
     getDocs(q2).then(snap=>{ setOrders(snap.docs.map(d=>({id:d.id,...d.data()}))); }).catch(()=>{});
-    // Leaderboard - top eco users
     getDocs(collection(db,'users')).then(snap=>{
       const users=snap.docs.map(d=>({...d.data(),uid:d.id})).filter(u=>u.ecoScore>0).sort((a,b)=>(b.ecoScore||0)-(a.ecoScore||0)).slice(0,5);
       setLeaderboard(users);
     }).catch(()=>{});
-    setTimeout(()=>setAnim(true),200);
+    setTimeout(()=>setAnim(true),300);
   },[user?.uid]);
 
   const totalItems=orders.reduce((s,o)=>s+(o.items||[]).reduce((a,i)=>a+(i.qty||1),0),0);
@@ -2328,11 +2318,6 @@ function EcoScr({t,fam,isHi,user,points=0}) {
   const co2=parseFloat((totalKg*0.74).toFixed(2));
   const trees=parseFloat((totalKg*0.12).toFixed(2));
   const orderCount=orders.length;
-
-  // Plants based on orders - max 15 visible plants
-  const plantCount=Math.min(15,orderCount);
-  const plantTypes=['🌱','🌿','🌾','🪴','🌳','🌲','🎋','🌵','🌴'];
-  const flowerTypes=['🌸','🌺','🌻','🌼','🌷','💐'];
 
   const ranks=[
     {name:'Seedling',nameHi:'अंकुर',emoji:'🌱',min:0,max:1,color:'#8BC34A'},
@@ -2345,159 +2330,335 @@ function EcoScr({t,fam,isHi,user,points=0}) {
   const nextRank=ranks[ranks.indexOf(rank)+1];
   const progress=nextRank?Math.min(100,((totalKg-rank.min)/(nextRank.min-rank.min))*100):100;
 
-  // CSS animations
-  const gardenCSS=`
-    @keyframes sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
-    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-    @keyframes flutter{0%,100%{transform:rotate(-10deg) scale(1)}50%{transform:rotate(10deg) scale(1.1)}}
-    @keyframes rain{0%{transform:translateY(-20px);opacity:0}100%{transform:translateY(120px);opacity:.6}}
-    @keyframes twinkle{0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
-    @keyframes drift{0%{transform:translateX(-10px)}100%{transform:translateX(10px)}}
-    @keyframes growUp{0%{transform:scaleY(0);transform-origin:bottom}100%{transform:scaleY(1);transform-origin:bottom}}
-    @keyframes sunRay{0%,100%{opacity:.3}50%{opacity:.7}}
-  `;
+  // Canvas cinematic scene
+  useEffect(()=>{
+    const canvas=canvasRef.current;
+    if(!canvas) return;
+    const ctx=canvas.getContext('2d');
+    const DPR=window.devicePixelRatio||1;
+    const cw=canvas.offsetWidth;
+    const ch=canvas.offsetHeight;
+    canvas.width=cw*DPR;
+    canvas.height=ch*DPR;
+    ctx.scale(DPR,DPR);
+    const W=cw, H=ch;
+    let frame=0;
+
+    // Particles
+    const particles=[];
+    const PC=season==='monsoon'?110:isNight?55:30;
+    for(let i=0;i<PC;i++) particles.push({
+      x:Math.random()*W, y:Math.random()*H,
+      vx:season==='monsoon'?0.4+Math.random()*0.3:Math.random()*0.4-0.2,
+      vy:season==='monsoon'?3+Math.random()*2:isNight?-0.4-Math.random()*0.3:0.4+Math.random()*0.4,
+      size:Math.random()*2+0.5, alpha:Math.random()*0.6+0.2, life:Math.random()*Math.PI*2
+    });
+
+    // Grass blades
+    const blades=[];
+    for(let i=0;i<90;i++) blades.push({x:Math.random()*W,h:6+Math.random()*16,phase:Math.random()*Math.PI*2,spd:0.8+Math.random()*0.7});
+
+    // Trees — number based on orders
+    const treeN=Math.min(7,1+Math.floor(orderCount/2));
+    const treeArr=[];
+    for(let i=0;i<treeN;i++) treeArr.push({
+      x:25+(i/(Math.max(treeN-1,1)))*(W-50),
+      th:28+Math.random()*32, cr:10+Math.random()*14,
+      far:i%3===0, sway:Math.random()*Math.PI*2
+    });
+
+    const sky=()=>{
+      const g=ctx.createLinearGradient(0,0,0,H*0.68);
+      if(isNight){g.addColorStop(0,'#020810');g.addColorStop(0.5,'#06102A');g.addColorStop(1,'#0A1A0A');}
+      else if(isDusk){g.addColorStop(0,'#15052A');g.addColorStop(0.3,'#7A1E50');g.addColorStop(0.65,'#E8572A');g.addColorStop(1,'#F0A030');}
+      else if(season==='monsoon'){g.addColorStop(0,'#121E2E');g.addColorStop(0.5,'#233A52');g.addColorStop(1,'#3A5C42');}
+      else if(season==='winter'){g.addColorStop(0,'#1C2840');g.addColorStop(0.5,'#3A567A');g.addColorStop(1,'#6A8898');}
+      else{g.addColorStop(0,'#060E28');g.addColorStop(0.4,'#103868');g.addColorStop(1,'#1A5A38');}
+      return g;
+    };
+
+    const drawScene=()=>{
+      ctx.clearRect(0,0,W,H);
+      // Sky
+      ctx.fillStyle=sky(); ctx.fillRect(0,0,W,H*0.68);
+
+      // Stars
+      if(isNight||isDusk){
+        for(let i=0;i<(isNight?90:25);i++){
+          const sx=((i*137.5)%W); const sy=((i*89.3)%(H*0.5));
+          const tw=0.2+0.8*Math.abs(Math.sin(frame*0.04+i));
+          ctx.beginPath(); ctx.arc(sx,sy,i%7===0?1.4:0.7,0,Math.PI*2);
+          ctx.fillStyle=`rgba(255,255,255,${tw*(isNight?0.9:0.4)})`; ctx.fill();
+        }
+      }
+
+      // Sun
+      if(isDay){
+        const sx=W*0.78, sy=H*0.11;
+        for(let i=0;i<10;i++){
+          const ang=i/10*Math.PI*2+frame*0.004;
+          const rg=ctx.createLinearGradient(sx,sy,sx+Math.cos(ang)*50,sy+Math.sin(ang)*50);
+          rg.addColorStop(0,'rgba(255,220,60,0.22)'); rg.addColorStop(1,'rgba(255,200,0,0)');
+          ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+Math.cos(ang)*50,sy+Math.sin(ang)*50);
+          ctx.strokeStyle=rg; ctx.lineWidth=5; ctx.stroke();
+        }
+        const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,48);
+        sg.addColorStop(0,'rgba(255,235,80,0.95)'); sg.addColorStop(0.4,'rgba(255,170,30,0.45)'); sg.addColorStop(1,'rgba(255,120,0,0)');
+        ctx.beginPath(); ctx.arc(sx,sy,48,0,Math.PI*2); ctx.fillStyle=sg; ctx.fill();
+        ctx.beginPath(); ctx.arc(sx,sy,13,0,Math.PI*2); ctx.fillStyle='#FFFCE0'; ctx.fill();
+      }
+
+      // Moon
+      if(isNight){
+        const mx=W*0.77, my=H*0.1;
+        const mg=ctx.createRadialGradient(mx,my,0,mx,my,20);
+        mg.addColorStop(0,'#FFFDE0'); mg.addColorStop(0.65,'#FFF5B0'); mg.addColorStop(1,'rgba(255,245,150,0)');
+        ctx.beginPath(); ctx.arc(mx,my,20,0,Math.PI*2); ctx.fillStyle=mg; ctx.fill();
+        ctx.beginPath(); ctx.arc(mx+7,my-2,16,0,Math.PI*2); ctx.fillStyle='#06102A'; ctx.fill();
+        // Moon glow
+        const mGlow=ctx.createRadialGradient(mx,my,0,mx,my,55);
+        mGlow.addColorStop(0,'rgba(200,230,255,0.1)'); mGlow.addColorStop(1,'rgba(200,230,255,0)');
+        ctx.beginPath(); ctx.arc(mx,my,55,0,Math.PI*2); ctx.fillStyle=mGlow; ctx.fill();
+      }
+
+      // Clouds
+      if(!isNight){
+        const cc=season==='monsoon'?'rgba(40,55,90,':'rgba(255,255,255,';
+        [{x:W*0.12+Math.sin(frame*0.007)*18,y:H*0.16,r:20,a:0.5},{x:W*0.52+Math.cos(frame*0.005)*22,y:H*0.1,r:27,a:0.4},{x:W*0.8+Math.sin(frame*0.006)*14,y:H*0.19,r:16,a:0.45}].forEach(c=>{
+          ctx.beginPath();
+          ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+          ctx.arc(c.x+c.r*0.8,c.y-c.r*0.3,c.r*0.7,0,Math.PI*2);
+          ctx.arc(c.x-c.r*0.55,c.y-c.r*0.2,c.r*0.55,0,Math.PI*2);
+          ctx.fillStyle=cc+c.a+')'; ctx.fill();
+        });
+      }
+
+      // Far mountains
+      ctx.beginPath(); ctx.moveTo(0,H*0.58);
+      [[0,0.58],[0.1,0.33],[0.22,0.46],[0.34,0.27],[0.46,0.38],[0.58,0.24],[0.7,0.41],[0.82,0.3],[0.92,0.47],[1,0.58]].forEach(([x,y])=>ctx.lineTo(x*W,y*H));
+      ctx.lineTo(W,H*0.58); ctx.closePath();
+      const mg=ctx.createLinearGradient(0,H*0.24,0,H*0.58);
+      mg.addColorStop(0,isNight?'#040E04':'#0A1E0A'); mg.addColorStop(1,isNight?'#0A1E0A':'#142A14');
+      ctx.fillStyle=mg; ctx.fill();
+
+      // Near hills
+      ctx.beginPath(); ctx.moveTo(0,H*0.68);
+      [[0,0.68],[0.14,0.53],[0.28,0.62],[0.48,0.49],[0.68,0.59],[0.84,0.51],[1,0.68]].forEach(([x,y])=>ctx.lineTo(x*W,y*H));
+      ctx.lineTo(W,H*0.68); ctx.closePath();
+      const hg=ctx.createLinearGradient(0,H*0.49,0,H*0.68);
+      hg.addColorStop(0,isNight?'#071A07':'#0D2A0D'); hg.addColorStop(1,isNight?'#040D04':'#081808');
+      ctx.fillStyle=hg; ctx.fill();
+
+      // Ground
+      const gg=ctx.createLinearGradient(0,H*0.68,0,H);
+      if(isNight){gg.addColorStop(0,'#061006');gg.addColorStop(1,'#030803');}
+      else if(season==='monsoon'){gg.addColorStop(0,'#174017');gg.addColorStop(1,'#0A240A');}
+      else{gg.addColorStop(0,'#164016');gg.addColorStop(1,'#0A220A');}
+      ctx.fillStyle=gg; ctx.fillRect(0,H*0.68,W,H);
+
+      // Ground rim glow
+      const rimG=ctx.createLinearGradient(0,H*0.68,0,H*0.74);
+      rimG.addColorStop(0,isNight?'rgba(20,70,20,0.6)':'rgba(30,110,30,0.55)');
+      rimG.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=rimG; ctx.fillRect(0,H*0.68,W,H*0.08);
+
+      // Grass blades
+      blades.forEach(b=>{
+        const sw=Math.sin(frame*0.038*b.spd+b.phase)*3.5;
+        ctx.beginPath(); ctx.moveTo(b.x,H*0.72);
+        ctx.quadraticCurveTo(b.x+sw,H*0.72-b.h*0.5,b.x+sw*1.6,H*0.72-b.h);
+        ctx.strokeStyle=isNight?'rgba(15,60,15,0.8)':'rgba(25,90,25,0.75)';
+        ctx.lineWidth=1.3; ctx.globalAlpha=0.75; ctx.stroke(); ctx.globalAlpha=1;
+      });
+
+      // Trees (SVG-style CSS drawn)
+      [...treeArr].sort((a,b)=>a.far?-1:1).forEach(tr=>{
+        const sw=Math.sin(frame*0.022+tr.sway)*2.8;
+        const bY=H*0.68;
+        const tH=tr.th*(tr.far?0.6:1);
+        // Trunk
+        const tg=ctx.createLinearGradient(tr.x,bY-tH,tr.x,bY);
+        tg.addColorStop(0,'#1E0F05'); tg.addColorStop(1,'#120804');
+        ctx.beginPath();
+        ctx.moveTo(tr.x-2.5*(tr.far?0.6:1),bY);
+        ctx.quadraticCurveTo(tr.x+sw*0.25,bY-tH*0.5,tr.x+sw*0.7,bY-tH);
+        ctx.quadraticCurveTo(tr.x+sw*0.7+2.5*(tr.far?0.6:1),bY-tH*0.5,tr.x+2.5*(tr.far?0.6:1),bY);
+        ctx.fillStyle=tg; ctx.fill();
+        // Canopy (3 layers)
+        const fc=isNight?(tr.far?'rgba(4,16,4,':'rgba(8,24,8,'):season==='winter'?(tr.far?'rgba(16,28,16,':'rgba(22,38,22,'):(tr.far?'rgba(8,34,8,':'rgba(14,52,14,');
+        [1,0.78,0.55].forEach((sc,li)=>{
+          const ly=bY-tH-(li*tr.cr*0.48);
+          const lr=tr.cr*sc*(tr.far?0.65:1);
+          const cg=ctx.createRadialGradient(tr.x+sw,ly,0,tr.x+sw,ly,lr);
+          cg.addColorStop(0,fc+(tr.far?0.85:0.92)+')');
+          cg.addColorStop(0.65,fc+(tr.far?0.55:0.72)+')');
+          cg.addColorStop(1,'rgba(0,0,0,0)');
+          ctx.beginPath(); ctx.arc(tr.x+sw,ly,lr,0,Math.PI*2);
+          ctx.fillStyle=cg; ctx.fill();
+        });
+        // Leaf shimmer
+        if(!isNight&&!tr.far){
+          const shimmer=0.15+0.15*Math.sin(frame*0.08+tr.sway);
+          const sg=ctx.createRadialGradient(tr.x+sw-tr.cr*0.3,bY-tH-tr.cr*0.2,0,tr.x+sw,bY-tH,tr.cr*0.8);
+          sg.addColorStop(0,`rgba(100,200,80,${shimmer})`); sg.addColorStop(1,'rgba(100,200,80,0)');
+          ctx.beginPath(); ctx.arc(tr.x+sw,bY-tH,tr.cr*0.8,0,Math.PI*2);
+          ctx.fillStyle=sg; ctx.fill();
+        }
+      });
+
+      // Particles
+      particles.forEach(p=>{
+        p.x+=p.vx; p.y+=p.vy; p.life+=0.02;
+        if(p.y>H||p.y<0||p.x<-5||p.x>W+5){
+          p.x=Math.random()*W; p.y=season==='monsoon'?-8:H*0.68+Math.random()*H*0.28; p.life=0;
+        }
+        if(season==='monsoon'){
+          // Rain
+          ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+p.vx*3,p.y+9);
+          ctx.strokeStyle=`rgba(140,195,255,${p.alpha*0.65})`; ctx.lineWidth=p.size*0.65; ctx.stroke();
+        } else if(isNight){
+          // Fireflies
+          const pulse=0.35+0.65*Math.abs(Math.sin(p.life*2.5+p.x*0.01));
+          const fg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*5);
+          fg.addColorStop(0,`rgba(80,255,130,${pulse*0.9})`);
+          fg.addColorStop(0.5,`rgba(60,200,100,${pulse*0.4})`);
+          fg.addColorStop(1,'rgba(60,200,100,0)');
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.size*5,0,Math.PI*2); ctx.fillStyle=fg; ctx.fill();
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.size*0.8,0,Math.PI*2);
+          ctx.fillStyle=`rgba(200,255,200,${pulse})`; ctx.fill();
+        } else {
+          // Pollen/dust motes
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+          ctx.fillStyle=`rgba(255,235,150,${p.alpha*0.28})`; ctx.fill();
+        }
+      });
+
+      // Fog (monsoon/dusk)
+      if(season==='monsoon'||isDusk){
+        const fogG=ctx.createLinearGradient(0,H*0.52,0,H*0.74);
+        fogG.addColorStop(0,'rgba(255,255,255,0)');
+        fogG.addColorStop(0.5,`rgba(180,210,255,${season==='monsoon'?0.07:0.04})`);
+        fogG.addColorStop(1,'rgba(255,255,255,0)');
+        ctx.fillStyle=fogG; ctx.fillRect(0,H*0.52,W,H*0.28);
+      }
+
+      // Light rays (day/dusk)
+      if((isDay||isDusk)&&frame%2===0){
+        const lx=isDay?W*0.78:W*0.5;
+        for(let i=0;i<5;i++){
+          const ang=-Math.PI*0.5+(-0.4+i*0.2)+Math.sin(frame*0.01)*0.05;
+          const rg=ctx.createLinearGradient(lx,0,lx+Math.cos(ang)*H,Math.sin(ang)*H);
+          rg.addColorStop(0,`rgba(255,220,80,${0.04+i*0.006})`);
+          rg.addColorStop(1,'rgba(255,200,50,0)');
+          ctx.beginPath(); ctx.moveTo(lx,0);
+          ctx.lineTo(lx+Math.cos(ang-0.06)*H,Math.sin(ang-0.06)*H);
+          ctx.lineTo(lx+Math.cos(ang+0.06)*H,Math.sin(ang+0.06)*H);
+          ctx.closePath(); ctx.fillStyle=rg; ctx.fill();
+        }
+      }
+
+      // Cinematic vignette
+      const vig=ctx.createRadialGradient(W*0.5,H*0.5,H*0.18,W*0.5,H*0.5,H*0.95);
+      vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.72)');
+      ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
+
+      // Letterbox bars (cinematic)
+      ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H*0.04); ctx.fillRect(0,H*0.96,W,H*0.04);
+
+      frame++;
+      animRef.current=requestAnimationFrame(drawScene);
+    };
+
+    drawScene();
+    return()=>{ if(animRef.current) cancelAnimationFrame(animRef.current); };
+  },[orderCount,isNight,isDusk,season]);
+
+  const seasonLabel={spring:isHi?'🌸 बसंत':'🌸 Spring',summer:isHi?'☀️ गर्मी':'☀️ Summer',monsoon:isHi?'🌧️ बरसात':'🌧️ Monsoon',winter:isHi?'❄️ सर्दी':'❄️ Winter'};
 
   return(
-    <div style={{paddingBottom:100,fontFamily:fam,background:'#0A1A0A',minHeight:'100%',overflow:'hidden'}}>
-      <style>{gardenCSS}</style>
+    <div style={{paddingBottom:100,fontFamily:fam,background:'#030D03',minHeight:'100%'}}>
       <SBar/>
-
-      {/* Header */}
-      <div style={{padding:'8px 20px 0',display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:2}}>
+      <div style={{padding:'8px 20px 0',display:'flex',alignItems:'center',justifyContent:'space-between',zIndex:2,position:'relative'}}>
         <div>
-          <div style={{fontSize:22,fontWeight:900}}>{isHi?'🌱 मेरा बगीचा':'🌱 My Garden'}</div>
-          <div style={{fontSize:11,color:'rgba(255,255,255,.5)',marginTop:1}}>{sd.label} · {isNight?'🌙 Raat':'isDay'?'☀️ Din':'🌅 Sandhya'}</div>
+          <div style={{fontSize:22,fontWeight:900,color:'#fff'}}>{isHi?'🌱 मेरा बगीचा':'🌱 My Garden'}</div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.38)',marginTop:1}}>{seasonLabel[season]} · {isNight?'🌙 Raat':isDusk?'🌅 Sandhya':'☀️ Din'}</div>
         </div>
-        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <div style={{background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',borderRadius:12,padding:'6px 12px',fontSize:11,fontWeight:700,color:'#3DFF7A'}}>
-            {orderCount} {isHi?'ऑर्डर':'Orders'}
-          </div>
-          <div style={{background:'rgba(212,175,55,.1)',border:'1px solid rgba(212,175,55,.2)',borderRadius:12,padding:'6px 10px',fontSize:13}}>
-            {rank.emoji}
-          </div>
+        <div style={{display:'flex',gap:8}}>
+          <div style={{background:'rgba(61,255,122,.07)',border:'1px solid rgba(61,255,122,.18)',borderRadius:12,padding:'6px 12px',fontSize:11,fontWeight:700,color:'#3DFF7A'}}>{orderCount} {isHi?'ऑर्डर':'Orders'}</div>
+          <div style={{background:'rgba(0,0,0,.35)',border:'1px solid rgba(255,255,255,.08)',borderRadius:12,padding:'6px 10px',fontSize:14}}>{rank.emoji}</div>
         </div>
       </div>
 
-      {/* 🌿 LIVE GARDEN SCENE */}
-      <div style={{margin:'14px 16px 0',borderRadius:24,overflow:'hidden',position:'relative',height:240,border:'1px solid rgba(61,255,122,.15)'}}>
-        {/* Sky */}
-        <div style={{position:'absolute',inset:0,background:skyGrad,transition:'background 2s ease'}}/>
-
-        {/* Stars - night only */}
-        {isNight&&[...Array(20)].map((_,i)=>(
-          <div key={i} style={{position:'absolute',width:2,height:2,borderRadius:'50%',background:'#fff',top:`${5+Math.random()*45}%`,left:`${Math.random()*100}%`,animation:`twinkle ${1+Math.random()*2}s ease-in-out ${Math.random()*2}s infinite`}}/>
-        ))}
-
-        {/* Sun / Moon */}
-        {isDay&&<div style={{position:'absolute',top:16,right:24,width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#FFD700,#FFA500)',boxShadow:'0 0 30px rgba(255,200,0,.6)',animation:'sunRay 3s ease-in-out infinite'}}/>}
-        {isNight&&<div style={{position:'absolute',top:14,right:22,fontSize:28,animation:'float 4s ease-in-out infinite'}}>🌙</div>}
-
-        {/* Clouds - day only */}
-        {isDay&&[...Array(2)].map((_,i)=>(
-          <div key={i} style={{position:'absolute',top:`${15+i*20}%`,left:`${i*40}%`,fontSize:28,opacity:.7,animation:`drift ${8+i*3}s ease-in-out ${i}s infinite alternate`}}>☁️</div>
-        ))}
-
-        {/* Rain - monsoon */}
-        {season==='monsoon'&&[...Array(12)].map((_,i)=>(
-          <div key={i} style={{position:'absolute',top:0,left:`${i*8+Math.random()*5}%`,width:1,height:12,background:'rgba(150,200,255,.6)',animation:`rain ${.8+Math.random()*.5}s linear ${Math.random()*.8}s infinite`}}/>
-        ))}
-
-        {/* Ground */}
-        <div style={{position:'absolute',bottom:0,left:0,right:0,height:75,background:`linear-gradient(180deg,${sd.ground}99,${sd.ground}dd)`,borderRadius:'0 0 24px 24px'}}/>
-
-        {/* Plants — grow based on orders */}
-        {orderCount===0&&(
-          <div style={{position:'absolute',bottom:20,left:'50%',transform:'translateX(-50%)',textAlign:'center'}}>
-            <div style={{fontSize:28,animation:'float 2s ease-in-out infinite'}}>🌱</div>
-            <div style={{fontSize:10,color:'rgba(255,255,255,.6)',marginTop:4,whiteSpace:'nowrap'}}>{isHi?'पहला ऑर्डर दो!':'Place first order!'}</div>
-          </div>
-        )}
-        {[...Array(plantCount)].map((_,i)=>{
-          const x=8+(i%8)*11+Math.sin(i)*3;
-          const plantEmoji=i<3?flowerTypes[i%flowerTypes.length]:plantTypes[i%plantTypes.length];
-          const size=18+Math.floor(i/3)*4;
-          const delay=i*0.15;
-          return(
-            <div key={i} style={{position:'absolute',bottom:8+(i%3)*8,left:`${x}%`,fontSize:size,animation:anim?`sway ${2+i*.3}s ease-in-out ${delay}s infinite`:'none',transformOrigin:'bottom center',transition:'opacity .5s',opacity:anim?1:0}}>
-              {plantEmoji}
-            </div>
-          );
-        })}
-
-        {/* Butterflies — after 3 orders */}
-        {orderCount>=3&&[...Array(Math.min(3,Math.floor(orderCount/3)))].map((_,i)=>(
-          <div key={i} style={{position:'absolute',top:`${20+i*15}%`,left:`${15+i*25}%`,fontSize:16,animation:`flutter ${1.5+i*.3}s ease-in-out ${i*.5}s infinite, drift ${4+i}s ease-in-out ${i}s infinite alternate`}}>🦋</div>
-        ))}
-
-        {/* Birds — after 5 orders */}
-        {orderCount>=5&&<div style={{position:'absolute',top:'18%',right:'15%',fontSize:14,animation:'drift 6s ease-in-out infinite alternate'}}>🐦</div>}
-
-        {/* Moon + fireflies night */}
-        {isNight&&orderCount>0&&[...Array(Math.min(5,orderCount))].map((_,i)=>(
-          <div key={i} style={{position:'absolute',top:`${30+i*8}%`,left:`${10+i*18}%`,fontSize:12,animation:`twinkle ${1+i*.4}s ease-in-out ${i*.3}s infinite`}}>✨</div>
-        ))}
-
-        {/* Rank badge on garden */}
-        <div style={{position:'absolute',top:10,left:12,background:'rgba(0,0,0,.5)',backdropFilter:'blur(8px)',borderRadius:10,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}>
-          <span style={{fontSize:14}}>{rank.emoji}</span>
+      {/* CINEMATIC CANVAS */}
+      <div style={{margin:'12px 16px 0',borderRadius:22,overflow:'hidden',position:'relative',height:248,border:'1px solid rgba(255,255,255,.05)',boxShadow:'0 24px 72px rgba(0,0,0,.85)'}}>
+        <canvas ref={canvasRef} style={{width:'100%',height:'100%',display:'block'}}/>
+        <div style={{position:'absolute',bottom:10,left:12,background:'rgba(0,0,0,.55)',backdropFilter:'blur(14px)',borderRadius:10,padding:'5px 11px',display:'flex',alignItems:'center',gap:5}}>
+          <span style={{fontSize:12}}>{rank.emoji}</span>
           <span style={{fontSize:10,fontWeight:700,color:'#3DFF7A'}}>{isHi?rank.nameHi:rank.name}</span>
         </div>
+        <div style={{position:'absolute',bottom:10,right:12,background:'rgba(0,0,0,.55)',backdropFilter:'blur(14px)',borderRadius:10,padding:'5px 9px',fontSize:10,color:'rgba(255,255,255,.5)',display:'flex',alignItems:'center',gap:4}}>
+          <div style={{width:5,height:5,borderRadius:'50%',background:'#3DFF7A',animation:'statusP 1.5s infinite'}}/>LIVE
+        </div>
+        {orderCount===0&&(
+          <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.28)',backdropFilter:'blur(3px)'}}>
+            <div style={{textAlign:'center',padding:20}}>
+              <div style={{fontSize:34,marginBottom:8,animation:'float 2.5s ease-in-out infinite'}}>🌱</div>
+              <div style={{fontSize:13,color:'rgba(255,255,255,.75)',fontWeight:600,lineHeight:1.5}}>{isHi?'पहला ऑर्डर दो और\nबगीचा शुरू करो!':'Place first order to\ngrow your garden!'}</div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Progress bar */}
-      <div style={{margin:'12px 16px 0',padding:'14px 16px',background:'rgba(61,255,122,.04)',border:'1px solid rgba(61,255,122,.1)',borderRadius:18}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <span style={{fontSize:12,fontWeight:700,color:'#3DFF7A'}}>{rank.emoji} {isHi?rank.nameHi:rank.name}</span>
-          {nextRank&&<span style={{fontSize:11,color:'var(--t3)'}}>{nextRank.emoji} {isHi?nextRank.nameHi:nextRank.name} →</span>}
+      {/* Progress */}
+      <div style={{margin:'12px 16px 0',padding:'13px 16px',background:'rgba(61,255,122,.025)',border:'1px solid rgba(61,255,122,.07)',borderRadius:18}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:7}}>
+          <span style={{fontSize:12,fontWeight:700,color:rank.color}}>{rank.emoji} {isHi?rank.nameHi:rank.name}</span>
+          {nextRank&&<span style={{fontSize:11,color:'var(--t3)'}}>{nextRank.emoji} {isHi?nextRank.nameHi:nextRank.name}</span>}
         </div>
-        <div style={{height:8,background:'rgba(255,255,255,.06)',borderRadius:99,overflow:'hidden'}}>
-          <div style={{height:'100%',width:anim?`${progress}%`:'0%',background:'linear-gradient(90deg,#3DFF7A,#D4AF37)',borderRadius:99,transition:'width 1.8s cubic-bezier(.25,.46,.45,.94)',boxShadow:'0 0 12px rgba(61,255,122,.5)'}}/>
+        <div style={{height:7,background:'rgba(255,255,255,.04)',borderRadius:99,overflow:'hidden'}}>
+          <div style={{height:'100%',width:anim?`${progress}%`:'0%',background:`linear-gradient(90deg,${rank.color},#D4AF37)`,borderRadius:99,transition:'width 2s cubic-bezier(.25,.46,.45,.94)',boxShadow:`0 0 12px ${rank.color}77`}}/>
         </div>
-        {nextRank&&<div style={{fontSize:10,color:'var(--t3)',marginTop:5,textAlign:'right'}}>{isHi?`${(nextRank.min-totalKg).toFixed(2)} kg aur chaiye`:`${(nextRank.min-totalKg).toFixed(2)} kg more needed`}</div>}
-        {!nextRank&&<div style={{fontSize:11,color:'#D4AF37',fontWeight:700,marginTop:5,textAlign:'center'}}>🏆 Max Rank!</div>}
+        {nextRank?<div style={{fontSize:10,color:'var(--t3)',marginTop:4,textAlign:'right'}}>{isHi?`${(nextRank.min-totalKg).toFixed(2)} kg aur chaiye`:`${(nextRank.min-totalKg).toFixed(2)} kg more needed`}</div>
+          :<div style={{fontSize:11,color:'#D4AF37',fontWeight:700,marginTop:4,textAlign:'center'}}>🏆 Max Rank!</div>}
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats */}
       <div style={{padding:'12px 16px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         {[
-          {v:`${totalKg} kg`,l:isHi?'♻️ प्लास्टिक बचाया':'♻️ Plastic Saved',c:'#3DFF7A',bg:'rgba(61,255,122,.06)'},
-          {v:`${co2} kg`,l:isHi?'🌿 CO₂ कम किया':'🌿 CO₂ Reduced',c:'#00C44F',bg:'rgba(0,196,79,.06)'},
-          {v:String(bags),l:isHi?'🛍️ बैग बदले':'🛍️ Bags Replaced',c:'#D4AF37',bg:'rgba(212,175,55,.06)'},
-          {v:String(trees),l:isHi?'🌳 पेड़ लगाए':'🌳 Trees Funded',c:'#2ECC60',bg:'rgba(46,204,96,.06)'},
+          {v:`${totalKg} kg`,l:isHi?'♻️ प्लास्टिक बचाया':'♻️ Plastic Saved',c:'#3DFF7A',bg:'rgba(61,255,122,.035)'},
+          {v:`${co2} kg`,l:isHi?'🌿 CO₂ कम किया':'🌿 CO₂ Reduced',c:'#00C44F',bg:'rgba(0,196,79,.035)'},
+          {v:String(bags),l:isHi?'🛍️ बैग बदले':'🛍️ Bags Replaced',c:'#D4AF37',bg:'rgba(212,175,55,.035)'},
+          {v:String(trees),l:isHi?'🌳 पेड़ लगाए':'🌳 Trees Funded',c:'#2ECC60',bg:'rgba(46,204,96,.035)'},
         ].map((s,i)=>(
-          <div key={i} style={{padding:'16px 14px',background:s.bg,border:`1px solid ${s.c}22`,borderRadius:18,animation:`fadeUp .5s ease ${i*.08}s both`}}>
-            <div style={{fontSize:22,fontWeight:900,color:s.c,lineHeight:1}}>{anim?s.v:'—'}</div>
-            <div style={{fontSize:11,color:'var(--t3)',marginTop:5}}>{s.l}</div>
+          <div key={i} style={{padding:'13px',background:s.bg,border:`1px solid ${s.c}14`,borderRadius:16,animation:`fadeUp .5s ease ${i*.07}s both`}}>
+            <div style={{fontSize:20,fontWeight:900,color:s.c,lineHeight:1}}>{anim?s.v:'—'}</div>
+            <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>{s.l}</div>
           </div>
         ))}
       </div>
 
-      {/* 🏆 Leaderboard */}
-      <div style={{margin:'14px 16px 0',padding:'16px',background:'rgba(212,175,55,.04)',border:'1px solid rgba(212,175,55,.15)',borderRadius:20}}>
-        <div style={{fontSize:13,fontWeight:800,color:'#D4AF37',marginBottom:12}}>🏆 {isHi?'Bhopalgarh के Eco Warriors':'Bhopalgarh Eco Warriors'}</div>
-        {leaderboard.length===0?(
-          <div style={{textAlign:'center',padding:'14px 0',color:'var(--t3)',fontSize:12}}>{isHi?'Aap pehle ban sakte ho!':'Be the first eco warrior!'}</div>
-        ):leaderboard.map((u,i)=>(
-          <div key={u.uid} style={{display:'flex',alignItems:'center',gap:10,marginBottom:i<leaderboard.length-1?10:0,padding:'8px 10px',borderRadius:12,background:u.uid===user?.uid?'rgba(61,255,122,.06)':'transparent',border:u.uid===user?.uid?'1px solid rgba(61,255,122,.15)':'1px solid transparent'}}>
-            <div style={{fontSize:16,fontWeight:900,color:i===0?'#D4AF37':i===1?'#C0C0C0':i===2?'#CD7F32':'var(--t3)',width:20,textAlign:'center'}}>{i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`}</div>
-            <div style={{width:30,height:30,borderRadius:10,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:'#0A1A0A',flexShrink:0}}>{(u.name||'?')[0].toUpperCase()}</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:12,fontWeight:700}}>{u.name||'Eco Warrior'}{u.uid===user?.uid&&<span style={{fontSize:9,color:'#3DFF7A',marginLeft:4}}>YOU</span>}</div>
-              <div style={{fontSize:10,color:'var(--t3)'}}>{u.ecoScore?.toFixed?.(1)||0} kg saved</div>
+      {/* Leaderboard */}
+      <div style={{margin:'12px 16px 0',padding:'15px',background:'rgba(212,175,55,.025)',border:'1px solid rgba(212,175,55,.08)',borderRadius:20}}>
+        <div style={{fontSize:13,fontWeight:800,color:'#D4AF37',marginBottom:11}}>🏆 {isHi?'Bhopalgarh के Eco Warriors':'Bhopalgarh Eco Warriors'}</div>
+        {leaderboard.length===0
+          ?<div style={{textAlign:'center',padding:'11px 0',color:'var(--t3)',fontSize:12}}>{isHi?'Aap pehle ban sakte ho!':'Be the first eco warrior!'}</div>
+          :leaderboard.map((u,i)=>(
+            <div key={u.uid} style={{display:'flex',alignItems:'center',gap:9,marginBottom:i<leaderboard.length-1?7:0,padding:'7px 9px',borderRadius:11,background:u.uid===user?.uid?'rgba(61,255,122,.055)':'transparent',border:u.uid===user?.uid?'1px solid rgba(61,255,122,.12)':'1px solid transparent'}}>
+              <div style={{fontSize:15,width:20,textAlign:'center'}}>{i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`}</div>
+              <div style={{width:28,height:28,borderRadius:9,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'#0A1A0A',flexShrink:0}}>{(u.name||'?')[0].toUpperCase()}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:700}}>{u.name||'Eco Warrior'}{u.uid===user?.uid&&<span style={{fontSize:9,color:'#3DFF7A',marginLeft:4}}>YOU</span>}</div>
+                <div style={{fontSize:10,color:'var(--t3)'}}>{u.ecoScore?.toFixed?.(1)||0} kg</div>
+              </div>
+              <div style={{fontSize:12}}>{ranks.find(r=>(u.ecoScore||0)>=r.min&&(u.ecoScore||0)<r.max)?.emoji||'🌱'}</div>
             </div>
-            <div style={{fontSize:14}}>{ranks.find(r=>(u.ecoScore||0)>=r.min&&(u.ecoScore||0)<r.max)?.emoji||'🌱'}</div>
-          </div>
-        ))}
+          ))
+        }
       </div>
 
-      {/* Motivational */}
-      <div style={{margin:'12px 16px 0',padding:'14px',background:'linear-gradient(135deg,rgba(61,255,122,.06),rgba(212,175,55,.04))',border:'1px solid rgba(61,255,122,.1)',borderRadius:16,textAlign:'center'}}>
-        <div style={{fontSize:24,marginBottom:6}}>{orderCount===0?'🌱':orderCount<5?'🌿':orderCount<10?'🌳':'🏆'}</div>
+      <div style={{margin:'12px 16px 0',padding:'12px 16px',background:'linear-gradient(135deg,rgba(61,255,122,.03),rgba(212,175,55,.015))',border:'1px solid rgba(61,255,122,.06)',borderRadius:16,textAlign:'center'}}>
         <div style={{fontSize:12,color:'var(--t3)',lineHeight:1.6}}>
-          {orderCount===0
-            ?(isHi?'पहला ऑर्डर दो और अपना बगीचा शुरू करो! 🌱':'Place your first order & grow your garden! 🌱')
-            :(isHi?`${orderCount} orders में तुमने प्रकृति बचाई! बगीचा बढ़ता जा रहा है! 🌳`:`${orderCount} orders — your garden is growing beautifully! 🌳`)
-          }
+          {orderCount===0?(isHi?'🌱 पहला ऑर्डर दो और बगीचा उगाओ!':'🌱 Grow your cinematic garden with every order!'):(isHi?`🌍 ${orderCount} orders में प्रकृति बचाई! बगीचा जीवंत है!`:`🌍 ${orderCount} orders — your garden is alive and growing!`)}
         </div>
       </div>
     </div>
