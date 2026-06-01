@@ -4419,6 +4419,28 @@ const [authReady, setAuthReady] = useState(false);
   const [theme, setTheme] = useState(()=>{ try{return localStorage.getItem('db_theme')||'eco';}catch(e){return 'eco';} });
   useEffect(()=>{ try{localStorage.setItem('db_theme',theme);}catch(e){} },[theme]);
 
+  // ── GLOBAL RIDERS & SHOPS SYNC ──
+  // Fix: data.riders starts as [] from mkData(). Rider/Shop login uses data.riders
+  // but AdminApp's onSnapshot only runs after admin logs in. So we sync here at
+  // the top level so riders/shops are always available for login credential check.
+  useEffect(()=>{
+    let unsubRiders=()=>{};
+    let unsubShops=()=>{};
+    try {
+      unsubRiders=onSnapshot(collection(db,'riders'),snap=>{
+        const rds=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+        setData(d=>({...d,riders:rds}));
+      },()=>{});
+    } catch(e){}
+    try {
+      unsubShops=onSnapshot(collection(db,'shops'),snap=>{
+        const shs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+        setData(d=>({...d,shops:shs}));
+      },()=>{});
+    } catch(e){}
+    return()=>{ try{unsubRiders();}catch(e){} try{unsubShops();}catch(e){} };
+  },[]);
+
  const handleCapSelect = id => {
   if(id==='help') {
     setPortal('help');
