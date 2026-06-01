@@ -2290,174 +2290,213 @@ function FoodScr({t,fam,isHi}) {
 function EcoScr({t,fam,isHi,user,points=0}) {
   const [orders,setOrders]=useState([]);
   const [anim,setAnim]=useState(false);
+  const [leaderboard,setLeaderboard]=useState([]);
+  const hour=new Date().getHours();
+  const month=new Date().getMonth(); // 0-11
+  const isDay=hour>=6&&hour<19;
+  const isNight=hour>=20||hour<5;
+  const isDusk=!isDay&&!isNight;
+
+  // Season based on month (India)
+  const season=month>=2&&month<=4?'spring':month>=5&&month<=6?'summer':month>=7&&month<=9?'monsoon':'winter';
+  const seasonData={
+    spring:{sky:'linear-gradient(180deg,#87CEEB 0%,#E0F7E9 100%)',ground:'#4CAF50',label:isHi?'🌸 बसंत':'🌸 Spring',emoji:'🌸'},
+    summer:{sky:'linear-gradient(180deg,#FF8C00 0%,#FFD700 40%,#87CEEB 100%)',ground:'#8BC34A',label:isHi?'☀️ गर्मी':'☀️ Summer',emoji:'☀️'},
+    monsoon:{sky:'linear-gradient(180deg,#4A6FA5 0%,#6B9BD2 60%,#A8D5A2 100%)',ground:'#2E7D32',label:isHi?'🌧️ बरसात':'🌧️ Monsoon',emoji:'🌧️'},
+    winter:{sky:'linear-gradient(180deg,#B0C4DE 0%,#E8F4FD 100%)',ground:'#6B8E23',label:isHi?'❄️ सर्दी':'❄️ Winter',emoji:'❄️'},
+  };
+  const sd=seasonData[season];
+  const nightSky='linear-gradient(180deg,#0A0A2E 0%,#1A1A4E 50%,#0D1F0D 100%)';
+  const skyGrad=isNight?nightSky:isDusk?'linear-gradient(180deg,#FF6B35 0%,#FF8C00 30%,#4A6FA5 100%)':sd.sky;
 
   useEffect(()=>{
-    // Fetch user's orders for real eco calculation
     const uid=user?.uid;
     if(!uid) return;
     const q2=query(collection(db,'orders'),where('userId','==',uid));
-    getDocs(q2).then(snap=>{
-      setOrders(snap.docs.map(d=>({id:d.id,...d.data()})));
+    getDocs(q2).then(snap=>{ setOrders(snap.docs.map(d=>({id:d.id,...d.data()}))); }).catch(()=>{});
+    // Leaderboard - top eco users
+    getDocs(collection(db,'users')).then(snap=>{
+      const users=snap.docs.map(d=>({...d.data(),uid:d.id})).filter(u=>u.ecoScore>0).sort((a,b)=>(b.ecoScore||0)-(a.ecoScore||0)).slice(0,5);
+      setLeaderboard(users);
     }).catch(()=>{});
-    // Trigger animations after mount
-    setTimeout(()=>setAnim(true),100);
+    setTimeout(()=>setAnim(true),200);
   },[user?.uid]);
 
-  // Calculate eco stats from real orders
-  const totalItems = orders.reduce((s,o)=>{
-    const items=o.items||o.cart||[];
-    return s+items.reduce((a,i)=>a+(i.qty||1),0);
-  },0);
-  const totalKg   = parseFloat((totalItems*0.05+points*0.002).toFixed(2));
-  const bags       = Math.floor(totalKg/0.05);
-  const co2        = parseFloat((totalKg*0.74).toFixed(2));
-  const trees      = parseFloat((totalKg*0.12).toFixed(2));
-  const orderCount = orders.length;
+  const totalItems=orders.reduce((s,o)=>s+(o.items||[]).reduce((a,i)=>a+(i.qty||1),0),0);
+  const totalKg=parseFloat((totalItems*0.05+points*0.002).toFixed(2));
+  const bags=Math.floor(totalKg/0.05);
+  const co2=parseFloat((totalKg*0.74).toFixed(2));
+  const trees=parseFloat((totalKg*0.12).toFixed(2));
+  const orderCount=orders.length;
 
-  // Rank system based on eco score
-  const ecoScore = totalKg;
+  // Plants based on orders - max 15 visible plants
+  const plantCount=Math.min(15,orderCount);
+  const plantTypes=['🌱','🌿','🌾','🪴','🌳','🌲','🎋','🌵','🌴'];
+  const flowerTypes=['🌸','🌺','🌻','🌼','🌷','💐'];
+
   const ranks=[
-    {name:'Seedling',nameHi:'अंकुर',emoji:'🌱',min:0,max:1,color:'#8BC34A',desc:'Just getting started!',descHi:'शुरुआत हो गई!'},
-    {name:'Sapling',nameHi:'पौधा',emoji:'🌿',min:1,max:5,color:'#4CAF50',desc:'Growing green!',descHi:'हरियाली बढ़ रही है!'},
-    {name:'Green Leaf',nameHi:'हरी पत्ती',emoji:'🍃',min:5,max:15,color:'#3DFF7A',desc:'Making a difference!',descHi:'फर्क पड़ रहा है!'},
-    {name:'Tree Guardian',nameHi:'वृक्ष रक्षक',emoji:'🌳',min:15,max:50,color:'#00C44F',desc:'Nature\'s protector!',descHi:'प्रकृति के रक्षक!'},
-    {name:'Eco Champion',nameHi:'इको चैंपियन',emoji:'🏆',min:50,max:999,color:'#D4AF37',desc:'Legendary eco warrior!',descHi:'महान योद्धा!'},
+    {name:'Seedling',nameHi:'अंकुर',emoji:'🌱',min:0,max:1,color:'#8BC34A'},
+    {name:'Sapling',nameHi:'पौधा',emoji:'🌿',min:1,max:5,color:'#4CAF50'},
+    {name:'Green Leaf',nameHi:'हरी पत्ती',emoji:'🍃',min:5,max:15,color:'#3DFF7A'},
+    {name:'Tree Guardian',nameHi:'वृक्ष रक्षक',emoji:'🌳',min:15,max:50,color:'#00C44F'},
+    {name:'Eco Champion',nameHi:'इको चैंपियन',emoji:'🏆',min:50,max:999,color:'#D4AF37'},
   ];
-  const rank=ranks.find(r=>ecoScore>=r.min&&ecoScore<r.max)||ranks[0];
+  const rank=ranks.find(r=>totalKg>=r.min&&totalKg<r.max)||ranks[0];
   const nextRank=ranks[ranks.indexOf(rank)+1];
-  const progress=nextRank?Math.min(100,((ecoScore-rank.min)/(nextRank.min-rank.min))*100):100;
+  const progress=nextRank?Math.min(100,((totalKg-rank.min)/(nextRank.min-rank.min))*100):100;
 
-  // Avatar initial + color based on name
-  const nameInitial=(user?.name||'U')[0].toUpperCase();
-  const avatarColors=['#3DFF7A','#00C44F','#D4AF37','#2ECC60','#1ABC9C'];
-  const avatarColor=avatarColors[(user?.name||'U').charCodeAt(0)%avatarColors.length];
+  // CSS animations
+  const gardenCSS=`
+    @keyframes sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes flutter{0%,100%{transform:rotate(-10deg) scale(1)}50%{transform:rotate(10deg) scale(1.1)}}
+    @keyframes rain{0%{transform:translateY(-20px);opacity:0}100%{transform:translateY(120px);opacity:.6}}
+    @keyframes twinkle{0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+    @keyframes drift{0%{transform:translateX(-10px)}100%{transform:translateX(10px)}}
+    @keyframes growUp{0%{transform:scaleY(0);transform-origin:bottom}100%{transform:scaleY(1);transform-origin:bottom}}
+    @keyframes sunRay{0%,100%{opacity:.3}50%{opacity:.7}}
+  `;
 
-  const stats=[
-    {v:`${totalKg} kg`,l:isHi?'प्लास्टिक बचाया':'Plastic Saved',emoji:'♻️',c:'#3DFF7A',bg:'rgba(61,255,122,.08)'},
-    {v:`${co2} kg`,l:isHi?'CO₂ कम किया':'CO₂ Reduced',emoji:'🌿',c:'#00C44F',bg:'rgba(0,196,79,.08)'},
-    {v:String(bags),l:isHi?'बैग बदले':'Bags Replaced',emoji:'🛍️',c:'#D4AF37',bg:'rgba(212,175,55,.08)'},
-    {v:String(trees),l:isHi?'पेड़ फंड किए':'Trees Funded',emoji:'🌳',c:'#2ECC60',bg:'rgba(46,204,96,.08)'},
-  ];
-
-  return (
-    <div style={{paddingBottom:100,fontFamily:fam,background:'var(--bg)',minHeight:'100vh'}}>
+  return(
+    <div style={{paddingBottom:100,fontFamily:fam,background:'#0A1A0A',minHeight:'100%',overflow:'hidden'}}>
+      <style>{gardenCSS}</style>
       <SBar/>
 
       {/* Header */}
-      <div style={{padding:'8px 20px 0',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div style={{padding:'8px 20px 0',display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:2}}>
         <div>
-          <div style={{fontSize:22,fontWeight:900,letterSpacing:-.3}}>{t.ecoImpact}</div>
-          <div style={{fontSize:12,color:'var(--t3)',marginTop:2}}>{isHi?'हरित भविष्य की ओर':'Your green footprint'}</div>
+          <div style={{fontSize:22,fontWeight:900}}>{isHi?'🌱 मेरा बगीचा':'🌱 My Garden'}</div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.5)',marginTop:1}}>{sd.label} · {isNight?'🌙 Raat':'isDay'?'☀️ Din':'🌅 Sandhya'}</div>
         </div>
-        <div style={{background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',borderRadius:12,padding:'6px 12px',fontSize:11,fontWeight:700,color:'#3DFF7A'}}>
-          {orderCount} {isHi?'ऑर्डर':'Orders'}
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <div style={{background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',borderRadius:12,padding:'6px 12px',fontSize:11,fontWeight:700,color:'#3DFF7A'}}>
+            {orderCount} {isHi?'ऑर्डर':'Orders'}
+          </div>
+          <div style={{background:'rgba(212,175,55,.1)',border:'1px solid rgba(212,175,55,.2)',borderRadius:12,padding:'6px 10px',fontSize:13}}>
+            {rank.emoji}
+          </div>
         </div>
       </div>
 
-      {/* Profile + Rank Card */}
-      <div style={{margin:'14px 16px 0',background:'linear-gradient(135deg,#0D1F0D,#0A1A0A)',border:'1px solid rgba(61,255,122,.15)',borderRadius:24,padding:'20px',position:'relative',overflow:'hidden'}}>
-        {/* Background glow */}
-        <div style={{position:'absolute',top:-40,right:-40,width:160,height:160,borderRadius:'50%',background:`radial-gradient(circle,${rank.color}22,transparent 70%)`,pointerEvents:'none'}}/>
-        <div style={{position:'absolute',bottom:-30,left:-30,width:120,height:120,borderRadius:'50%',background:'radial-gradient(circle,rgba(61,255,122,.06),transparent 70%)',pointerEvents:'none'}}/>
+      {/* 🌿 LIVE GARDEN SCENE */}
+      <div style={{margin:'14px 16px 0',borderRadius:24,overflow:'hidden',position:'relative',height:240,border:'1px solid rgba(61,255,122,.15)'}}>
+        {/* Sky */}
+        <div style={{position:'absolute',inset:0,background:skyGrad,transition:'background 2s ease'}}/>
 
-        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:18}}>
-          {/* Avatar */}
-          <div style={{width:60,height:60,borderRadius:18,background:`linear-gradient(135deg,${avatarColor},${avatarColor}99)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:900,color:'#0A1A0A',boxShadow:`0 4px 20px ${avatarColor}44`,flexShrink:0}}>
-            {nameInitial}
-          </div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:17,fontWeight:800,color:'#fff'}}>{user?.name||'Eco Warrior'}</div>
-            <div style={{fontSize:12,color:'var(--t3)',marginTop:1}}>+91 {user?.phone||''}</div>
-            <div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:5,background:`${rank.color}18`,border:`1px solid ${rank.color}44`,borderRadius:20,padding:'3px 10px'}}>
-              <span style={{fontSize:14}}>{rank.emoji}</span>
-              <span style={{fontSize:11,fontWeight:700,color:rank.color}}>{isHi?rank.nameHi:rank.name}</span>
-            </div>
-          </div>
-          <div style={{textAlign:'center'}}>
-            <div style={{fontSize:22,fontWeight:900,color:rank.color,fontFamily:"'Playfair Display',serif"}}>{points}</div>
-            <div style={{fontSize:10,color:'var(--t3)',marginTop:1}}>{isHi?'पॉइंट्स':'Points'}</div>
-          </div>
-        </div>
+        {/* Stars - night only */}
+        {isNight&&[...Array(20)].map((_,i)=>(
+          <div key={i} style={{position:'absolute',width:2,height:2,borderRadius:'50%',background:'#fff',top:`${5+Math.random()*45}%`,left:`${Math.random()*100}%`,animation:`twinkle ${1+Math.random()*2}s ease-in-out ${Math.random()*2}s infinite`}}/>
+        ))}
 
-        {/* Rank description */}
-        <div style={{fontSize:12,color:rank.color,fontWeight:600,marginBottom:12,textAlign:'center',opacity:.8}}>
-          {isHi?rank.descHi:rank.desc}
-        </div>
+        {/* Sun / Moon */}
+        {isDay&&<div style={{position:'absolute',top:16,right:24,width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#FFD700,#FFA500)',boxShadow:'0 0 30px rgba(255,200,0,.6)',animation:'sunRay 3s ease-in-out infinite'}}/>}
+        {isNight&&<div style={{position:'absolute',top:14,right:22,fontSize:28,animation:'float 4s ease-in-out infinite'}}>🌙</div>}
 
-        {/* Progress to next rank */}
-        {nextRank&&(
-          <div>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-              <span style={{fontSize:11,color:'var(--t3)'}}>{isHi?rank.nameHi:rank.name}</span>
-              <span style={{fontSize:11,color:'var(--t3)'}}>{isHi?nextRank.nameHi:nextRank.name} {nextRank.emoji}</span>
-            </div>
-            <div style={{height:6,background:'rgba(255,255,255,.06)',borderRadius:3,overflow:'hidden'}}>
-              <div style={{height:'100%',width:anim?`${progress}%`:'0%',background:`linear-gradient(90deg,${rank.color},${nextRank.color})`,borderRadius:3,transition:'width 1.5s cubic-bezier(.25,.46,.45,.94)',boxShadow:`0 0 10px ${rank.color}88`}}/>
-            </div>
-            <div style={{fontSize:10,color:'var(--t3)',marginTop:5,textAlign:'right'}}>{progress.toFixed(0)}% → {isHi?`${nextRank.nameHi} के लिए ${(nextRank.min-ecoScore).toFixed(2)} kg aur`:`${(nextRank.min-ecoScore).toFixed(2)} kg more for ${nextRank.name}`}</div>
+        {/* Clouds - day only */}
+        {isDay&&[...Array(2)].map((_,i)=>(
+          <div key={i} style={{position:'absolute',top:`${15+i*20}%`,left:`${i*40}%`,fontSize:28,opacity:.7,animation:`drift ${8+i*3}s ease-in-out ${i}s infinite alternate`}}>☁️</div>
+        ))}
+
+        {/* Rain - monsoon */}
+        {season==='monsoon'&&[...Array(12)].map((_,i)=>(
+          <div key={i} style={{position:'absolute',top:0,left:`${i*8+Math.random()*5}%`,width:1,height:12,background:'rgba(150,200,255,.6)',animation:`rain ${.8+Math.random()*.5}s linear ${Math.random()*.8}s infinite`}}/>
+        ))}
+
+        {/* Ground */}
+        <div style={{position:'absolute',bottom:0,left:0,right:0,height:75,background:`linear-gradient(180deg,${sd.ground}99,${sd.ground}dd)`,borderRadius:'0 0 24px 24px'}}/>
+
+        {/* Plants — grow based on orders */}
+        {orderCount===0&&(
+          <div style={{position:'absolute',bottom:20,left:'50%',transform:'translateX(-50%)',textAlign:'center'}}>
+            <div style={{fontSize:28,animation:'float 2s ease-in-out infinite'}}>🌱</div>
+            <div style={{fontSize:10,color:'rgba(255,255,255,.6)',marginTop:4,whiteSpace:'nowrap'}}>{isHi?'पहला ऑर्डर दो!':'Place first order!'}</div>
           </div>
         )}
-        {!nextRank&&<div style={{fontSize:12,color:'#D4AF37',fontWeight:700,textAlign:'center'}}>🏆 {isHi?'अधिकतम रैंक!':'Maximum Rank Achieved!'}</div>}
+        {[...Array(plantCount)].map((_,i)=>{
+          const x=8+(i%8)*11+Math.sin(i)*3;
+          const plantEmoji=i<3?flowerTypes[i%flowerTypes.length]:plantTypes[i%plantTypes.length];
+          const size=18+Math.floor(i/3)*4;
+          const delay=i*0.15;
+          return(
+            <div key={i} style={{position:'absolute',bottom:8+(i%3)*8,left:`${x}%`,fontSize:size,animation:anim?`sway ${2+i*.3}s ease-in-out ${delay}s infinite`:'none',transformOrigin:'bottom center',transition:'opacity .5s',opacity:anim?1:0}}>
+              {plantEmoji}
+            </div>
+          );
+        })}
+
+        {/* Butterflies — after 3 orders */}
+        {orderCount>=3&&[...Array(Math.min(3,Math.floor(orderCount/3)))].map((_,i)=>(
+          <div key={i} style={{position:'absolute',top:`${20+i*15}%`,left:`${15+i*25}%`,fontSize:16,animation:`flutter ${1.5+i*.3}s ease-in-out ${i*.5}s infinite, drift ${4+i}s ease-in-out ${i}s infinite alternate`}}>🦋</div>
+        ))}
+
+        {/* Birds — after 5 orders */}
+        {orderCount>=5&&<div style={{position:'absolute',top:'18%',right:'15%',fontSize:14,animation:'drift 6s ease-in-out infinite alternate'}}>🐦</div>}
+
+        {/* Moon + fireflies night */}
+        {isNight&&orderCount>0&&[...Array(Math.min(5,orderCount))].map((_,i)=>(
+          <div key={i} style={{position:'absolute',top:`${30+i*8}%`,left:`${10+i*18}%`,fontSize:12,animation:`twinkle ${1+i*.4}s ease-in-out ${i*.3}s infinite`}}>✨</div>
+        ))}
+
+        {/* Rank badge on garden */}
+        <div style={{position:'absolute',top:10,left:12,background:'rgba(0,0,0,.5)',backdropFilter:'blur(8px)',borderRadius:10,padding:'4px 10px',display:'flex',alignItems:'center',gap:5}}>
+          <span style={{fontSize:14}}>{rank.emoji}</span>
+          <span style={{fontSize:10,fontWeight:700,color:'#3DFF7A'}}>{isHi?rank.nameHi:rank.name}</span>
+        </div>
       </div>
 
-      {/* Big Eco Number */}
-      <div style={{margin:'14px 16px 0',background:'linear-gradient(135deg,rgba(61,255,122,.06),rgba(61,255,122,.02))',border:'1px solid rgba(61,255,122,.12)',borderRadius:20,padding:'20px',textAlign:'center',position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 50% 0%,rgba(61,255,122,.08),transparent 60%)',pointerEvents:'none'}}/>
-        <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>{isHi?'कुल प्लास्टिक बचाया':'Total Plastic Saved'}</div>
-        <div style={{fontFamily:"'Playfair Display',serif",fontSize:52,fontWeight:900,background:'linear-gradient(135deg,#3DFF7A,#D4AF37)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text',lineHeight:1,transition:'all 1s ease'}}>
-          {anim?`${totalKg}`:'0'} <span style={{fontSize:24}}>kg</span>
+      {/* Progress bar */}
+      <div style={{margin:'12px 16px 0',padding:'14px 16px',background:'rgba(61,255,122,.04)',border:'1px solid rgba(61,255,122,.1)',borderRadius:18}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <span style={{fontSize:12,fontWeight:700,color:'#3DFF7A'}}>{rank.emoji} {isHi?rank.nameHi:rank.name}</span>
+          {nextRank&&<span style={{fontSize:11,color:'var(--t3)'}}>{nextRank.emoji} {isHi?nextRank.nameHi:nextRank.name} →</span>}
         </div>
-        <div style={{fontSize:12,color:'var(--t3)',marginTop:6}}>{isHi?`${bags} प्लास्टिक बैग के बराबर`:`Equivalent to ${bags} plastic bags`}</div>
-
-        {/* Animated rings */}
-        <div style={{display:'flex',justifyContent:'center',marginTop:14,gap:0,position:'relative',height:40}}>
-          {[...Array(5)].map((_,i)=>(
-            <div key={i} style={{position:'absolute',width:40+i*20,height:40+i*20,borderRadius:'50%',border:`1px solid rgba(61,255,122,${.15-i*.025})`,top:'50%',left:'50%',transform:'translate(-50%,-50%)',animation:`pulse ${2+i*.3}s ease-in-out ${i*.2}s infinite`}}/>
-          ))}
-          <div style={{position:'relative',zIndex:1,fontSize:30}}>{rank.emoji}</div>
+        <div style={{height:8,background:'rgba(255,255,255,.06)',borderRadius:99,overflow:'hidden'}}>
+          <div style={{height:'100%',width:anim?`${progress}%`:'0%',background:'linear-gradient(90deg,#3DFF7A,#D4AF37)',borderRadius:99,transition:'width 1.8s cubic-bezier(.25,.46,.45,.94)',boxShadow:'0 0 12px rgba(61,255,122,.5)'}}/>
         </div>
+        {nextRank&&<div style={{fontSize:10,color:'var(--t3)',marginTop:5,textAlign:'right'}}>{isHi?`${(nextRank.min-totalKg).toFixed(2)} kg aur chaiye`:`${(nextRank.min-totalKg).toFixed(2)} kg more needed`}</div>}
+        {!nextRank&&<div style={{fontSize:11,color:'#D4AF37',fontWeight:700,marginTop:5,textAlign:'center'}}>🏆 Max Rank!</div>}
       </div>
 
-      {/* 4 Stats Grid */}
-      <div style={{padding:'14px 16px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        {stats.map((s,i)=>(
-          <div key={i} className="gc" style={{padding:'16px 14px',background:s.bg,border:`1px solid ${s.c}22`,borderRadius:18,animation:`fadeUp .5s ease ${i*.08}s both`,position:'relative',overflow:'hidden'}}>
-            <div style={{position:'absolute',top:-10,right:-10,fontSize:40,opacity:.07,pointerEvents:'none'}}>{s.emoji}</div>
-            <div style={{fontSize:22,marginBottom:6}}>{s.emoji}</div>
-            <div style={{fontSize:22,fontWeight:900,color:s.c,fontFamily:"'Playfair Display',serif",lineHeight:1}}>{anim?s.v:'—'}</div>
-            <div style={{fontSize:11,color:'var(--t3)',marginTop:4,fontWeight:500}}>{s.l}</div>
+      {/* Stats Grid */}
+      <div style={{padding:'12px 16px 0',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        {[
+          {v:`${totalKg} kg`,l:isHi?'♻️ प्लास्टिक बचाया':'♻️ Plastic Saved',c:'#3DFF7A',bg:'rgba(61,255,122,.06)'},
+          {v:`${co2} kg`,l:isHi?'🌿 CO₂ कम किया':'🌿 CO₂ Reduced',c:'#00C44F',bg:'rgba(0,196,79,.06)'},
+          {v:String(bags),l:isHi?'🛍️ बैग बदले':'🛍️ Bags Replaced',c:'#D4AF37',bg:'rgba(212,175,55,.06)'},
+          {v:String(trees),l:isHi?'🌳 पेड़ लगाए':'🌳 Trees Funded',c:'#2ECC60',bg:'rgba(46,204,96,.06)'},
+        ].map((s,i)=>(
+          <div key={i} style={{padding:'16px 14px',background:s.bg,border:`1px solid ${s.c}22`,borderRadius:18,animation:`fadeUp .5s ease ${i*.08}s both`}}>
+            <div style={{fontSize:22,fontWeight:900,color:s.c,lineHeight:1}}>{anim?s.v:'—'}</div>
+            <div style={{fontSize:11,color:'var(--t3)',marginTop:5}}>{s.l}</div>
           </div>
         ))}
       </div>
 
-      {/* All Ranks Road */}
-      <div style={{margin:'14px 16px 0',background:'rgba(255,255,255,.02)',border:'1px solid rgba(255,255,255,.06)',borderRadius:20,padding:'16px'}}>
-        <div style={{fontSize:13,fontWeight:800,marginBottom:14,color:'var(--t)'}}>{isHi?'🏅 रैंक रोडमैप':'🏅 Rank Roadmap'}</div>
-        {ranks.map((r,i)=>{
-          const achieved=ecoScore>=r.min;
-          const isCurrent=rank.name===r.name;
-          return(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:12,marginBottom:i<ranks.length-1?12:0}}>
-              <div style={{width:38,height:38,borderRadius:12,background:achieved?`${r.color}20`:'rgba(255,255,255,.03)',border:`1.5px solid ${achieved?r.color:'rgba(255,255,255,.08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,boxShadow:isCurrent?`0 0 12px ${r.color}66`:'none'}}>
-                {r.emoji}
-              </div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:700,color:achieved?r.color:'var(--t3)'}}>{isHi?r.nameHi:r.name} {isCurrent&&<span style={{fontSize:10,background:`${r.color}22`,borderRadius:6,padding:'2px 6px',marginLeft:4}}>{isHi?'अभी':'NOW'}</span>}</div>
-                <div style={{fontSize:10,color:'var(--t3)',marginTop:1}}>{r.min} – {r.max===999?'∞':r.max} kg</div>
-              </div>
-              {achieved&&!isCurrent&&<div style={{fontSize:16}}>✅</div>}
-              {isCurrent&&<div style={{fontSize:14,color:r.color,fontWeight:700}}>⬅</div>}
+      {/* 🏆 Leaderboard */}
+      <div style={{margin:'14px 16px 0',padding:'16px',background:'rgba(212,175,55,.04)',border:'1px solid rgba(212,175,55,.15)',borderRadius:20}}>
+        <div style={{fontSize:13,fontWeight:800,color:'#D4AF37',marginBottom:12}}>🏆 {isHi?'Bhopalgarh के Eco Warriors':'Bhopalgarh Eco Warriors'}</div>
+        {leaderboard.length===0?(
+          <div style={{textAlign:'center',padding:'14px 0',color:'var(--t3)',fontSize:12}}>{isHi?'Aap pehle ban sakte ho!':'Be the first eco warrior!'}</div>
+        ):leaderboard.map((u,i)=>(
+          <div key={u.uid} style={{display:'flex',alignItems:'center',gap:10,marginBottom:i<leaderboard.length-1?10:0,padding:'8px 10px',borderRadius:12,background:u.uid===user?.uid?'rgba(61,255,122,.06)':'transparent',border:u.uid===user?.uid?'1px solid rgba(61,255,122,.15)':'1px solid transparent'}}>
+            <div style={{fontSize:16,fontWeight:900,color:i===0?'#D4AF37':i===1?'#C0C0C0':i===2?'#CD7F32':'var(--t3)',width:20,textAlign:'center'}}>{i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`}</div>
+            <div style={{width:30,height:30,borderRadius:10,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:'#0A1A0A',flexShrink:0}}>{(u.name||'?')[0].toUpperCase()}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:700}}>{u.name||'Eco Warrior'}{u.uid===user?.uid&&<span style={{fontSize:9,color:'#3DFF7A',marginLeft:4}}>YOU</span>}</div>
+              <div style={{fontSize:10,color:'var(--t3)'}}>{u.ecoScore?.toFixed?.(1)||0} kg saved</div>
             </div>
-          );
-        })}
+            <div style={{fontSize:14}}>{ranks.find(r=>(u.ecoScore||0)>=r.min&&(u.ecoScore||0)<r.max)?.emoji||'🌱'}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Motivational footer */}
-      <div style={{margin:'14px 16px 0',padding:'14px 16px',background:'linear-gradient(135deg,rgba(61,255,122,.06),rgba(212,175,55,.04))',border:'1px solid rgba(61,255,122,.1)',borderRadius:16,textAlign:'center'}}>
-        <div style={{fontSize:13,color:'var(--t3)',lineHeight:1.5}}>
+      {/* Motivational */}
+      <div style={{margin:'12px 16px 0',padding:'14px',background:'linear-gradient(135deg,rgba(61,255,122,.06),rgba(212,175,55,.04))',border:'1px solid rgba(61,255,122,.1)',borderRadius:16,textAlign:'center'}}>
+        <div style={{fontSize:24,marginBottom:6}}>{orderCount===0?'🌱':orderCount<5?'🌿':orderCount<10?'🌳':'🏆'}</div>
+        <div style={{fontSize:12,color:'var(--t3)',lineHeight:1.6}}>
           {orderCount===0
-            ? (isHi?'🌱 पहला ऑर्डर दो और अपनी eco journey शुरू करो!':'🌱 Place your first order to start your eco journey!')
-            : (isHi?`🌍 तुमने ${orderCount} ऑर्डर में पर्यावरण बचाया! बढ़ते रहो!`:`🌍 You've helped the planet across ${orderCount} orders! Keep going!`)
+            ?(isHi?'पहला ऑर्डर दो और अपना बगीचा शुरू करो! 🌱':'Place your first order & grow your garden! 🌱')
+            :(isHi?`${orderCount} orders में तुमने प्रकृति बचाई! बगीचा बढ़ता जा रहा है! 🌳`:`${orderCount} orders — your garden is growing beautifully! 🌳`)
           }
         </div>
       </div>
