@@ -1628,10 +1628,22 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     const earned=Math.floor(total/10);
     const newPoints=usePoints?Math.max(0,points-(Math.floor(points/10)*10))+earned:points+earned;
     setPoints(newPoints);
+    const newItemsKg=cart.reduce((s,i)=>s+(i.qty||1),0)*0.05; // har item ~50g plastic saved
     if(uid){
       try{
-        const {doc:fDoc,setDoc}=await import('firebase/firestore');
-        await setDoc(fDoc(db,'users',uid),{points:newPoints,lastOrder:oRef.id,phone:userPhone,name:userName},{merge:true});
+        const {doc:fDoc,setDoc,getDoc}=await import('firebase/firestore');
+        const uSnap=await getDoc(fDoc(db,'users',uid));
+        const prev=uSnap.exists()?uSnap.data():{};
+        const prevEco=prev.ecoScore||0;
+        const prevOrders=prev.totalOrders||0;
+        await setDoc(fDoc(db,'users',uid),{
+          points:newPoints,
+          lastOrder:oRef.id,
+          phone:userPhone,
+          name:userName,
+          ecoScore:parseFloat((prevEco+newItemsKg).toFixed(3)),
+          totalOrders:prevOrders+1,
+        },{merge:true});
       }catch(pe){console.log('Points save err:',pe);}
     }
     setUsePoints(false);
@@ -2291,6 +2303,7 @@ function EcoScr({t,fam,isHi,user,points=0}) {
   const [orders,setOrders]=useState([]);
   const [anim,setAnim]=useState(false);
   const [leaderboard,setLeaderboard]=useState([]);
+  const [firestoreEco,setFirestoreEco]=useState(null);
   const canvasRef=useRef(null);
   const animRef=useRef(null);
   const hour=new Date().getHours();
@@ -2303,6 +2316,10 @@ function EcoScr({t,fam,isHi,user,points=0}) {
   useEffect(()=>{
     const uid=user?.uid;
     if(!uid) return;
+    // Real-time ecoScore from Firestore
+    const unsubUser=onSnapshot(doc(db,'users',uid),snap=>{
+      if(snap.exists()) setFirestoreEco(snap.data().ecoScore||null);
+    },()=>{});
     const q2=query(collection(db,'orders'),where('userId','==',uid));
     getDocs(q2).then(snap=>{ setOrders(snap.docs.map(d=>({id:d.id,...d.data()}))); }).catch(()=>{});
     getDocs(collection(db,'users')).then(snap=>{
@@ -2310,14 +2327,18 @@ function EcoScr({t,fam,isHi,user,points=0}) {
       setLeaderboard(users);
     }).catch(()=>{});
     setTimeout(()=>setAnim(true),300);
+    return()=>unsubUser();
   },[user?.uid]);
 
+  const orderCount=orders.length;
   const totalItems=orders.reduce((s,o)=>s+(o.items||[]).reduce((a,i)=>a+(i.qty||1),0),0);
-  const totalKg=parseFloat((totalItems*0.05+points*0.002).toFixed(2));
+  // Use Firestore ecoScore if available (most accurate), else calculate
+  const calcKg=parseFloat((totalItems*0.05).toFixed(3));
+  const pointsBonus=parseFloat((points*0.002).toFixed(3)); // 100 points = 0.2 kg bonus
+  const totalKg=firestoreEco!=null?parseFloat((firestoreEco+pointsBonus).toFixed(2)):parseFloat((calcKg+pointsBonus).toFixed(2));
   const bags=Math.floor(totalKg/0.05);
   const co2=parseFloat((totalKg*0.74).toFixed(2));
   const trees=parseFloat((totalKg*0.12).toFixed(2));
-  const orderCount=orders.length;
 
   const ranks=[
     {name:'Seedling',nameHi:'अंकुर',emoji:'🌱',min:0,max:1,color:'#8BC34A'},
@@ -2635,6 +2656,28 @@ function EcoScr({t,fam,isHi,user,points=0}) {
             <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>{s.l}</div>
           </div>
         ))}
+      </div>
+
+      {/* 🪙 Points → Eco Integration Card */}
+      <div style={{margin:'12px 16px 0',padding:'14px 16px',background:'rgba(212,175,55,.04)',border:'1px solid rgba(212,175,55,.15)',borderRadius:18}}>
+        <div style={{fontSize:12,fontWeight:800,color:'#D4AF37',marginBottom:10}}>🪙 {isHi?'Loyalty Points → Eco Score':'Loyalty Points → Eco Score'}</div>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+          <div style={{flex:1,padding:'10px',background:'rgba(212,175,55,.06)',borderRadius:12,textAlign:'center'}}>
+            <div style={{fontSize:18,fontWeight:900,color:'#D4AF37'}}>{points}</div>
+            <div style={{fontSize:10,color:'var(--t3)',marginTop:2}}>{isHi?'अंक (Points)':'Points'}</div>
+          </div>
+          <div style={{fontSize:20,color:'var(--t3)'}}>→</div>
+          <div style={{flex:1,padding:'10px',background:'rgba(61,255,122,.06)',borderRadius:12,textAlign:'center'}}>
+            <div style={{fontSize:18,fontWeight:900,color:'#3DFF7A'}}>+{pointsBonus} kg</div>
+            <div style={{fontSize:10,color:'var(--t3)',marginTop:2}}>{isHi?'Eco Bonus':'Eco Bonus'}</div>
+          </div>
+        </div>
+        <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.6,padding:'8px 10px',background:'rgba(255,255,255,.03)',borderRadius:10}}>
+          💡 {isHi?`हर ₹10 = 1 Point · 100 Points = +0.2 kg Eco Score · ${points>=100?'Redeem karo aur garden badhao!':'Aur points kamao!'}`:`₹10 = 1 Point · 100 Points = +0.2 kg Eco Score · ${points>=100?'Redeem to boost your garden!':'Earn more points!'}`}
+        </div>
+        {points>=100&&<div style={{marginTop:8,padding:'8px 12px',background:'linear-gradient(135deg,rgba(212,175,55,.12),rgba(61,255,122,.06))',borderRadius:10,border:'1px solid rgba(212,175,55,.2)',textAlign:'center',fontSize:12,fontWeight:700,color:'#D4AF37'}}>
+          ✨ {isHi?`${points} points = ₹${Math.floor(points/10)} discount + garden mein badhaav!`:`${points} points = ₹${Math.floor(points/10)} off + garden grows!`}
+        </div>}
       </div>
 
       {/* Leaderboard */}
@@ -4418,28 +4461,6 @@ const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{try{localStorage.setItem('db_admin',adminA?'true':'false');}catch(e){}}, [adminA]);
   const [theme, setTheme] = useState(()=>{ try{return localStorage.getItem('db_theme')||'eco';}catch(e){return 'eco';} });
   useEffect(()=>{ try{localStorage.setItem('db_theme',theme);}catch(e){} },[theme]);
-
-  // ── GLOBAL RIDERS & SHOPS SYNC ──
-  // Fix: data.riders starts as [] from mkData(). Rider/Shop login uses data.riders
-  // but AdminApp's onSnapshot only runs after admin logs in. So we sync here at
-  // the top level so riders/shops are always available for login credential check.
-  useEffect(()=>{
-    let unsubRiders=()=>{};
-    let unsubShops=()=>{};
-    try {
-      unsubRiders=onSnapshot(collection(db,'riders'),snap=>{
-        const rds=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-        setData(d=>({...d,riders:rds}));
-      },()=>{});
-    } catch(e){}
-    try {
-      unsubShops=onSnapshot(collection(db,'shops'),snap=>{
-        const shs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
-        setData(d=>({...d,shops:shs}));
-      },()=>{});
-    } catch(e){}
-    return()=>{ try{unsubRiders();}catch(e){} try{unsubShops();}catch(e){} };
-  },[]);
 
  const handleCapSelect = id => {
   if(id==='help') {
