@@ -1399,6 +1399,9 @@ function CustomerApp({user, lang, setLang, data, setData, theme, setTheme}) {
   const [coupon, setCoupon]=useState('');
   const [discount, setDiscount]=useState(0);
   const [couponMsg, setCouponMsg]=useState('');
+  const [isFirstOrder, setIsFirstOrder]=useState(false); // true = is customer ka pehla order hai
+  const [firstDelUsed, setFirstDelUsed]=useState(false); // true = free delivery already le chuke hain
+  const [showFirstPopup, setShowFirstPopup]=useState(false); // popup dikha ya nahi
   const [dbCoupons, setDbCoupons]=useState([]);
   const [dbNotifs, setDbNotifs]=useState([]);
   const [upiConfirmed, setUpiConfirmed]=useState(false);
@@ -1536,11 +1539,23 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       if(!uid) return;
       import('firebase/firestore').then(({doc,getDoc,setDoc})=>{
         getDoc(doc(db,'users',uid)).then(d=>{
-          if(d.exists()&&d.data().points!=null)setPoints(d.data().points);
+          if(d.exists()){
+            const data=d.data();
+            if(data.points!=null) setPoints(data.points);
+            // Pehla order check — totalOrders=0 ya field hi nahi = first order eligible
+            const prevOrders=data.totalOrders||0;
+            const delUsed=data.firstDelUsed===true;
+            setFirstDelUsed(delUsed);
+            setIsFirstOrder(prevOrders===0 && !delUsed);
+          } else {
+            // Naya user — definitely first order eligible
+            setIsFirstOrder(true);
+            setFirstDelUsed(false);
+          }
         }).catch(()=>{});
       });
     }
-  },[]);
+  },[user?.uid]);
 
   useEffect(()=>{
     let unsub=()=>{};
@@ -1604,7 +1619,8 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   const mapsLink=addrLat&&addrLng?`https://maps.google.com/?q=${addrLat},${addrLng}`:(typeof addrData==='object'?addrData.mapsLink||'':'');
   const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
   const isBulk=cart.some(i=>(i.cat||'').toLowerCase().includes('bulk')||(i.name||'').toLowerCase().includes('bulk')||(i.chip||'').toLowerCase().includes('bulk'));
-  const del=isBulk?100:10;
+  const firstFree=isFirstOrder&&!firstDelUsed&&sub>=99;
+  const del=isBulk?100:firstFree?0:10;
   const total=Math.max(0,sub+del-discount-(usePoints?pointsDiscount:0));
   try{
     const oRef=await addDoc(collection(db,'orders'),{
@@ -1643,7 +1659,14 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
           name:userName,
           ecoScore:parseFloat((prevEco+newItemsKg).toFixed(3)),
           totalOrders:prevOrders+1,
+          // Mark first delivery used — SIRF ek baar
+          ...(firstFree && {firstDelUsed:true}),
         },{merge:true});
+        // Local state bhi update karo — dobara free nahi milegi
+        if(firstFree){
+          setFirstDelUsed(true);
+          setIsFirstOrder(false);
+        }
       }catch(pe){console.log('Points save err:',pe);}
     }
     setUsePoints(false);
@@ -1680,11 +1703,19 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   // ── Derived cart totals (component-level so all JSX can access them) ──
   const sub = cart.reduce((s,i)=>s+(i.price||0)*i.qty, 0);
   const isBulkCart = cart.some(i=>(i.cat||'').toLowerCase().includes('bulk')||(i.name||'').toLowerCase().includes('bulk')||(i.chip||'').toLowerCase().includes('bulk'));
-  const del = isBulkCart ? 100 : 10;
+  // First order free delivery (sub >= ₹99 aur pehla order ho)
+  const firstOrderDelFree = isFirstOrder && !firstDelUsed && sub>=99;
+  const del = isBulkCart ? 100 : firstOrderDelFree ? 0 : 10;
 
   const showNav = navScrs.includes(scr)&&!shCart&&!track&&!selP;
   const showFC  = cart.length>0&&navScrs.includes(scr)&&!shCart&&!track&&!selP;
-  useEffect(()=>{if(!shCart){setCkStep(1);}},[shCart]);
+  useEffect(()=>{
+    if(!shCart){setCkStep(1);}
+    // Cart kholne pe first order popup dikhao — sirf ek baar
+    if(shCart && isFirstOrder && !firstDelUsed && !showFirstPopup){
+      setTimeout(()=>setShowFirstPopup(true), 400);
+    }
+  },[shCart]);
 
   const renderScr=()=>{
     if(track) return (
@@ -1696,6 +1727,34 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     if(shCart) return (
       <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
         <SBar/>
+
+        {/* 🎉 FIRST ORDER FREE DELIVERY POPUP */}
+        {showFirstPopup&&(
+          <div style={{position:'absolute',inset:0,zIndex:999,background:'rgba(0,0,0,.75)',backdropFilter:'blur(6px)',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+            <div style={{background:'linear-gradient(145deg,#060D06,#0A1A0A)',border:'1.5px solid rgba(212,175,55,.4)',borderRadius:28,padding:30,maxWidth:340,width:'100%',textAlign:'center',boxShadow:'0 0 80px rgba(212,175,55,.2)',animation:'fadeUp .4s ease'}}>
+              <div style={{fontSize:52,marginBottom:12}}>🎁</div>
+              <div style={{fontSize:9,fontWeight:800,color:'#D4AF37',letterSpacing:2,marginBottom:8,textTransform:'uppercase'}}>पहला ऑर्डर ऑफर</div>
+              <div style={{fontSize:22,fontWeight:900,color:'#fff',marginBottom:10,lineHeight:1.3}}>
+                {isHi?'पहली डिलीवरी बिल्कुल FREE! 🚴':'First Delivery Absolutely FREE! 🚴'}
+              </div>
+              <div style={{fontSize:13,color:'rgba(240,255,244,.5)',marginBottom:20,lineHeight:1.7}}>
+                {isHi
+                  ?'₹99 या उससे ज़्यादा के ऑर्डर पर पहली डिलीवरी मुफ़्त। यह ऑफर सिर्फ आपके पहले ऑर्डर पर है!'
+                  :'On orders above ₹99 — your first delivery is on us! This offer is valid only on your first order.'}
+              </div>
+              <div style={{background:'rgba(212,175,55,.08)',border:'1px solid rgba(212,175,55,.2)',borderRadius:12,padding:'10px 16px',marginBottom:20,fontSize:12,color:'#D4AF37'}}>
+                {sub>=99
+                  ?<span style={{color:'#3DFF7A',fontWeight:700}}>✅ {isHi?`आपका ऑर्डर ₹${sub} का है — Free Delivery Apply!`:`Your order ₹${sub} — Free Delivery Applied!`}</span>
+                  :<span>{isHi?`₹${99-sub} और जोड़ें — Free Delivery पाएं 🎯`:`Add ₹${99-sub} more for Free Delivery 🎯`}</span>
+                }
+              </div>
+              <button onClick={()=>setShowFirstPopup(false)} style={{width:'100%',padding:'14px',background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#040906',fontWeight:900,fontSize:15,borderRadius:14,border:'none',cursor:'pointer',fontFamily:fam}}>
+                {isHi?'समझ गया, ऑर्डर करते हैं! 🛒':'Got it, let\'s order! 🛒'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{padding:'4px 20px 12px',display:'flex',alignItems:'center',gap:12}}>
           <BBtn onClick={()=>setShCart(false)}/>
           <div><div style={{fontSize:18,fontWeight:800}}>{t.myBasket}</div><div style={{fontSize:12,color:'var(--t3)'}}>{cart.reduce((s,i)=>s+i.qty,0)} {t.items}</div></div>
@@ -1745,7 +1804,20 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       )}
       <div style={{background:'rgba(61,255,122,.06)',border:'1px solid rgba(61,255,122,.14)',borderRadius:14,padding:'12px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
         <Ic n="truck" s={16} c="#3DFF7A"/>
-        <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>{del===0?'🎉 '+t.free:`🚚 Delivery: ₹${del}`}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,color:'#3DFF7A',fontWeight:600}}>
+            {del===0&&firstOrderDelFree
+              ?'🎉 पहली डिलीवरी FREE!'
+              :del===0?'🎉 '+t.free
+              :`🚚 Delivery: ₹${del}`}
+          </div>
+          {isFirstOrder&&!firstDelUsed&&sub<99&&del!==0&&(
+            <div style={{fontSize:10,color:'#D4AF37',marginTop:2}}>
+              💡 ₹{99-sub} aur jodo — pehli delivery FREE!
+            </div>
+          )}
+        </div>
+        {del===0&&firstOrderDelFree&&<div style={{background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#040906',fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:50,letterSpacing:.5}}>1ST ORDER</div>}
       </div>
       {(()=>{
         const sub2=cart.reduce((s,i)=>s+i.price*i.qty,0);
