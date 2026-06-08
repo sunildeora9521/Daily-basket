@@ -1465,7 +1465,7 @@ function CustomerApp({user, lang, setLang, data, setData, theme, setTheme}) {
     return()=>{try{unsub();}catch(e){}};
   },[user]);
 
-  // Load riders globally for login
+// ✅ Global riders loader - permanent login fix
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'riders'),snap=>{
       const rds=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
@@ -1474,7 +1474,7 @@ function CustomerApp({user, lang, setLang, data, setData, theme, setTheme}) {
     return()=>unsub();
   },[]);
 
-  // Load shops globally for login
+  // ✅ Global shops loader - permanent login fix
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'shops'),snap=>{
       const shs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
@@ -3002,7 +3002,7 @@ function LoginForm({color,icon,role,cred,onLogin,onBack,hint}) {
   const [id,setId]=useState('');const [pass,setPass]=useState('');const [show,setShow]=useState(false);
   const [err,setErr]=useState('');const [load,setLoad]=useState(false);
   const rgb={'#3DFF7A':'61,255,122','#00C44F':'0,196,79','#D4AF37':'212,175,55','#FF8C42':'255,140,66'}[color]||'61,255,122';
-  const attempt=()=>{setErr('');const ok=cred(id.trim(),pass);if(!ok){setErr('Invalid credentials or account disabled.');return;}setLoad(true);setTimeout(()=>onLogin(ok),1000);};
+  const attempt=()=>{setErr('');const ok=cred(id.trim(),pass.trim());if(!ok){setErr('Invalid credentials or account disabled.');return;}setLoad(true);setTimeout(()=>onLogin(ok),1000);};
   return (
     <div style={{position:'absolute',inset:0,background:`radial-gradient(ellipse at 30% 10%,rgba(${rgb},.04),#070907)`,display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <SBar/><div style={{padding:'2px 20px 0'}}><div style={{display:'inline-flex',alignItems:'center',gap:8,cursor:'pointer',padding:'6px 0'}} onClick={onBack}><Ic n="back" s={16} c="#5A6A5A"/><span style={{fontSize:13,color:'var(--t3)',fontWeight:600}}>Back</span></div></div>
