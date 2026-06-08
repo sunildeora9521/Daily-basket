@@ -1465,6 +1465,24 @@ function CustomerApp({user, lang, setLang, data, setData, theme, setTheme}) {
     return()=>{try{unsub();}catch(e){}};
   },[user]);
 
+  // Load riders globally for login
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'riders'),snap=>{
+      const rds=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+      setData(d=>({...d,riders:rds}));
+    },()=>{});
+    return()=>unsub();
+  },[]);
+
+  // Load shops globally for login
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'shops'),snap=>{
+      const shs=snap.docs.map(d=>({...d.data(),firestoreId:d.id}));
+      setData(d=>({...d,shops:shs}));
+    },()=>{});
+    return()=>unsub();
+  },[]);
+
   // Sync products from Firestore live (single source of truth)
   useEffect(()=>{
     let unsub=()=>{};
