@@ -1596,7 +1596,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
 
   useEffect(()=>{
     try {
-      requestNotificationPermission();
+      requestNotificationPermission('customers');
       onMessage(messaging, payload => {
         console.log('Notification:', payload);
       });
@@ -3043,6 +3043,10 @@ function RiderApp({rider,data,setData,onBack}) {
   const prevAvailCount=useRef(0);
   const fam="'Outfit',sans-serif";
 
+  // Subscribe this device to 'riders' topic for order-packed push
+  useEffect(()=>{
+    try{requestNotificationPermission('riders');}catch(e){}
+  },[]);
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'orders'),snap=>{
       const orders=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
@@ -3327,6 +3331,10 @@ function ShopApp({shop,data,setData,onBack}) {
   const [realOrders,setRealOrders]=useState([]);
   const fam="'Outfit',sans-serif";
 
+  // Subscribe this device to 'shops' topic for new order push
+  useEffect(()=>{
+    try{requestNotificationPermission('shops');}catch(e){}
+  },[]);
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'orders'),snap=>{
       setRealOrders(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)));
@@ -4175,6 +4183,8 @@ function AdminApp({data,setData,onBack}) {
                       addDoc(collection(db,'notifications'),{userId:uid,title,body,broadcast:true,read:false,createdAt:serverTimestamp()})
                     ));
                   }
+                  // Real push notification (with sound) to all customer devices
+                  try{ await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'customers',title,body})}); }catch(ne){}
                   setNotifForm({title:'',body:''});
                   setSendNotifOpen(false);
                   alert('✅ Notification sent to '+(userIds.length||'all')+' users!');
