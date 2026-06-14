@@ -211,7 +211,7 @@ function ThemePicker({theme, setTheme, onClose, isHi}) {
 const T = {
   en: {
     home:'Home', combos:'Combos', food:'Food', eco:'Eco', profile:'Profile',
-    goodMorning:'Good morning 👋', freshVeggies:'Fresh Veggies\nDelivered Daily',
+    goodMorning:'Good morning 👋', goodAfternoon:'Good afternoon 👋', goodEvening:'Good evening 👋', goodNight:'Good night 👋', freshVeggies:'Fresh Veggies\nDelivered Daily',
     shopNow:'Shop Now →', bestSellers:'Best Sellers', seeAll:'See all',
     categories:'Categories', all:'All', veggies:'Veggies', fruits:'Fruits',
     dairy:'Dairy', addToCart:'Add to Cart', addedToCart:'✓ Added to Basket!',
@@ -235,7 +235,7 @@ const T = {
   },
   hi: {
     home:'होम', combos:'कॉम्बो', food:'खाना', eco:'इको', profile:'प्रोफाइल',
-    goodMorning:'शुभ प्रभात 👋', freshVeggies:'ताजी सब्जियां\nघर पर डिलीवरी',
+    goodMorning:'शुभ प्रभात 👋', goodAfternoon:'शुभ दिन 👋', goodEvening:'शुभ संध्या 👋', goodNight:'शुभ रात्रि 👋', freshVeggies:'ताजी सब्जियां\nघर पर डिलीवरी',
     shopNow:'अभी खरीदें →', bestSellers:'बेस्ट सेलर', seeAll:'सभी देखें',
     categories:'श्रेणियां', all:'सभी', veggies:'सब्जियां', fruits:'फल',
     dairy:'डेयरी', addToCart:'कार्ट में जोड़ें', addedToCart:'✓ टोकरी में जोड़ा!',
@@ -258,6 +258,13 @@ const T = {
     forFreeDelivery:' और जोड़ें', welcomeBack:'वापसी पर स्वागत है! 👋',
   }
 };
+function getGreetingKey() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return 'goodMorning';
+  if (h >= 12 && h < 17) return 'goodAfternoon';
+  if (h >= 17 && h < 21) return 'goodEvening';
+  return 'goodNight';
+      }
 
 /* ═══════════ DATA ═══════════ */
 const ADMIN_ID = 'Sunil14581';
@@ -2017,7 +2024,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       <div style={{paddingBottom:168,fontFamily:fam}}>
         <SBar/>
         <div style={{padding:'4px 20px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div><div style={{fontSize:13,color:'var(--t3)',fontWeight:500}}>{t.goodMorning}, {user&&user.name&&user.name.split(' ')[0]}!</div><div style={{fontSize:22,fontWeight:800}}>Daily Basket</div></div>
+          <div><div style={{fontSize:13,color:'var(--t3)',fontWeight:500}}>{t[getGreetingKey()]}, {user&&user.name&&user.name.split(' ')[0]}!</div><div style={{fontSize:22,fontWeight:800}}>Daily Basket</div></div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
             <div onClick={()=>setShNotif(n=>!n)} style={{width:40,height:40,borderRadius:12,background:shNotif?'rgba(61,255,122,.15)':'var(--glass)',backdropFilter:'blur(10px)',border:`1px solid ${shNotif?'rgba(61,255,122,.5)':'var(--gb)'}`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',transition:'all .2s'}}>
               <Ic n="bell" s={18} c={shNotif?'#3DFF7A':'var(--t3)'}/>
