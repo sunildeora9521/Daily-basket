@@ -1661,7 +1661,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     });
     // Push notification to admin/shop - order placed
     try{
-      await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'shops',title:'🛒 Naya Order!',body:`${userName} ne ₹${total} ka order kiya`})});
+      await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'shops',title:'🛒 Naya Order! / नया ऑर्डर मिला है',body:`${userName} ne ₹${total} ka order kiya / ${userName} ने ₹${total} का ऑर्डर किया है`})});
     }catch(ne){console.log('Push skipped:',ne);}
     const earned=Math.floor(total/10);
     const newPoints=usePoints?Math.max(0,points-(Math.floor(points/10)*10))+earned:points+earned;
@@ -3358,22 +3358,28 @@ function ShopApp({shop,data,setData,onBack}) {
     return new Date(o.createdAt.seconds*1000).toDateString()===new Date().toDateString()&&o.status==='delivered'&&matchesShop(o);
   }).reduce((s,o)=>s+(o.total||0),0);
 
-  // Step 1: Confirm order (shop ne dekha)
-  const confirmO=async id=>{
-    try{ await updateDoc(doc(db,'orders',id),{status:'confirmed',confirmedAt:serverTimestamp(),shopId:shop.id,shopName:shop.name}); }
-    catch(e){alert('Error: '+e.message);}
-  };
-  // Step 2: Mark as Packed → Rider auto-notified
-  const packO=async id=>{
+// Step 1: Confirm order (shop ne dekha) → customer ko notification
+  const confirmO=async o=>{
     try{
-      await updateDoc(doc(db,'orders',id),{status:'packed',packedAt:serverTimestamp()});
-      // Push to riders
-      try{ await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'riders',title:'📦 Order Ready for Pickup!',body:'Ek order pack ho gaya. Abhi pickup karo!'})}); }catch(ne){}
+      await updateDoc(doc(db,'orders',o.id),{status:'confirmed',confirmedAt:serverTimestamp(),shopId:shop.id,shopName:shop.name});
+      try{
+        await addDoc(collection(db,'notifications'),{
+          userId:o.userId,
+          title:'✅ Order Confirmed / ऑर्डर कन्फर्म',
+          body:'Your order is confirmed! / आपका ऑर्डर कन्फर्म हो गया है 🎉',
+          read:false,
+          createdAt:serverTimestamp()
+        });
+      }catch(ne){}
     }
     catch(e){alert('Error: '+e.message);}
   };
-  const rejectO=async id=>{
-    try{ await updateDoc(doc(db,'orders',id),{status:'rejected',rejectedAt:serverTimestamp(),shopId:shop.id}); }
+  // Step 2: Mark as Packed → Rider auto-notified
+  const packO=async o=>{
+    try{
+      await updateDoc(doc(db,'orders',o.id),{status:'packed',packedAt:serverTimestamp()});
+      try{ await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'riders',title:'📦 Order Ready for Pickup! / पिकअप के लिए तैयार',body:'Ek order pack ho gaya, abhi pickup karo! / एक ऑर्डर पैक हो गया है, उठा लो!'})}); }catch(ne){}
+    }
     catch(e){alert('Error: '+e.message);}
   };
 
