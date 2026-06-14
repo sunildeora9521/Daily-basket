@@ -26,7 +26,7 @@ try {
 }
 export { messaging };
 
-export const requestNotificationPermission = async () => {
+export const requestNotificationPermission = async (topic) => {
   try {
     if (!messaging) return null;
     const permission = await Notification.requestPermission();
@@ -35,6 +35,15 @@ export const requestNotificationPermission = async () => {
         vapidKey: 'BHhAER8KU6I-KU-o8HoeaTVfRsIEn4OmvmzuYcF5VGYJUgOmeoVpNnHAU2YhxUz-m0XLbY1EXLC8jn_RqeRx3U4'
       });
       console.log('FCM Token:', token);
+      if (token && topic) {
+        try {
+          await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ token, topic })
+          });
+        } catch(e) { console.log('Subscribe error:', e); }
+      }
       return token;
     }
   } catch(err) {
