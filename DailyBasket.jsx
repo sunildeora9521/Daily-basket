@@ -3403,10 +3403,10 @@ function ShopApp({shop,data,setData,onBack}) {
       {o.address&&<div style={{fontSize:11,color:'var(--t3)',marginBottom:8}}>📍 {o.address}</div>}
       <div style={{fontSize:11,color:'#D4AF37',fontWeight:600,marginBottom:10}}>{o.payMethod==='cod'?'💵 Cash on Delivery':'📱 UPI Paid'}</div>
       {showConfirm&&<div style={{display:'flex',gap:8}}>
-        <button className="btn rip" onClick={()=>confirmO(o.id)} style={{flex:2,padding:'10px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>✅ Confirm Order</button>
+        <button className="btn rip" onClick={()=>confirmO(o)} style={{flex:2,padding:'10px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>✅ Confirm Order</button>
         <button onClick={()=>rejectO(o.id)} style={{flex:1,padding:'10px',fontSize:12,borderRadius:12,background:'rgba(255,107,107,.1)',color:'#FF6B6B',border:'1px solid rgba(255,107,107,.3)',cursor:'pointer',fontFamily:fam}}>❌ Reject</button>
       </div>}
-      {showPack&&<button className="btn rip" onClick={()=>packO(o.id)} style={{width:'100%',padding:'11px',fontSize:13,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A'}}>📦 Mark as Packed → Rider ko bhejo</button>}
+      {showPack&&<button className="btn rip" onClick={()=>packO(o)} style={{width:'100%',padding:'11px',fontSize:13,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',color:'#0A1A0A'}}>📦 Mark as Packed → Rider ko bhejo</button>}
       {o.status==='packed'&&<div style={{padding:'10px',textAlign:'center',color:'#3DC8FF',fontSize:12,fontWeight:700,background:'rgba(61,200,255,.06)',borderRadius:10}}>🚴 Rider assign ho raha hai...</div>}
     </div>
   );
