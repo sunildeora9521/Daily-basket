@@ -1257,6 +1257,12 @@ function LocationScreen({user, onAllow, onSkip}) {
 
   const allow=()=>{
     setRequesting(true);
+    try{ requestNotificationPermission('customers'); }catch(e){}
+    try{
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, {timeout:5000});
+      }
+    }catch(e){}
     setTimeout(onAllow, 1200);
   };
 
