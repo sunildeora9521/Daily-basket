@@ -1257,9 +1257,9 @@ function LocationScreen({user, onAllow, onSkip}) {
 
   const allow=()=>{
     setRequesting(true);
-    try{
-      requestNotificationPermission('customers').then(token=>{
-        if(token) alert('✅ Push token mila: '+token.slice(0,20)+'...');
+try{
+      requestNotificationPermission('customers').then(res=>{
+        if(res&&res.token) alert('✅ Token: '+res.token.slice(0,15)+'...\nSubscribe: '+res.subStatus);
         else alert('❌ Push token nahi mila (permission/SW issue)');
       }).catch(e=>alert('❌ Token error: '+e.message));
     }catch(e){alert('❌ Error: '+e.message);}
@@ -4197,7 +4197,12 @@ function AdminApp({data,setData,onBack}) {
                     ));
                   }
                   // Real push notification (with sound) to all customer devices
-                  try{ await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'customers',title,body})}); }catch(ne){}
+                  try{
+                    const pushRes=await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'customers',title,body})});
+                    const pushData=await pushRes.json();
+                    console.log('Push result:',pushData);
+                    if(!pushRes.ok||pushData.error){ alert('⚠️ Push error: '+(pushData.error||pushRes.status)); }
+                  }catch(ne){ alert('⚠️ Push fetch error: '+ne.message); }
                   setNotifForm({title:'',body:''});
                   setSendNotifOpen(false);
                   alert('✅ Notification sent to '+(userIds.length||'all')+' users!');
