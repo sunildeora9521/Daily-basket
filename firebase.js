@@ -35,16 +35,22 @@ export const requestNotificationPermission = async (topic) => {
         vapidKey: 'BHhAER8KU6I-KU-o8HoeaTVfRsIEn4OmvmzuYcF5VGYJUgOmeoVpNnHAU2YhxUz-m0XLbY1EXLC8jn_RqeRx3U4'
       });
       console.log('FCM Token:', token);
+
+      let subStatus = 'skipped';
       if (token && topic) {
         try {
-          await fetch('/api/subscribe', {
+          const subRes = await fetch('/api/subscribe', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ token, topic })
           });
-        } catch(e) { console.log('Subscribe error:', e); }
+          const subData = await subRes.json();
+          subStatus = subRes.ok ? 'ok' : ('error: ' + (subData.error || subRes.status));
+        } catch(e) {
+          subStatus = 'fetch error: ' + e.message;
+        }
       }
-      return token;
+      return { token, subStatus };
     }
   } catch(err) {
     console.log('Notification error:', err);
