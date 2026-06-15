@@ -1257,7 +1257,12 @@ function LocationScreen({user, onAllow, onSkip}) {
 
   const allow=()=>{
     setRequesting(true);
-    try{ requestNotificationPermission('customers'); }catch(e){}
+    try{
+      requestNotificationPermission('customers').then(token=>{
+        if(token) alert('✅ Push token mila: '+token.slice(0,20)+'...');
+        else alert('❌ Push token nahi mila (permission/SW issue)');
+      }).catch(e=>alert('❌ Token error: '+e.message));
+    }catch(e){alert('❌ Error: '+e.message);}
     try{
       if(navigator.geolocation){
         navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, {timeout:5000});
