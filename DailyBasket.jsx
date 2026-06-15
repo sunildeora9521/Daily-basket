@@ -1585,12 +1585,14 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     });
   },[user?.uid]);
 
-  useEffect(()=>{
+useEffect(()=>{
     let unsub=()=>{};
     try{
+      const myUid=user?.uid||auth.currentUser?.uid;
       unsub=onSnapshot(collection(db,'notifications'),snap=>{
         try{
           const notifs=snap.docs.map(d=>({id:d.id,...d.data()}))
+            .filter(n=>n.userId?n.userId===myUid:true)
             .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))
             .slice(0,20);
           setDbNotifs(notifs);
@@ -1598,7 +1600,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
       });
     }catch(e){console.log('notif2 err:',e);}
     return()=>{try{unsub();}catch(e){}};
-  },[]);
+  },[user?.uid]);
 
   useEffect(()=>{
     try {
