@@ -40,7 +40,7 @@ html,body{background:#070907;}body{font-family:'Outfit',sans-serif;color:var(--t
 @keyframes checkAnim{0%{stroke-dashoffset:60}100%{stroke-dashoffset:0}}
 @keyframes ringExpand{0%{transform:scale(.6);opacity:1}100%{transform:scale(2.2);opacity:0}}
 
-.gc{background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--gb);border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.05);}
+.gc{background:linear-gradient(135deg,var(--glass),rgba(255,255,255,.02));backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid var(--gb);border-radius:22px;box-shadow:0 8px 32px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(0,0,0,.18);transition:background .4s ease,border-color .4s ease,box-shadow .4s ease;}
 .btn{background:linear-gradient(135deg,var(--btn1,#3DFF7A),var(--btn2,#00C44F));color:var(--btnTxt,#0A1A0A);font-weight:700;font-size:15px;border:none;border-radius:50px;cursor:pointer;box-shadow:0 4px 20px var(--shadow,rgba(61,255,122,.35));transition:all .2s cubic-bezier(.34,1.56,.64,1);font-family:'Outfit',sans-serif;}
 .btn:active{transform:scale(.94);}
 .btng{background:var(--glass);backdrop-filter:blur(10px);border:1px solid var(--gb);color:var(--t);font-weight:600;font-size:13px;border-radius:50px;cursor:pointer;font-family:'Outfit',sans-serif;}
@@ -69,7 +69,7 @@ html,body{background:#070907;}body{font-family:'Outfit',sans-serif;color:var(--t
 .tog.on{background:linear-gradient(135deg,#3DFF7A,#00C44F);}.tog.on::after{left:25px;box-shadow:0 0 8px rgba(61,255,122,.5);}
 .tog:not(.on){background:rgba(255,255,255,.12);}.tog:not(.on)::after{left:3px;}
 .ovl{position:absolute;inset:0;background:rgba(0,0,0,.75);z-index:300;animation:overlayI .25s ease;display:flex;align-items:flex-end;}
-.modal{width:100%;background:linear-gradient(180deg,#0E160E,#070907);border-radius:28px 28px 0 0;border-top:1px solid rgba(61,255,122,.15);padding:22px 20px 60px;animation:modalUp .32s cubic-bezier(.34,1.2,.64,1) both;max-height:85vh;overflow-y:scroll;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+.modal{width:100%;background:linear-gradient(180deg,var(--card),var(--bg));border-radius:28px 28px 0 0;border-top:1px solid var(--gb);padding:22px 20px 60px;animation:modalUp .32s cubic-bezier(.34,1.2,.64,1) both;max-height:85vh;overflow-y:scroll;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;box-shadow:0 -12px 48px rgba(0,0,0,.5);}
 
 /* ── GOLD PREMIUM OVERRIDES ── */
 [style*="--bg:#050400"] .gc, [style*="050400"] .gc{border-color:rgba(255,215,0,.18) !important;background:linear-gradient(135deg,rgba(255,215,0,.06),rgba(20,16,0,1)) !important;}
@@ -101,6 +101,21 @@ const THEMES = {
     desc:'Clean white theme', descHi:'सफेद लाइट थीम',
     vars:{'--bg':'#F2F5F2','--card':'#FFFFFF','--green':'#00A843','--g2':'#007830','--gdim':'#E8F5EC','--gold':'#C49A20','--glass':'rgba(0,168,67,.06)','--gb':'rgba(0,168,67,.16)','--t':'#1A2A1A','--t2':'#4A6A4A','--t3':'#8A9A8A','--btn1':'#00A843','--btn2':'#007830','--btnTxt':'#FFFFFF','--shadow':'rgba(0,168,67,.3)'},
   },
+  ocean:   {
+    name:'Midnight Ocean', nameHi:'मिडनाइट ओशन', icon:'🌊',
+    desc:'Deep blue neon glow', descHi:'गहरा नीला निओन',
+    vars:{'--bg':'#04070D','--card':'#0A1220','--green':'#38BDF8','--g2':'#0EA5E9','--gdim':'#0C1E33','--gold':'#7DD3FC','--glass':'rgba(56,189,248,.06)','--gb':'rgba(56,189,248,.18)','--t':'#EAF4FF','--t2':'#89A6C4','--t3':'#556B85','--btn1':'#38BDF8','--btn2':'#0EA5E9','--btnTxt':'#03121F','--shadow':'rgba(56,189,248,.35)'},
+  },
+  sunset:  {
+    name:'Sunset Blaze', nameHi:'सनसेट ब्लेज', icon:'🌅',
+    desc:'Warm orange & rose', descHi:'गरम नारंगी गुलाबी',
+    vars:{'--bg':'#100604','--card':'#1B0D08','--green':'#FF7A45','--g2':'#F43F5E','--gdim':'#2A130C','--gold':'#FBBF24','--glass':'rgba(255,122,69,.07)','--gb':'rgba(255,122,69,.2)','--t':'#FFF1E8','--t2':'#D8A48A','--t3':'#8A6152','--btn1':'#FF7A45','--btn2':'#F43F5E','--btnTxt':'#1A0A04','--shadow':'rgba(255,122,69,.4)'},
+  },
+  violet:  {
+    name:'Royal Violet', nameHi:'रॉयल वायлेट', icon:'🔮',
+    desc:'Luxe purple aura', descHi:'बैंगनी लग्ररी',
+    vars:{'--bg':'#0A0612','--card':'#140C22','--green':'#A78BFA','--g2':'#8B5CF6','--gdim':'#1E1236','--gold':'#C4B5FD','--glass':'rgba(167,139,250,.07)','--gb':'rgba(167,139,250,.2)','--t':'#F3EEFF','--t2':'#A99CC4','--t3':'#6B5D85','--btn1':'#A78BFA','--btn2':'#8B5CF6','--btnTxt':'#0F0720','--shadow':'rgba(167,139,250,.4)'},
+  },
 };
 
 function getThemeStyle(th) {
@@ -111,6 +126,15 @@ function getThemeStyle(th) {
     base.boxShadow = '0 0 80px rgba(255,215,0,.15), inset 0 0 120px rgba(255,215,0,.03)';
   } else if(th==='light') {
     base.background = '#F2F5F2';
+  } else if(th==='ocean') {
+    base.background = 'radial-gradient(ellipse at 25% 15%, #0A1A2F 0%, #04070D 55%, #061224 100%)';
+    base.boxShadow = '0 0 80px rgba(56,189,248,.12), inset 0 0 120px rgba(56,189,248,.03)';
+  } else if(th==='sunset') {
+    base.background = 'radial-gradient(ellipse at 25% 12%, #2A130C 0%, #100604 55%, #1B0D08 100%)';
+    base.boxShadow = '0 0 80px rgba(255,122,69,.14), inset 0 0 120px rgba(255,122,69,.03)';
+  } else if(th==='violet') {
+    base.background = 'radial-gradient(ellipse at 25% 15%, #1E1236 0%, #0A0612 55%, #140C22 100%)';
+    base.boxShadow = '0 0 80px rgba(167,139,250,.14), inset 0 0 120px rgba(167,139,250,.03)';
   }
   return base;
 }
@@ -269,6 +293,8 @@ function getGreetingKey() {
 /* ═══════════ DATA ═══════════ */
 const ADMIN_ID = 'Sunil14581';
 const ADMIN_PASS = 'Sunil@$14581';
+const ADMIN_EMAIL = 'dailybasketjodhpur@gmail.com'; // admin OTP yahan aayega (email zaroor)
+const ADMIN_PHONE = '6375565339';                 // SMS optional (fail ho to email se chalega)
 const DEMO_OTP = '123456';
 const mkData = () => ({
   products:[
@@ -561,6 +587,18 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod', isHi=false})
         <button onClick={getGPS} disabled={gpsLoading} style={{width:'100%',padding:'14px',borderRadius:14,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:14,cursor:'pointer',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
           {gpsLoading?(isHi?'📡 लोकेशन मिल रही है...':'📡 Getting location...'):(gpsCoords?`✅ GPS Active (±${gpsCoords.accuracy}m) — ${isHi?'दोबारा लें?':'Retake?'}`:(isHi?'📍 वर्तमान स्थान (GPS)':'📍 Use Current Location (GPS)'))}
         </button>
+
+        {/* Live map preview — customer ko apni exact location dikhti hai */}
+        {gpsCoords&&(
+          <div style={{marginBottom:14,borderRadius:16,overflow:'hidden',border:'1px solid var(--gb)',boxShadow:'0 6px 24px rgba(0,0,0,.3)'}}>
+            <iframe title="location-map" width="100%" height="170" loading="lazy" style={{border:0,display:'block',filter:'saturate(1.1)'}}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${gpsCoords.lng-0.003}%2C${gpsCoords.lat-0.003}%2C${gpsCoords.lng+0.003}%2C${gpsCoords.lat+0.003}&layer=mapnik&marker=${gpsCoords.lat}%2C${gpsCoords.lng}`}/>
+            <div style={{padding:'9px 13px',background:'var(--card)',fontSize:12,color:'var(--t2)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span>📍 {isHi?'आपकी सटीक लोकेशन':'Your exact location'} (±{gpsCoords.accuracy}m)</span>
+              <a href={`https://www.google.com/maps?q=${gpsCoords.lat}%2C${gpsCoords.lng}`} target="_blank" rel="noreferrer" style={{color:'#3DFF7A',fontWeight:600,textDecoration:'none'}}>{isHi?'मैप में खोलें':'Open in Maps'} →</a>
+            </div>
+          </div>
+        )}
 
         {/* Manual Address Input */}
         <div style={{marginBottom:16}}>
@@ -1473,7 +1511,8 @@ function CustomerApp({user, lang, setLang, data, setData, theme, setTheme}) {
               const n=ch.doc.data();
               if((n.userId===uid||n.broadcast===true)&&!n.read){
                 try{if(Notification.permission==='granted') new Notification(n.title||'Daily Basket 🛒',{body:n.body||'',icon:'/icon-192.png'});}catch(e){}
-                updateDoc(doc(db,'notifications',ch.doc.id),{read:true}).catch(()=>{});
+                // FIX: only mark user-targeted notifs read. Marking a broadcast read here hid it from every other user.
+                if(n.userId===uid) updateDoc(doc(db,'notifications',ch.doc.id),{read:true}).catch(()=>{});
               }
             }
           });
@@ -1543,7 +1582,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   // Load slides from Firestore - with defaults if empty
   useEffect(()=>{
     const defaultSlides=[
-      {id:'d1',bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:isHi?'🌱 इको फ्रेंडली':'🌱 Eco Friendly',title:isHi?'ताजी सब्जियां रोज':'Fresh Veggies Daily',sub:isHi?'खेत से दरवाजे तक · भोपालगढ़':'Farm to doorstep · Bhopalgarh',btn:isHi?'खरीदें':'Shop Now',link:''},
+      {id:'d1',bg:'linear-gradient(135deg,#0D2010,#0A180A)',emoji:'🥦',chip:isHi?'🌱 इको फ्रेंडली':'🌱 Eco Friendly',title:isHi?'ताजी सब्जियां रोज':'Fresh Veggies Daily',sub:isHi?'खेत से दरवाजे तक · भोप���लगढ़':'Farm to doorstep · Bhopalgarh',btn:isHi?'खरीदें':'Shop Now',link:''},
       {id:'d2',bg:'linear-gradient(135deg,#1A1000,#0A0800)',emoji:'📢',chip:isHi?'💼 यहाँ विज्ञापन दें':'💼 Advertise Here',title:isHi?'अपना व्यापार बढ़ाएं':'Grow Your Business',sub:isHi?'Daily Basket के साथ जुड़ें':'Join Daily Basket today',btn:isHi?'संपर्क करें':'Contact Us',link:'https://wa.me/916375565339'},
     ];
     const unsub=onSnapshot(collection(db,'adSlides'),snap=>{
@@ -2808,7 +2847,7 @@ function EcoScr({t,fam,isHi,user,points=0}) {
 
       <div style={{margin:'12px 16px 0',padding:'12px 16px',background:'linear-gradient(135deg,rgba(61,255,122,.03),rgba(212,175,55,.015))',border:'1px solid rgba(61,255,122,.06)',borderRadius:16,textAlign:'center'}}>
         <div style={{fontSize:12,color:'var(--t3)',lineHeight:1.6}}>
-          {orderCount===0?(isHi?'🌱 पहला ऑर्डर दो और बगीचा उगाओ!':'🌱 Grow your cinematic garden with every order!'):(isHi?`🌍 ${orderCount} orders में प्रकृति बचाई! बगीचा जीवंत है!`:`🌍 ${orderCount} orders — your garden is alive and growing!`)}
+          {orderCount===0?(isHi?'🌱 ��हला ऑर्डर दो और बगीचा उगाओ!':'🌱 Grow your cinematic garden with every order!'):(isHi?`🌍 ${orderCount} orders में प्रकृति बचाई! बगीचा जीवंत है!`:`🌍 ${orderCount} orders — your garden is alive and growing!`)}
         </div>
       </div>
     </div>
@@ -3340,7 +3379,7 @@ function RiderApp({rider,data,setData,onBack}) {
 
 function ShopApp({shop,data,setData,onBack}) {
   const [tab,setTab]=useState('orders');
-  const [isOpen,setIsOpen]=useState(shop.active||true);
+  const [isOpen,setIsOpen]=useState(shop.active!==false); // FIX: was (shop.active||true) which was always true
   const [realOrders,setRealOrders]=useState([]);
   const fam="'Outfit',sans-serif";
 
@@ -3404,6 +3443,23 @@ function ShopApp({shop,data,setData,onBack}) {
     catch(e){alert('Error: '+e.message);}
   };
 
+  // FIX: rejectO was called by the Reject button but never defined → crash.
+  const rejectO=async id=>{
+    if(!window.confirm('Reject this order?')) return;
+    try{
+      const o=realOrders.find(x=>x.id===id);
+      await updateDoc(doc(db,'orders',id),{status:'cancelled',cancelledAt:serverTimestamp(),shopId:shop.id});
+      try{
+        await addDoc(collection(db,'notifications'),{
+          userId:o?.userId,
+          title:'❌ Order Cancelled / ऑर्डर रद्द',
+          body:'Sorry, your order could not be accepted. / माफ़ करें, आपका ऑर्डर स्वीकार नहीं हुआ।',
+          read:false,
+          createdAt:serverTimestamp()
+        });
+      }catch(ne){}
+    }catch(e){alert('Error: '+e.message);}
+  };
   const OrderCard=({o,showConfirm,showPack})=>(
     <div className="gc" style={{padding:14,marginBottom:10,border:`2px solid ${o.status==='packed'?'rgba(61,255,122,.4)':o.status==='confirmed'?'rgba(212,175,55,.4)':'rgba(255,140,66,.25)'}`,animation:'fadeUp .3s ease both'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -3530,6 +3586,92 @@ function AdminModal({children,onClose}){
   },[]);
   return <div className="ovl" onClick={onClose} style={{alignItems:'flex-end'}}><div className="modal" ref={ref} onClick={e=>e.stopPropagation()}>{children}</div></div>;
 }
+/* ═══════════ ADMIN OTP VERIFICATION (email + mobile) ═══════════ */
+function AdminOTPScreen({onVerify, onBack}) {
+  const [otp,setOtp]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState('');
+  const [msg,setMsg]=useState('');
+  const [resend,setResend]=useState(0);
+  const [smsToken,setSmsToken]=useState('');
+
+  const send=async()=>{
+    setErr('');setMsg('');setLoading(true);
+    let emailSent=false;
+    const code=String(Math.floor(100000+Math.random()*900000));
+    try{
+      localStorage.setItem('db_admin_otp',code);
+      const ejsRes=await fetch('https://api.emailjs.com/api/v1.0/email/send',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','origin':'http://localhost'},
+        body:JSON.stringify({
+          service_id:'service_stnx9cf',
+          template_id:'template_1zx0d4g',
+          user_id:'d_7tKaWwZUPNIH54P',
+          accessToken:'dwdte_YEIdiFgSomNI1Pi',
+          template_params:{to_name:'Admin',otp_code:code,to_email:ADMIN_EMAIL}
+        })
+      });
+      if(ejsRes.ok) emailSent=true; else console.log('Admin EmailJS err:',await ejsRes.text());
+    }catch(e){console.log('Admin email err:',e);}
+    let tok='';
+    try{
+      const r=await fetch('/api/sendotp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:ADMIN_PHONE})});
+      const d=await r.json();
+      if(d.success) tok=d.token;
+    }catch(e){console.log('Admin SMS err:',e);}
+    setSmsToken(tok);
+    if(!emailSent&&!tok){setErr('OTP send nahi hua. Internet check karo.');setLoading(false);return;}
+    const maskedEmail=ADMIN_EMAIL.replace(/(.{2}).*(@.*)/,'$1***$2');
+    setMsg(emailSent?('✅ OTP email pe bheja: '+maskedEmail+(tok?' + 📱 SMS':'')):'✅ OTP SMS pe bheja');
+    setResend(30);setLoading(false);
+  };
+
+  const verify=async()=>{
+    if(otp.length!==6){setErr('6-digit OTP daalo');return;}
+    setLoading(true);setErr('');
+    let ok=false;
+    const saved=localStorage.getItem('db_admin_otp');
+    if(saved&&otp===saved){ok=true;localStorage.removeItem('db_admin_otp');}
+    if(!ok&&smsToken){
+      try{
+        const r=await fetch('/api/verifyotp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:smsToken,userOtp:otp})});
+        const d=await r.json();
+        if(d.success) ok=true;
+      }catch(e){console.log('Admin verify err:',e);}
+    }
+    setLoading(false);
+    if(ok){try{localStorage.setItem('db_admin','true');}catch(e){}onVerify();}
+    else setErr('❌ Galat OTP! Email ya SMS check karo.');
+  };
+
+  const onOtpChange=e=>{setOtp(e.target.value.replace(/\D/g,'').slice(0,6));setErr('');};
+
+  useEffect(()=>{send();},[]);
+  useEffect(()=>{if(resend<=0)return;const iv=setInterval(()=>setResend(r=>Math.max(0,r-1)),1000);return()=>clearInterval(iv);},[resend]);
+
+  return (
+    <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 30% 8%,rgba(255,140,66,.06),#070907 60%)',display:'flex',flexDirection:'column'}}>
+      <SBar/>
+      <div style={{padding:'14px 18px'}}>
+        <div onClick={onBack} style={{display:'inline-flex',alignItems:'center',gap:6,cursor:'pointer',color:'#8A9A8A',fontSize:14}}>← Back</div>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 28px'}}>
+        <div style={{fontSize:46,marginBottom:12}}>🔐</div>
+        <div style={{fontSize:25,fontWeight:800,color:'#fff',marginBottom:6}}>Admin Verification</div>
+        <div style={{fontSize:13,color:'#8A9A8A',marginBottom:18,lineHeight:1.5}}>Security ke liye OTP verify karo — email pe zaroor aayega, SMS optional hai.</div>
+        {msg&&<div style={{fontSize:12.5,color:'#3DFF7A',marginBottom:14,background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.2)',borderRadius:10,padding:'10px 12px'}}>{msg}</div>}
+        <input className="dbi" type="tel" inputMode="numeric" maxLength={6} placeholder="• • • • • •" value={otp} onChange={onOtpChange} style={{textAlign:'center',fontSize:26,letterSpacing:8,marginBottom:12,fontWeight:700}}/>
+        {err&&<div style={{color:'#FF6B6B',fontSize:13,marginBottom:12}}>{err}</div>}
+        <button className="btn rip" onClick={verify} disabled={loading} style={{width:'100%',padding:16,fontSize:15,background:'linear-gradient(135deg,#FF8C42,#F43F5E)',color:'#fff'}}>{loading?'⏳ Please wait...':'Verify & Enter Admin →'}</button>
+        <div style={{textAlign:'center',marginTop:18,fontSize:13,color:'#8A9A8A'}}>
+          {resend>0?<span>Resend in <strong style={{color:'#FF8C42'}}>{resend}s</strong></span>:<span style={{color:'#FF8C42',cursor:'pointer',fontWeight:600}} onClick={send}>Resend OTP ↺</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminApp({data,setData,onBack}) {
   const [tab,setTab]=useState('dash');
   const [pcTab,setPcTab]=useState('veg');
@@ -4585,6 +4727,7 @@ const [authReady, setAuthReady] = useState(false);
   const [riderU, setRiderU] = useState(()=>{try{const r=localStorage.getItem('db_rider');return r?JSON.parse(r):null;}catch(e){return null;}});
   const [shopU,  setShopU ] = useState(()=>{try{const s=localStorage.getItem('db_shop');return s?JSON.parse(s):null;}catch(e){return null;}});
   const [adminA, setAdminA] = useState(()=>{try{return localStorage.getItem('db_admin')==='true';}catch(e){return false;}});
+  const [adminOtp, setAdminOtp] = useState(false); // admin ne creds daale, ab OTP verify pending
 
   // Save portal sessions to localStorage
   useEffect(()=>{try{localStorage.setItem('db_portal',portal);}catch(e){}}, [portal]);
@@ -4619,7 +4762,10 @@ const [authReady, setAuthReady] = useState(false);
       if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>{const r=data.riders.find(r=>r.id===id&&r.pass===p&&r.active);return r||null;}} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>{const s=data.shops.find(s=>s.id===id&&s.pass===p&&s.active);return s||null;}} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='admin') {
-        if(!adminA) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminA(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
+        if(!adminA) {
+          if(!adminOtp) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminOtp(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
+          return <AdminOTPScreen onVerify={()=>{setAdminOtp(false);setAdminA(true);}} onBack={()=>setAdminOtp(false)}/>;
+        }
         return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}}/>;
       }
       if(portal==='help') return (
