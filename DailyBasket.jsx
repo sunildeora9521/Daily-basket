@@ -585,7 +585,7 @@ function AddressScreen({onBack, onConfirm, userId, payMethod='cod', isHi=false})
       </div>
       <div className="scr" style={{position:'relative',padding:'0 20px 100px'}}>
         <button onClick={getGPS} disabled={gpsLoading} style={{width:'100%',padding:'14px',borderRadius:14,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:14,cursor:'pointer',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-          {gpsLoading?(isHi?'📡 लोकेशन मिल रही है...':'📡 Getting location...'):(gpsCoords?`✅ GPS Active (±${gpsCoords.accuracy}m) — ${isHi?'दोबारा लें?':'Retake?'}`:(isHi?'📍 वर्तमान स्थान (GPS)':'📍 Use Current Location (GPS)'))}
+          {gpsLoading?(isHi?'📡 लोकेशन मिल र��ी है...':'📡 Getting location...'):(gpsCoords?`✅ GPS Active (±${gpsCoords.accuracy}m) — ${isHi?'दोबारा लें?':'Retake?'}`:(isHi?'📍 वर्तमान स्थान (GPS)':'📍 Use Current Location (GPS)'))}
         </button>
 
         {/* Live map preview — customer ko apni exact location dikhti hai */}
@@ -3024,33 +3024,43 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   ];
 
   return (
-    <div style={{paddingBottom:100,fontFamily:fam}}>
+    <div style={{minHeight:'100vh',paddingBottom:100}}>
       <SBar/>
-      <div style={{padding:'8px 20px 18px'}}><div style={{fontSize:22,fontWeight:800}}>{t.profile}</div></div>
-      <div style={{padding:'0 20px',marginBottom:14}}>
-        <div style={{background:'linear-gradient(135deg,#0D2010,#1A3320)',border:'1px solid rgba(61,255,122,.2)',borderRadius:24,padding:20}}>
-          <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:14}}>
-            <div style={{width:64,height:64,borderRadius:20,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,fontWeight:800,color:'#0A1A0A',boxShadow:'0 4px 20px rgba(61,255,122,.3)'}}>{(user&&user.name&&user.name[0])||'U'}</div>
-            <div><div style={{fontSize:18,fontWeight:800}}>{(user&&user.name)||'User'}</div><div style={{fontSize:13,color:'var(--t2)'}}>+91 {(user&&user.phone)||'XXXXXXXXXX'}</div>
-            {(()=>{const kg=orders.length*0.05+points*0.002;const ranks=[{min:0,max:1,label:'Seedling 🌱',labelHi:'अंकुर 🌱'},{min:1,max:5,label:'Sapling 🌿',labelHi:'पौधा 🌿'},{min:5,max:15,label:'Green Leaf 🍃',labelHi:'हरी पत्ती 🍃'},{min:15,max:50,label:'Tree Guardian 🌳',labelHi:'वृक्ष रक्षक 🌳'},{min:50,max:999,label:'Eco Champion 🏆',labelHi:'इको चैंपियन 🏆'}];const r=ranks.find(r=>kg>=r.min&&kg<r.max)||ranks[0];return<span style={{background:'rgba(212,175,55,.14)',border:'1px solid rgba(212,175,55,.3)',color:'#D4AF37',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:50,marginTop:5,display:'inline-block'}}>{isHi?r.labelHi:r.label}</span>;})()}
+      {(()=>{const kg=orders.length*0.05+points*0.002;const ranks=[{min:0,max:1,label:'Seedling 🌱',labelHi:'अंकुर 🌱'},{min:1,max:5,label:'Sapling 🌿',labelHi:'पौधा 🌿'},{min:5,max:15,label:'Green Leaf 🍃',labelHi:'हरी पत्ती 🍃'},{min:15,max:50,label:'Tree Guardian 🌳',labelHi:'वृक्ष रक्षक 🌳'},{min:50,max:999,label:'Eco Champion 🏆',labelHi:'इको चैंपियन 🏆'}];const rank=ranks.find(x=>kg>=x.min&&kg<x.max)||ranks[0];const saved=(orders.length*0.05+points*0.002).toFixed(2);return(
+      <div style={{position:'relative'}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,height:230,background:'radial-gradient(120% 100% at 50% 0%, var(--g2,#1a7a3f) 0%, transparent 70%)',opacity:.55,pointerEvents:'none'}}/>
+        <div style={{position:'relative',padding:'18px 18px 0'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18}}>
+            <div style={{fontSize:22,fontWeight:800}}>{t.profile}</div>
+            <div onClick={()=>setShowEditProfile(true)} style={{padding:'7px 14px',borderRadius:50,fontSize:12.5,fontWeight:700,background:'var(--glass,rgba(255,255,255,.06))',border:'1px solid var(--gb,rgba(255,255,255,.1))',cursor:'pointer'}}>✏️ Edit</div>
+          </div>
+          <div className="gc" style={{padding:22,borderRadius:24,textAlign:'center'}}>
+            <div style={{width:92,height:92,margin:'0 auto',borderRadius:'50%',padding:3,background:'conic-gradient(from 180deg, var(--green,#3DFF7A), var(--gold,#D4AF37), var(--green,#3DFF7A))',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <div style={{width:'100%',height:'100%',borderRadius:'50%',background:'var(--card,#0d1a0d)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,fontWeight:800}}>{(user&&user.name&&user.name[0])||'U'}</div>
+            </div>
+            <div style={{fontSize:20,fontWeight:800,marginTop:10}}>{(user&&user.name)||'User'}</div>
+            <div style={{fontSize:13,opacity:.7,marginTop:2}}>+91 {(user&&user.phone)||'XXXXXXXXXX'}</div>
+            <div style={{display:'inline-flex',alignItems:'center',gap:6,marginTop:10,padding:'5px 14px',borderRadius:50,background:'rgba(61,255,122,.12)',border:'1px solid rgba(61,255,122,.25)',fontSize:12.5,fontWeight:700,color:'var(--green,#3DFF7A)'}}>{isHi?rank.labelHi:rank.label}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginTop:18}}>
+              {[{v:saved+'kg',l:isHi?'बचाया':'Saved',c:'#3DFF7A'},{v:points,l:isHi?'अंक':'Points',c:'#D4AF37'},{v:orders.length||'0',l:isHi?'ऑर्डर':'Orders',c:'#3DC8FF'}].map((st,i)=>(
+                <div key={i} style={{padding:'12px 6px',borderRadius:16,background:'var(--glass,rgba(255,255,255,.05))',border:'1px solid var(--gb,rgba(255,255,255,.08))'}}>
+                  <div style={{fontSize:18,fontWeight:800,color:st.c}}>{st.v}</div>
+                  <div style={{fontSize:11,opacity:.65,marginTop:2}}>{st.l}</div>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{display:'flex',gap:12,padding:12,background:'rgba(0,0,0,.2)',borderRadius:14}}>
-            {[{v:`${(orders.length*0.05+points*0.002).toFixed(2)}kg`,l:isHi?'बचाया':'Saved',c:'#3DFF7A'},{v:points,l:isHi?'अंक':'Points',c:'#D4AF37'},{v:orders.length||'0',l:isHi?'ऑर्डर':'Orders',c:'#3DFF7A'}].map((s,i)=>(
-              <div key={i} style={{flex:1,textAlign:'center'}}><div style={{fontSize:15,fontWeight:800,color:s.c}}>{s.v}</div><div style={{fontSize:10,color:'var(--t3)',fontFamily:fam}}>{s.l}</div></div>
-            ))}
-          </div>
         </div>
-      </div>
-      <div style={{padding:'0 20px',display:'flex',flexDirection:'column',gap:8}}>
+      </div>);})()}
+      <div style={{padding:'18px 18px 0'}}>
         {menu.map((item,i)=>(
-          <div key={i} className="gc" onClick={item.action} style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',animation:`fadeUp .4s ease ${i*.06}s both`}}>
-            <div style={{width:40,height:40,borderRadius:12,background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{item.i}</div>
-            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,fontFamily:fam}}>{item.l}</div><div style={{fontSize:12,color:'var(--t3)',fontFamily:fam}}>{item.sub}</div></div>
-            <Ic n="arrow" s={16} c="#3A4A3A"/>
+          <div key={i} className="gc" onClick={item.action} style={{padding:'14px 16px',marginBottom:10,borderRadius:16,display:'flex',alignItems:'center',gap:14,cursor:'pointer',animation:`fadeUp .4s ease ${i*.05}s both`}}>
+            <div style={{width:42,height:42,borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,background:item.c+'22',flexShrink:0}}>{item.i}</div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:14.5}}>{item.l}</div><div style={{fontSize:12,opacity:.6,marginTop:1}}>{item.sub}</div></div>
+            <Ic n="arrow" s={16} c="#8A9A8A"/>
           </div>
         ))}
-        <button className="btng rip" onClick={()=>{if(window.confirm('Sign out karna chahte ho?')){try{localStorage.removeItem('db_cust_user');localStorage.removeItem('db_name');}catch(e){}import('firebase/auth').then(({signOut,getAuth})=>{signOut(getAuth()).catch(()=>{}).finally(()=>window.location.reload());}).catch(()=>window.location.reload());}}} style={{width:'100%',padding:'14px',fontSize:13,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.2)',marginTop:4,fontFamily:fam}}>{t.signOut}</button>
+        <button className="btng rip" onClick={()=>{if(window.confirm('Sign out karna chahte ho?')){try{localStorage.removeItem('db_cust_user');localStorage.removeItem('db_name');}catch(e){}import('firebase/auth').then(({signOut,getAuth})=>{signOut(getAuth()).catch(()=>{}).finally(()=>window.location.reload());}).catch(()=>window.location.reload());}}} style={{width:'100%',marginTop:8}}>{t.signOut}</button>
       </div>
     </div>
   );
@@ -3460,6 +3470,47 @@ function ShopApp({shop,data,setData,onBack}) {
       }catch(ne){}
     }catch(e){alert('Error: '+e.message);}
   };
+  // Shop Product Management: shop apne khud ke products manage karega
+  const [myProds,setMyProds]=useState([]);
+  const [pcTab,setPcTab]=useState('veg');
+  const [editId,setEditId]=useState(null);
+  const [addP,setAddP]=useState(false);
+  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:''});
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'products'),snap=>{
+      const all=snap.docs.map(d=>({...d.data(),id:d.data().id||d.id,firestoreId:d.id})).filter(p=>p.name);
+      const seen=new Set();
+      const mine=all.filter(p=>p.shopId===shop.id).filter(p=>{const k=p.firestoreId||String(p.id);if(seen.has(k))return false;seen.add(k);return true;});
+      setMyProds(mine);
+    },()=>{});
+    return()=>unsub();
+  },[]);
+  const onImgPick=(e,cb)=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>cb(ev.target.result);r.readAsDataURL(f);};
+  const toggleProd=async(fid,cur)=>{
+    setMyProds(ps=>ps.map(p=>p.firestoreId===fid?{...p,active:!cur}:p));
+    try{if(fid)await updateDoc(doc(db,'products',fid),{active:!cur});}catch(e){console.log(e);}
+  };
+  const saveProd=async(fid,ch)=>{
+    setMyProds(ps=>ps.map(p=>p.firestoreId===fid?{...p,...ch}:p));
+    try{if(fid)await updateDoc(doc(db,'products',fid),ch);}catch(e){alert('Save fail: '+e.message);}
+  };
+  const addNewProd=async()=>{
+    if(!npF.name||!npF.price){alert('Product ka naam aur price bharein!');return;}
+    const catTagMap={veg:'Fresh',fruit:'Fresh',milk:'Fresh',food:'Hot'};
+    const catTagHiMap={veg:'ताज़ा',fruit:'ताज़ा',milk:'ताज़ा',food:'गरम'};
+    const np={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock||0,about:npF.about||'',tag:catTagMap[npF.cat]||'New',tagHi:catTagHiMap[npF.cat]||'नया',active:true,shopId:shop.id,shopName:shop.name,createdAt:new Date().toISOString()};
+    try{const ref=await addDoc(collection(db,'products'),np);np.firestoreId=ref.id;alert('Product add ho gaya!');}
+    catch(e){alert('Save fail: '+e.message);setMyProds(ps=>[...ps,np]);}
+    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:''});
+    setAddP(false);
+  };
+  const deleteProd=async(fid)=>{
+    if(!window.confirm('Is product ko delete karein?'))return;
+    setMyProds(ps=>ps.filter(p=>p.firestoreId!==fid));
+    try{if(fid)await deleteDoc(doc(db,'products',fid));}catch(e){console.log(e);}
+  };
+  const shopFp=myProds.filter(p=>p.cat===pcTab);
+  const lowStock=myProds.filter(p=>(p.stock||0)<20);
   const OrderCard=({o,showConfirm,showPack})=>(
     <div className="gc" style={{padding:14,marginBottom:10,border:`2px solid ${o.status==='packed'?'rgba(61,255,122,.4)':o.status==='confirmed'?'rgba(212,175,55,.4)':'rgba(255,140,66,.25)'}`,animation:'fadeUp .3s ease both'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -3512,12 +3563,89 @@ function ShopApp({shop,data,setData,onBack}) {
       </div>}
 
       <div style={{padding:'0 16px 10px',display:'flex',gap:8,overflowX:'auto',scrollbarWidth:'none'}}>
-        {[{id:'orders',l:`🆕 New${newOrders.length>0?' ('+newOrders.length+')':''}`},{id:'confirm',l:`✅ Confirmed${confirmedOrders.length>0?' ('+confirmedOrders.length+')':''}`},{id:'packed',l:`📦 Packed${packedOrders.length>0?' ('+packedOrders.length+')':''}`},{id:'history',l:'📋 History'},{id:'dash',l:'📊 Dash'}].map(t=>(
+        {[{id:'orders',l:`🆕 New${newOrders.length>0?' ('+newOrders.length+')':''}`},{id:'confirm',l:`✅ Confirmed${confirmedOrders.length>0?' ('+confirmedOrders.length+')':''}`},{id:'packed',l:`📦 Packed${packedOrders.length>0?' ('+packedOrders.length+')':''}`},{id:'history',l:'📋 History'},{id:'dash',l:'📊 Dash'},{id:'prods',l:'🥦 Products'}].map(t=>(
           <div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{flexShrink:0,padding:'8px 12px',fontSize:11,fontWeight:700}}>{t.l}</div>
         ))}
       </div>
 
       <div className="scr" style={{position:'relative',padding:'0 16px 24px'}}>
+        {tab==='prods'&&<>
+          <div className="sh"><div className="st">Mere Products ({myProds.length})</div><button className="btn rip" onClick={()=>setAddP(true)} style={{padding:'8px 16px',fontSize:12,width:'auto',flexShrink:0}}>+ Add Product</button></div>
+          {lowStock.length>0&&<div className="gc" style={{padding:'10px 14px',marginBottom:10,border:'1px solid rgba(255,140,66,.35)',display:'flex',alignItems:'center',gap:8,fontSize:12.5,fontWeight:600,color:'#FF8C42'}}>⚠️ {lowStock.length} product low-stock par hai</div>}
+          <div className="srow" style={{display:'flex',gap:8,marginBottom:14,overflowX:'auto'}}>
+            {[{id:'veg',l:'🥦 Veg'},{id:'fruit',l:'🍎 Fruit'},{id:'milk',l:'🥛 Dairy'},{id:'food',l:'🍛 Food'}].map(c=>(
+              <div key={c.id} className={`cp ${pcTab===c.id?'on':''}`} onClick={()=>setPcTab(c.id)} style={{padding:'7px 14px',borderRadius:50,fontSize:12.5,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>{c.l}</div>
+            ))}
+          </div>
+          {shopFp.length===0
+            ?<div style={{textAlign:'center',padding:'50px 20px',opacity:.7}}><div style={{fontSize:44,marginBottom:10}}>📦</div><div style={{fontWeight:700,fontSize:15}}>Is category me koi product nahi</div><div style={{fontSize:12.5,marginTop:4,color:'#8A9A8A'}}>Add Product button se naya product jodo</div></div>
+            :shopFp.map(p=>(
+              <div key={p.firestoreId||p.id} className="gc" style={{padding:12,marginBottom:10}}>
+                {editId===(p.firestoreId||p.id)
+                  ?<div>
+                     <div style={{fontWeight:700,marginBottom:10,fontSize:14}}>{p.emoji} Edit {p.name}</div>
+                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                       <div><div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:4}}>PRICE (₹)</div><input className="dbi" defaultValue={p.price} id={`sp_p_${p.firestoreId||p.id}`}/></div>
+                       <div><div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:4}}>STOCK</div><input className="dbi" defaultValue={p.stock} id={`sp_s_${p.firestoreId||p.id}`}/></div>
+                     </div>
+                     <div style={{display:'flex',gap:10,marginTop:12}}>
+                       <button className="btn rip" onClick={()=>{const pv=+document.getElementById(`sp_p_${p.firestoreId||p.id}`).value;const sv=+document.getElementById(`sp_s_${p.firestoreId||p.id}`).value;saveProd(p.firestoreId,{price:pv,stock:sv});setEditId(null);}} style={{flex:1}}>Save ✓</button>
+                       <button className="btng" onClick={()=>setEditId(null)} style={{flex:1}}>Cancel</button>
+                     </div>
+                   </div>
+                  :<div style={{display:'flex',alignItems:'center',gap:12}}>
+                     <div style={{width:52,height:52,borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,background:'rgba(255,255,255,.05)',overflow:'hidden',flexShrink:0}}>{p.imgUrl?<img src={p.imgUrl} alt={p.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:p.emoji}</div>
+                     <div style={{flex:1,minWidth:0}}>
+                       <div style={{fontWeight:700,fontSize:14}}>{p.name}</div>
+                       <div style={{display:'flex',alignItems:'center',gap:8,marginTop:3,flexWrap:'wrap'}}>
+                         <span style={{fontWeight:800,color:'#3DFF7A'}}>₹{p.price}</span>
+                         <span style={{fontSize:11.5,color:'#8A9A8A'}}>{p.unit}</span>
+                         <span style={{fontSize:11,fontWeight:600,color:(p.stock||0)<20?'#FF8C42':'#8A9A8A'}}>Stock: {p.stock}{(p.stock||0)<20?' ⚠️':''}</span>
+                       </div>
+                     </div>
+                     <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+                       <Tog on={p.active!==false} onClick={()=>toggleProd(p.firestoreId,p.active!==false)}/>
+                       <div onClick={()=>setEditId(p.firestoreId||p.id)} style={{cursor:'pointer',fontSize:15}}>✏️</div>
+                       <div onClick={()=>deleteProd(p.firestoreId)} style={{cursor:'pointer',fontSize:15}}>🗑️</div>
+                     </div>
+                   </div>
+                }
+              </div>
+            ))}
+          {addP&&<AdminModal onClose={()=>setAddP(false)}>
+            <div style={{fontWeight:800,fontSize:17,marginBottom:14}}>🥦 Naya Product Add Karo</div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:6}}>PRODUCT IMAGE (gallery se)</div>
+              <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                <div style={{width:64,height:64,borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,background:'rgba(255,255,255,.05)',overflow:'hidden'}}>{npF.imgUrl?<img src={npF.imgUrl} alt="p" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:(npF.emoji||'🥦')}</div>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',padding:'9px 12px',borderRadius:10,background:'rgba(61,255,122,.12)',color:'#3DFF7A',fontWeight:700,fontSize:12.5,textAlign:'center',cursor:'pointer',marginBottom:6}}>📷 Upload<input type="file" accept="image/*" style={{display:'none'}} onChange={e=>onImgPick(e,url=>setNpF(x=>({...x,imgUrl:url})))}/></label>
+                  <input className="dbi" placeholder="या Emoji 🥦" value={npF.emoji} onChange={e=>setNpF(x=>({...x,emoji:e.target.value,imgUrl:''}))}/>
+                </div>
+              </div>
+            </div>
+            {[{k:'name',l:'PRODUCT NAME (ENGLISH)',ph:'e.g. Tomato'},{k:'nameHi',l:'PRODUCT NAME (HINDI)',ph:'e.g. टमाटर'},{k:'price',l:'PRICE (₹)',ph:'50'},{k:'unit',l:'UNIT',ph:'500g / 1kg / 1L'},{k:'stock',l:'STOCK',ph:'100'}].map(f=>(
+              <div key={f.k} style={{marginBottom:10}}>
+                <div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:5}}>{f.l}</div>
+                <input className="dbi" placeholder={f.ph} value={npF[f.k]} onChange={e=>setNpF(x=>({...x,[f.k]:e.target.value}))}/>
+              </div>
+            ))}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:6}}>CATEGORY</div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {['veg','fruit','milk','food'].map(c=>(<div key={c} className={`cp ${npF.cat===c?'on':''}`} onClick={()=>setNpF(x=>({...x,cat:c}))} style={{padding:'7px 14px',borderRadius:50,fontSize:12.5,fontWeight:600,cursor:'pointer'}}>{c}</div>))}
+              </div>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:5}}>📝 ABOUT (optional)</div>
+              <textarea className="dbi" placeholder="Fresh from local farm..." value={npF.about} onChange={e=>setNpF(x=>({...x,about:e.target.value}))} style={{minHeight:60,resize:'vertical'}} maxLength={300}/>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button className="btn rip" onClick={addNewProd} style={{flex:1}}>Add Product ✓</button>
+              <button className="btng" onClick={()=>setAddP(false)} style={{flex:1}}>Cancel</button>
+            </div>
+          </AdminModal>}
+        </>}
         {tab==='orders'&&<>
           <div className="sh"><div className="st">Naye Orders</div><div style={{fontSize:11,color:'#FF8C42',fontWeight:600}}>{newOrders.length} pending</div></div>
           {newOrders.length===0
@@ -3793,7 +3921,7 @@ function AdminApp({data,setData,onBack}) {
   const totalRev=realOrders.reduce((s,o)=>s+(o.total||0),0);
 
   const toggleProd=async(id)=>{
-    const prod=data.products.find(p=>p.id===id);
+    const prod=(data.products||[]).find(p=>p.id===id);
     if(!prod) return;
     const newActive=!prod.active;
     setData(d=>({...d,products:d.products.map(p=>p.id===id?{...p,active:newActive}:p)}));
@@ -3806,7 +3934,7 @@ function AdminApp({data,setData,onBack}) {
   const saveProd=async(id,ch)=>{
     setData(d=>({...d,products:d.products.map(p=>p.id===id?{...p,...ch}:p)}));
     try{
-      const prod=data.products.find(p=>p.id===id);
+      const prod=(data.products||[]).find(p=>p.id===id);
       if(prod?.firestoreId){
         await updateDoc(doc(db,'products',prod.firestoreId),ch);
       }
@@ -3832,7 +3960,7 @@ function AdminApp({data,setData,onBack}) {
   };
   const deleteProd=async(id)=>{
     if(!window.confirm('Delete this product?')) return;
-    const prod=data.products.find(p=>p.id===id);
+    const prod=(data.products||[]).find(p=>p.id===id);
     setData(d=>({...d,products:d.products.filter(p=>p.id!==id)}));
     try{
       if(prod?.firestoreId){
@@ -3843,7 +3971,7 @@ function AdminApp({data,setData,onBack}) {
 
   const regShop=async()=>{
     if(!nsF.name||!nsF.owner||!nsF.phone){alert('Name, owner aur phone required hai!');return;}
-    const idx=data.shops.length+1;
+    const idx=(data.shops||[]).length+1;
     const sid=`SHP${String(idx).padStart(3,'0')}`;
     const s={id:sid,name:nsF.name,owner:nsF.owner,phone:nsF.phone,cuisine:nsF.cuisine,imgUrl:nsF.imgUrl||'',emoji:nsF.emoji||'🏪',badge:nsF.badge||'',deliveryTime:nsF.deliveryTime||'30-40 min',rating:parseFloat(nsF.rating)||4.5,pass:`Shop@${String(idx).padStart(3,'0')}`,active:true,totalOrders:0,totalRevenue:0,todayOrders:0,todayRevenue:0};
     try{
@@ -4063,7 +4191,7 @@ function AdminApp({data,setData,onBack}) {
         </>}
 
         {tab==='prods'&&<>
-          <div className="sh"><div className="st">Products ({data.products.length})</div><button className="btn rip" onClick={()=>setAddP(true)} style={{padding:'7px 14px',fontSize:12}}>+ Add</button></div>
+          <div className="sh"><div className="st">Products ({(data.products||[]).length})</div><button className="btn rip" onClick={()=>setAddP(true)} style={{padding:'7px 14px',fontSize:12}}>+ Add</button></div>
           <div className="srow" style={{marginBottom:12}}>
             {[{id:'veg',l:'🥦 Veg'},{id:'fruit',l:'🍎 Fruit'},{id:'milk',l:'🥛 Dairy'},{id:'food',l:'🍛 Food'}].map(t=>(
               <div key={t.id} className={`cp ${pcTab===t.id?'on':''}`} onClick={()=>setPcTab(t.id)} style={{flexShrink:0,fontSize:12}}>{t.l}</div>
@@ -4180,8 +4308,8 @@ function AdminApp({data,setData,onBack}) {
         </>}
 
         {tab==='shops'&&<>
-          <div className="sh"><div className="st">Shops ({data.shops.length})</div><button className="btn rip" onClick={()=>setAddS(true)} style={{padding:'7px 14px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>+ Register</button></div>
-          {data.shops.map((s,i)=>(
+          <div className="sh"><div className="st">Shops ({(data.shops||[]).length})</div><button className="btn rip" onClick={()=>setAddS(true)} style={{padding:'7px 14px',fontSize:12,background:'linear-gradient(135deg,#D4AF37,#B8962E)',color:'#0A1A0A'}}>+ Register</button></div>
+          {(data.shops||[]).map((s,i)=>(
             <div key={s.id} className="gc" style={{padding:'14px',marginBottom:10}}>
               <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
                 <div style={{width:46,height:46,borderRadius:14,background:'rgba(212,175,55,.1)',border:'1px solid rgba(212,175,55,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏨</div>
@@ -4270,7 +4398,7 @@ function AdminApp({data,setData,onBack}) {
               </div>
             </div>
           ))}
-          {(firestoreRiders.length===0&&data.riders.length===0)&&<div style={{textAlign:'center',padding:'30px 0'}}><div style={{fontSize:48}}>🚲</div><div style={{fontSize:14,fontWeight:700,marginTop:10,color:'var(--t3)'}}>No riders yet. Register one!</div></div>}
+          {(firestoreRiders.length===0&&(data.riders||[]).length===0)&&<div style={{textAlign:'center',padding:'30px 0'}}><div style={{fontSize:48}}>🚲</div><div style={{fontSize:14,fontWeight:700,marginTop:10,color:'var(--t3)'}}>No riders yet. Register one!</div></div>}
           {addR&&<AdminModal onClose={()=>setAddR(false)}>
             <div style={{fontSize:17,fontWeight:800,marginBottom:14}}>🚲 Register New Rider</div>
             <div style={{marginBottom:10}}>
@@ -4447,9 +4575,9 @@ function AdminApp({data,setData,onBack}) {
           </div>
           <div className="gc" style={{padding:'16px'}}>
             <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>Stock Alert ⚠️</div>
-            {data.products.filter(p=>p.stock<20).length===0
+            {(data.products||[]).filter(p=>p.stock<20).length===0
               ? <div style={{textAlign:'center',color:'#3DFF7A',fontSize:13}}>✅ All products well stocked!</div>
-              : data.products.filter(p=>p.stock<20).map(p=>(
+              : (data.products||[]).filter(p=>p.stock<20).map(p=>(
                 <div key={p.id} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
                   <span style={{fontSize:13}}>{p.emoji} {p.name}</span>
                   <span style={{fontSize:13,fontWeight:700,color:'#FF6B6B'}}>Stock: {p.stock} ⚠️</span>
@@ -4759,8 +4887,8 @@ const [authReady, setAuthReady] = useState(false);
     if(phase==='language') return <LanguageScreen user={user} onSelect={l=>{setLang(l);setPhase('app');}}/>;
     if(phase==='app') {
       if(portal==='customer') return <CustomerApp user={user} lang={lang} setLang={setLang} data={data} setData={setData} theme={theme} setTheme={setTheme}/>;
-      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>{const r=data.riders.find(r=>r.id===id&&r.pass===p&&r.active);return r||null;}} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
-      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>{const s=data.shops.find(s=>s.id===id&&s.pass===p&&s.active);return s||null;}} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
+      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>{const r=(data.riders||[]).find(r=>r.id===id&&r.pass===p&&r.active);return r||null;}} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
+      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>{const s=(data.shops||[]).find(s=>s.id===id&&s.pass===p&&s.active);return s||null;}} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='admin') {
         if(!adminA) {
           if(!adminOtp) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminOtp(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
