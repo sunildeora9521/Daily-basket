@@ -3033,16 +3033,33 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   const [editSaving, setEditSaving]=useState(false);
   const [photo, setPhoto]=useState(()=>{try{return (user&&user.photo)||localStorage.getItem('db_photo')||'';}catch(e){return '';}});
   const pickPhoto=async e=>{
-    const f=e.target.files&&e.target.files[0]; if(!f) return;
-    if(!/^image\//.test(f.type)){alert('Sirf image file choose karo!');return;}
-    if(f.size>8*1024*1024){alert('8MB se chhoti photo choose karo!');return;}
-    try{
-      const bmp=await createImageBitmap(f);
-      const s=Math.min(bmp.width,bmp.height);
-      const c=document.createElement('canvas'); c.width=256; c.height=256;
-      c.getContext('2d').drawImage(bmp,(bmp.width-s)/2,(bmp.height-s)/2,s,s,0,0,256,256);
-      setPhoto(c.toDataURL('image/jpeg',0.75));
-    }catch(err){alert('Photo error: '+err.message);}
+    const inp=e.target; const f=inp.files&&inp.files[0]; if(!f) return;
+    const run=async()=>{
+      if(f.size===0){alert('Ye photo khali ya unavailable hai. Phone me download karke dobara choose karo.');return;}
+      if(f.type&&!/^image\//.test(f.type)){alert('Sirf image file choose karo!');return;}
+      if(f.size>12*1024*1024){alert('12MB se chhoti photo choose karo!');return;}
+      const viaImg=(url)=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>rej(new Error('decode'));im.src=url;});
+      let src=null,w=0,h=0;
+      try{ src=await createImageBitmap(f); w=src.width; h=src.height; }catch(e1){ src=null; }
+      if(!src){ // fallback 1: blob URL + <img>
+        const u=URL.createObjectURL(f);
+        try{ src=await viaImg(u); w=src.naturalWidth; h=src.naturalHeight; }catch(e2){ src=null; }
+        try{ URL.revokeObjectURL(u); }catch(e){}
+      }
+      if(!src){ // fallback 2: base64 + <img>
+        try{
+          const d=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('read'));r.readAsDataURL(f);});
+          src=await viaImg(d); w=src.naturalWidth; h=src.naturalHeight;
+        }catch(e3){ src=null; }
+      }
+      if(!src||!w||!h){alert('Ye photo open nahi ho pa rahi (shayad HEIC format hai). Koi JPG/PNG photo choose karo ya camera se nayi photo lo.');return;}
+      try{
+        const sq=Math.min(w,h); const c=document.createElement('canvas'); c.width=256; c.height=256;
+        c.getContext('2d').drawImage(src,(w-sq)/2,(h-sq)/2,sq,sq,0,0,256,256);
+        setPhoto(c.toDataURL('image/jpeg',0.75));
+      }catch(err){alert('Photo error: '+err.message);}
+    };
+    try{ await run(); }finally{ try{ inp.value=''; }catch(e){} }
   };
 
   const fetchOrders=async()=>{
@@ -5055,6 +5072,18 @@ const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{try{localStorage.setItem('db_admin',adminA?'true':'false');}catch(e){}}, [adminA]);
   const [theme, setTheme] = useState(()=>{ try{return localStorage.getItem('db_theme2')||'diwali';}catch(e){return 'diwali';} });
   useEffect(()=>{ try{localStorage.setItem('db_theme2',theme);}catch(e){} },[theme]);
+  const themeBg=({eco:'#070907',premium:'#050400',light:'#F2F5F2',ocean:'#04070D',sunset:'#100604',violet:'#0A0612',diwali:'#130502'})[theme]||'#070907';
+  // Status bar / navigation area ko app ke rang me blend karo (black patti hatane ke liye)
+  useEffect(()=>{
+    try{
+      let m=document.querySelector('meta[name="theme-color"]');
+      if(!m){ m=document.createElement('meta'); m.setAttribute('name','theme-color'); document.head.appendChild(m); }
+      m.setAttribute('content',themeBg);
+      document.documentElement.style.background=themeBg; document.body.style.background=themeBg;
+      const vp=document.querySelector('meta[name="viewport"]');
+      if(vp&&!/viewport-fit/.test(vp.getAttribute('content')||'')) vp.setAttribute('content',(vp.getAttribute('content')||'width=device-width, initial-scale=1')+', viewport-fit=cover');
+    }catch(e){}
+  },[themeBg]);
 
  const handleCapSelect = id => {
   if(id==='help') {
@@ -5124,7 +5153,7 @@ const [authReady, setAuthReady] = useState(false);
   }
   return (
     <ErrorBoundary>
-      <div style={{width:'100vw',height:'100dvh',background:'#070907',overflow:'hidden',position:'fixed',top:0,left:0}}>
+      <div style={{width:'100vw',height:'100dvh',background:themeBg,overflow:'hidden',position:'fixed',top:0,left:0}}>
         <style>{CSS}</style>
         <div className="phone" style={{width:390,height:vh,transform:`scale(${sc})`,transformOrigin:'top left',...getThemeStyle(theme)}}>
           {safeContent}
