@@ -2,6 +2,147 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, messaging, requestNotificationPermission, onMessage } from "./firebase";
 import { collection, addDoc, getDocs, onSnapshot, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+/* ═══════════ SECURITY LAYER ═══════════ */
+// Frame-buster: app ko kisi doosri site ke iframe me chalne se rokta hai (clickjacking)
+try{ if(window.top!==window.self){ window.top.location.href=window.self.location.href; } }catch(e){}
+const SEC = {
+  // Text saaf karo: < > ` " \ aur control chars hatao, length limit lagao
+  clean:(s,max=60)=>String(s==null?'':s).replace(/[<>`"\\]/g,'').replace(/[\u0000-\u001F\u007F]/g,'').replace(/\s+/g,' ').trim().slice(0,max),
+  // SHA-256 (strict: secure context na ho to error — admin login ke liye)
+  hash:async(s)=>{
+    const subtle=window.crypto&&window.crypto.subtle;
+    if(!subtle) throw new Error('Secure context (https) required');
+    const buf=await subtle.digest('SHA-256',new TextEncoder().encode(String(s)));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  },
+  hashSafe:async(s)=>{ try{ return await SEC.hash(s); }catch(e){ return 'p:'+s; } },
+  // Rate limit: window ke andar max attempts. 0 = allowed, warna kitne minute baad try karna hai
+  hit:(key,max,windowMin)=>{
+    try{
+      const w=windowMin*60000; let r=JSON.parse(localStorage.getItem('sec_'+key)||'null')||{n:0,t:0};
+      if(!r.t||Date.now()-r.t>w) r={n:0,t:Date.now()};
+      if(r.n>=max) return Math.max(1,Math.ceil((r.t+w-Date.now())/60000));
+      r.n++; localStorage.setItem('sec_'+key,JSON.stringify(r)); return 0;
+    }catch(e){ return 0; }
+  },
+  reset:(key)=>{ try{ localStorage.removeItem('sec_'+key); }catch(e){} },
+  // OTP ko plain text me store mat karo: hash + 5 min expiry + max 5 tries
+  saveOtp:async(key,code,salt)=>{
+    try{ const h=await SEC.hashSafe(code+'|'+salt); localStorage.setItem(key,JSON.stringify({h,exp:Date.now()+5*60000,tries:0})); }catch(e){}
+  },
+  checkOtp:async(key,code,salt)=>{
+    try{
+      const r=JSON.parse(localStorage.getItem(key)||'null');
+      if(!r||typeof r!=='object') return false;
+      if(Date.now()>r.exp||r.tries>=5){ localStorage.removeItem(key); return false; }
+      r.tries++;
+      const h=await SEC.hashSafe(code+'|'+salt);
+      if(h===r.h){ localStorage.removeItem(key); return true; }
+      localStorage.setItem(key,JSON.stringify(r)); return false;
+    }catch(e){ return false; }
+  }
+};
+
+/* ═══════════ DIWALI FX — patakhe, fuljhadi, chakri, rockets (canvas overlay) ═══════════ */
+function DiwaliFX(){
+  const ref=useRef(null);
+  useEffect(()=>{
+    const cv=ref.current; if(!cv) return;
+    try{ if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(e){}
+    const ctx=cv.getContext('2d'); if(!ctx) return;
+    let W=390,H=800,k=1,raf=0,last=0,t=0;
+    const resize=()=>{
+      W=cv.offsetWidth||390; H=cv.offsetHeight||800;
+      k=Math.min(2,Math.max(1,(window.innerWidth/390)*(window.devicePixelRatio||1)));
+      cv.width=Math.round(W*k); cv.height=Math.round(H*k);
+    };
+    resize(); window.addEventListener('resize',resize);
+    const COLS=['#FFD54A','#FF8A00','#FF4D6D','#4DEBFF','#7CFF6B','#FF9BFF','#FFFFFF'];
+    const P=[], R=[], CH=[], FL=[], Q=[];
+    const MAXP=300;
+    const rnd=(a,b)=>a+Math.random()*(b-a);
+    const pick=()=>COLS[(Math.random()*COLS.length)|0];
+    const spark=(x,y,vx,vy,life,col,size,g,drag)=>{ if(P.length<MAXP) P.push({x,y,vx,vy,life,max:life,col,size,g,drag}); };
+    // Rocket
+    const launch=()=>{ R.push({x:rnd(W*.12,W*.88),y:H+6,vx:rnd(-14,14),vy:-rnd(330,460),col:pick(),fuse:rnd(.9,1.35)}); };
+    const burst=(x,y,col)=>{
+      const c2=pick(), n=34;
+      for(let i=0;i<n;i++){ const a=Math.PI*2*i/n+rnd(-.08,.08), s=rnd(80,170); spark(x,y,Math.cos(a)*s,Math.sin(a)*s,rnd(.9,1.5),i%3===0?c2:col,rnd(1.3,2.3),70,.965); }
+      for(let i=0;i<14;i++){ const a=rnd(0,6.28), s=rnd(30,80); spark(x,y,Math.cos(a)*s,Math.sin(a)*s,rnd(.6,1),'#FFFFFF',1.2,60,.95); }
+      FL.push({x,y,r:6,life:.22});
+    };
+    // Patakha (cracker pop)
+    const pop=(x,y)=>{
+      for(let i=0;i<16;i++){ const a=rnd(0,6.28), s=rnd(40,160); spark(x,y,Math.cos(a)*s,Math.sin(a)*s,rnd(.25,.55),i<4?'#FFFFFF':'#FFC83D',rnd(1,2.1),0,.9); }
+      FL.push({x,y,r:4,life:.16});
+    };
+    // Patakhe ki ladi (string of crackers)
+    const ladi=()=>{ const y=rnd(H*.45,H*.8), x0=rnd(30,W*.4), dir=Math.random()<.5?1:-1; for(let i=0;i<7;i++){ Q.push({at:t+i*.13,x:Math.min(W-10,Math.max(10,x0+dir*i*34+(dir<0?W*.4:0))),y:y+rnd(-8,8)}); } };
+    // Chakri (ground spinner)
+    const chakri=()=>{ CH.push({x:rnd(70,W-70),y:rnd(H*.55,H-150),a:0,life:4.2,max:4.2,col:Math.random()<.5?'#FFB000':'#FF6A00'}); };
+    // Fuljhadi (sparklers) — do corners
+    const SPK=[{x:26,get y(){return H-135;},d:1},{x:W-26,get y(){return H-135;},d:-1}];
+    let nextRocket=.6, nextPop=1.2, nextLadi=7, nextChakri=3.5;
+
+    const onTap=(e)=>{
+      try{
+        const r=cv.getBoundingClientRect(); if(!r.width) return;
+        const x=(e.clientX-r.left)/r.width*W, y=(e.clientY-r.top)/r.height*H;
+        if(x<0||y<0||x>W||y>H) return;
+        pop(x,y);
+      }catch(er){}
+    };
+    window.addEventListener('pointerdown',onTap,{passive:true});
+
+    const frame=(ts)=>{
+      raf=requestAnimationFrame(frame);
+      if(!last) last=ts;
+      let dt=(ts-last)/1000; last=ts; if(dt>.05) dt=.05; t+=dt;
+      // spawners
+      nextRocket-=dt; if(nextRocket<=0){ launch(); nextRocket=rnd(2,3.6); }
+      nextPop-=dt; if(nextPop<=0){ pop(rnd(20,W-20),rnd(H*.2,H*.85)); nextPop=rnd(1.4,2.8); }
+      nextLadi-=dt; if(nextLadi<=0){ ladi(); nextLadi=rnd(9,15); }
+      nextChakri-=dt; if(nextChakri<=0){ if(CH.length<1) chakri(); nextChakri=rnd(8,13); }
+      for(let i=Q.length-1;i>=0;i--){ if(t>=Q[i].at){ pop(Q[i].x,Q[i].y); Q.splice(i,1); } }
+      // sparklers
+      SPK.forEach(s=>{ const sx=s.x+Math.sin(t*3+s.d)*3; for(let i=0;i<3;i++){ const a=-Math.PI/2+rnd(-1.5,1.5), sp=rnd(40,150); spark(sx,s.y,Math.cos(a)*sp,Math.sin(a)*sp,rnd(.3,.7),Math.random()<.6?'#FFE08A':'#FFFFFF',rnd(.9,1.8),140,.94); } });
+      // chakri
+      for(let i=CH.length-1;i>=0;i--){ const c=CH[i]; c.life-=dt; c.a+=dt*15; if(c.life<=0){ CH.splice(i,1); continue; }
+        for(let j=0;j<4;j++){ const a=c.a+j*1.5708, tx=-Math.sin(a), ty=Math.cos(a); spark(c.x+Math.cos(a)*10,c.y+Math.sin(a)*10,tx*130+Math.cos(a)*40,ty*130+Math.sin(a)*40,rnd(.3,.6),Math.random()<.5?c.col:'#FFE08A',rnd(1,1.9),20,.95); } }
+      // rockets
+      for(let i=R.length-1;i>=0;i--){ const r=R[i]; r.x+=r.vx*dt; r.y+=r.vy*dt; r.vy+=120*dt; r.fuse-=dt;
+        spark(r.x+rnd(-1,1),r.y,rnd(-10,10),rnd(20,60),rnd(.25,.45),'#FFB000',rnd(1,1.7),0,.95);
+        if(r.fuse<=0||r.vy>-40){ burst(r.x,r.y,r.col); R.splice(i,1); } }
+      // draw
+      ctx.setTransform(k,0,0,k,0,0); ctx.clearRect(0,0,W,H);
+      ctx.globalCompositeOperation='lighter';
+      for(let i=P.length-1;i>=0;i--){ const p=P[i]; p.life-=dt; if(p.life<=0){ P.splice(i,1); continue; }
+        p.vx*=p.drag; p.vy=p.vy*p.drag+p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+        ctx.globalAlpha=Math.max(0,Math.min(1,p.life/p.max)); ctx.fillStyle=p.col; ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size); }
+      for(let i=FL.length-1;i>=0;i--){ const f=FL[i]; f.life-=dt; if(f.life<=0){ FL.splice(i,1); continue; }
+        f.r+=dt*180; ctx.globalAlpha=Math.max(0,f.life*3.5); ctx.fillStyle='#FFF3C4'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,6.283); ctx.fill(); }
+      ctx.globalAlpha=.95;
+      R.forEach(r=>{ ctx.fillStyle='#FFFFFF'; ctx.fillRect(r.x-1.5,r.y-1.5,3,3); });
+      CH.forEach(c=>{ ctx.globalAlpha=Math.min(1,c.life*2); ctx.fillStyle='#FFD54A'; ctx.beginPath(); ctx.arc(c.x,c.y,3,0,6.283); ctx.fill(); });
+      SPK.forEach(s=>{ ctx.globalAlpha=.9; ctx.strokeStyle='#C9A24A'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(s.x-s.d*14,s.y+34); ctx.stroke(); ctx.fillStyle='#FFFFFF'; ctx.beginPath(); ctx.arc(s.x,s.y,2.5,0,6.283); ctx.fill(); });
+      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+    };
+    raf=requestAnimationFrame(frame);
+    return()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize',resize); window.removeEventListener('pointerdown',onTap); };
+  },[]);
+  const lc=['#FFD54A','#FF8A00','#FF4D6D','#4DEBFF','#7CFF6B'];
+  return (
+    <>
+      <div style={{position:'absolute',top:0,left:0,right:0,height:8,zIndex:9997,pointerEvents:'none',display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+        {Array.from({length:15}).map((_,i)=>(
+          <span key={i} style={{width:6,height:6,borderRadius:'50%',background:lc[i%5],boxShadow:'0 0 8px 2px '+lc[i%5],animation:'twinkle 1.4s ease-in-out '+(i*.11)+'s infinite'}}/>
+        ))}
+      </div>
+      <canvas ref={ref} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:9998}}/>
+    </>
+  );
+}
+
 /* ═══════════ GLOBAL CSS ═══════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap');
@@ -16,6 +157,7 @@ html,body{background:#070907;}body{font-family:'Outfit',sans-serif;color:var(--t
 
 @keyframes fadeIn   {from{opacity:0}to{opacity:1}}
 @keyframes fadeOut  {from{opacity:1}to{opacity:0}}
+@keyframes twinkle {0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
 @keyframes fadeUp   {from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 @keyframes scaleIn  {from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
 @keyframes slideUp  {from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
@@ -116,6 +258,11 @@ const THEMES = {
     desc:'Luxe purple aura', descHi:'बैंगनी लग्ररी',
     vars:{'--bg':'#0A0612','--card':'#140C22','--green':'#A78BFA','--g2':'#8B5CF6','--gdim':'#1E1236','--gold':'#C4B5FD','--glass':'rgba(167,139,250,.07)','--gb':'rgba(167,139,250,.2)','--t':'#F3EEFF','--t2':'#A99CC4','--t3':'#6B5D85','--btn1':'#A78BFA','--btn2':'#8B5CF6','--btnTxt':'#0F0720','--shadow':'rgba(167,139,250,.4)'},
   },
+  diwali:  {
+    name:'Diwali Special', nameHi:'दिवाली स्पेशल', icon:'🪔',
+    desc:'Diya glow, gold & orange', descHi:'दीपों की रोशनी',
+    vars:{'--bg':'#130502','--card':'#210B04','--green':'#FFB000','--g2':'#FF6A00','--gdim':'#33150A','--gold':'#FFD54A','--glass':'rgba(255,176,0,.07)','--gb':'rgba(255,176,0,.26)','--t':'#FFF4DC','--t2':'#E0B070','--t3':'#9A7040','--btn1':'#FFB000','--btn2':'#FF6A00','--btnTxt':'#2A0E00','--shadow':'rgba(255,140,0,.45)'},
+  },
 };
 
 function getThemeStyle(th) {
@@ -135,6 +282,9 @@ function getThemeStyle(th) {
   } else if(th==='violet') {
     base.background = 'radial-gradient(ellipse at 25% 15%, #1E1236 0%, #0A0612 55%, #140C22 100%)';
     base.boxShadow = '0 0 80px rgba(167,139,250,.14), inset 0 0 120px rgba(167,139,250,.03)';
+  } else if(th==='diwali') {
+    base.background = 'radial-gradient(ellipse at 50% 0%, #4A1A05 0%, #130502 55%, #210B04 100%)';
+    base.boxShadow = '0 0 90px rgba(255,140,0,.2), inset 0 0 120px rgba(255,176,0,.05)';
   }
   return base;
 }
@@ -291,8 +441,7 @@ function getGreetingKey() {
       }
 
 /* ═══════════ DATA ═══════════ */
-const ADMIN_ID = 'Sunil14581';
-const ADMIN_PASS = 'Sunil@$14581';
+const ADMIN_HASH = 'd7f2e56317602b58642bb7dfdd6b2b51f3536ad0f59742d997d0795de46da624'; // SHA-256(id|pass|salt) — plaintext password code me nahi
 const ADMIN_EMAIL = 'dailybasketjodhpur@gmail.com'; // admin OTP yahan aayega (email zaroor)
 const ADMIN_PHONE = '6375565339';                 // SMS optional (fail ho to email se chalega)
 const DEMO_OTP = '123456';
@@ -990,13 +1139,15 @@ function CustomerLogin({onLogin}) {
   const sendOTP = async () => {
     if(!name.trim()){setErr('Apna naam daalo');return;}
     if(phone.length!==10){setErr('Valid 10-digit mobile number daalo');return;}
+    const lkS=SEC.hit('otp_send',5,15);
+    if(lkS){setErr('Too many OTP requests. Try again in '+lkS+' min.');return;}
     setErr(''); setLoading(true);
     try {
       // Step 1: Email OTP pehle bhejo — EmailJS browser API (client-side)
       let emailSent = false;
       if(emailOtp && email.includes('@') && email.includes('.')) {
         const emailCode = String(Math.floor(100000+Math.random()*900000));
-        localStorage.setItem('db_email_otp', emailCode);
+        await SEC.saveOtp('db_email_otp', emailCode, phone);
         try {
           const ejsRes = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
             method:'POST',
@@ -1014,7 +1165,7 @@ function CustomerLogin({onLogin}) {
             })
           });
           if(ejsRes.ok) emailSent = true;
-          else console.log('EmailJS err:', await ejsRes.text());
+          else console.log('EmailJS send failed');
         } catch(e){ console.log('Email OTP err:',e); }
       }
 
@@ -1043,17 +1194,15 @@ function CustomerLogin({onLogin}) {
 
   const verifyOTP = async () => {
     if(otp.length!==6){setErr('6 digit OTP daalo');return;}
+    const lkV=SEC.hit('otp_verify',6,10);
+    if(lkV){setErr('Too many wrong attempts. Try again in '+lkV+' min.');return;}
     setLoading(true); setErr('');
     try {
       let verified = false;
 
       // Email OTP check karo pehle (agar SMS nahi aaya)
       if(emailOtp && email.includes('@')) {
-        const savedEmailOtp = localStorage.getItem('db_email_otp');
-        if(savedEmailOtp && otp === savedEmailOtp) {
-          verified = true;
-          localStorage.removeItem('db_email_otp');
-        }
+        if(await SEC.checkOtp('db_email_otp', otp, phone)) verified = true;
       }
 
       // Agar email se verify nahi hua to SMS se try karo
@@ -1069,12 +1218,13 @@ function CustomerLogin({onLogin}) {
 
       if(!verified) throw new Error('Galat OTP! Email ya SMS check karo.');
 
+      SEC.reset('otp_verify');
       const uid = 'ph_'+phone;
-      const uData = {name:name.trim(), phone, uid, email:email||''};
+      const uData = {name:SEC.clean(name,40), phone, uid, email:SEC.clean(email,80), ts:Date.now()};
       try {
-        await setDoc(doc(db,'users',uid),{name:name.trim(),phone,email:email||'',updatedAt:serverTimestamp()},{merge:true});
+        await setDoc(doc(db,'users',uid),{name:SEC.clean(name,40),phone,email:SEC.clean(email,80),updatedAt:serverTimestamp()},{merge:true});
         localStorage.setItem('db_cust_user', JSON.stringify(uData));
-        localStorage.setItem('db_name', name.trim());
+        localStorage.setItem('db_name', SEC.clean(name,40));
       } catch(e){console.log('Save error:',e);}
       setLoading(false);
       onLogin(uData);
@@ -1113,7 +1263,7 @@ function CustomerLogin({onLogin}) {
               <div style={{fontSize:11,color:'var(--t3)',fontWeight:700,marginBottom:7,letterSpacing:.8,textTransform:'uppercase'}}>Your Name</div>
               <div style={{position:'relative'}}>
                 <div style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)'}}><Ic n="user" s={16} c="#5A6A5A"/></div>
-                <input className="dbi" style={{paddingLeft:42}} placeholder="Enter your full name" value={name} onChange={e=>{setName(e.target.value);setErr('');}}/>
+                <input className="dbi" style={{paddingLeft:42}} placeholder="Enter your full name" maxLength={40} value={name} onChange={e=>{setName(e.target.value);setErr('');}}/>
               </div>
             </div>
 
@@ -1145,8 +1295,8 @@ function CustomerLogin({onLogin}) {
                   {emailOtp&&<span style={{fontSize:12,color:'#0A1A0A',fontWeight:800}}>✓</span>}
                 </div>
                 <div>
-                  <div style={{fontSize:13,fontWeight:600}}>Email pe bhi OTP bhejo</div>
-                  <div style={{fontSize:11,color:'var(--t3)'}}>OTP {email} pe bhi jayega</div>
+                  <div style={{fontSize:13,fontWeight:600}}>Also send OTP to email</div>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>OTP will be sent to {email} too</div>
                 </div>
               </div>
             )}
@@ -1154,7 +1304,7 @@ function CustomerLogin({onLogin}) {
             {err&&<div style={{fontSize:12,color:'#FF6B6B',background:'rgba(255,107,107,.08)',padding:'10px 14px',borderRadius:10,marginBottom:12}}>{err}</div>}
 
             <button className="btn rip" onClick={sendOTP} disabled={loading} style={{width:'100%',padding:'17px',fontSize:16,marginTop:10}}>
-              {loading ? 'OTP bhej raha hoon...' : 'Next — Get OTP →'}
+              {loading ? 'Sending OTP...' : 'Next — Get OTP →'}
             </button>
           </div>
         ) : (
@@ -1166,7 +1316,7 @@ function CustomerLogin({onLogin}) {
             <div style={{textAlign:'center',marginBottom:24}}>
               <div style={{fontSize:40,marginBottom:12}}>{sentEmail?'📱📧':'📱'}</div>
               <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Verify OTP</div>
-              <div style={{fontSize:13,color:'var(--t3)',marginBottom:4}}>OTP bheja gaya:</div>
+              <div style={{fontSize:13,color:'var(--t3)',marginBottom:4}}>OTP has been sent to:</div>
               <div style={{fontSize:14,fontWeight:700,color:'var(--green)'}}>📱 +91 {sentPhone}</div>
               {sentEmail&&<div style={{fontSize:13,fontWeight:600,color:'#3DFF7A',marginTop:4}}>📧 {sentEmail}</div>}
             </div>
@@ -1296,11 +1446,8 @@ function LocationScreen({user, onAllow, onSkip}) {
   const allow=()=>{
     setRequesting(true);
 try{
-      requestNotificationPermission('customers').then(res=>{
-        if(res&&res.token) alert('✅ Token: '+res.token.slice(0,15)+'...\nSubscribe: '+res.subStatus);
-        else alert('❌ Push token nahi mila (permission/SW issue)');
-      }).catch(e=>alert('❌ Token error: '+e.message));
-    }catch(e){alert('❌ Error: '+e.message);}
+      requestNotificationPermission('customers').catch(()=>{});
+    }catch(e){}
     try{
       if(navigator.geolocation){
         navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, {timeout:5000});
@@ -2139,6 +2286,25 @@ useEffect(()=>{
     {searchQ&&<div onClick={()=>setSearchQ('')} style={{fontSize:16,color:'var(--t3)',cursor:'pointer'}}>✕</div>}
   </div>
   </div>
+        {/* Services */}
+        <div style={{padding:'0 20px',marginBottom:20}}>
+          {theme==='diwali'&&<div style={{marginBottom:14,padding:'12px 16px',borderRadius:16,textAlign:'center',fontSize:14,fontWeight:800,background:'linear-gradient(135deg,rgba(255,176,0,.18),rgba(255,106,0,.12))',border:'1px solid rgba(255,176,0,.35)'}}>🪔 {isHi?'शुभ दीपावली!':'Shubh Deepawali!'} ✨ <span style={{fontWeight:600,fontSize:12,opacity:.8}}>{isHi?'दिवाली स्पेशल':'Diwali specials'}</span></div>}
+          <div className="sh"><div className="st">{isHi?'हमारी सेवाएं':'Our Services'}</div></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+            {[
+              {e:'🛒',l:'Groceries',s:isHi?'ताज़ा सामान':'Fresh daily',c:'#3DFF7A',go:()=>{setCatF('all');setSearchQ('');}},
+              {e:'🚕',l:'Cab',s:isHi?'राइड बुक करें':'Book a ride',c:'#FFD54A',go:()=>window.open('https://wa.me/916375565339?text='+encodeURIComponent('Daily Basket Cab booking chahiye'),'_blank')},
+              {e:'👗',l:'Fashion',s:isHi?'जल्द आ रहा है':'Coming soon',c:'#FF7AC8',soon:true,go:()=>{}}
+            ].map(sv=>(
+              <div key={sv.l} onClick={sv.go} style={{position:'relative',padding:'16px 8px',borderRadius:18,textAlign:'center',cursor:'pointer',background:'var(--card)',border:'1px solid '+sv.c+'44',boxShadow:'0 0 14px '+sv.c+'18'}}>
+                {sv.soon&&<div style={{position:'absolute',top:6,right:6,fontSize:8,fontWeight:800,padding:'2px 6px',borderRadius:50,background:sv.c,color:'#1A0A04'}}>SOON</div>}
+                <div style={{fontSize:30,marginBottom:6}}>{sv.e}</div>
+                <div style={{fontSize:13,fontWeight:800,fontFamily:fam}}>{sv.l}</div>
+                <div style={{fontSize:10,color:'var(--t3)',marginTop:2,fontFamily:fam}}>{sv.s}</div>
+              </div>
+            ))}
+          </div>
+        </div>
         {/* Categories */}
         <div style={{padding:'0 20px',marginBottom:20}}>
           <div className="sh"><div className="st">{t.categories}</div></div>
@@ -2865,6 +3031,19 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   const [loadingOrders, setLoadingOrders]=useState(false);
   const [editName, setEditName]=useState((user&&user.name)||'');
   const [editSaving, setEditSaving]=useState(false);
+  const [photo, setPhoto]=useState(()=>{try{return (user&&user.photo)||localStorage.getItem('db_photo')||'';}catch(e){return '';}});
+  const pickPhoto=async e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    if(!/^image\//.test(f.type)){alert('Sirf image file choose karo!');return;}
+    if(f.size>8*1024*1024){alert('8MB se chhoti photo choose karo!');return;}
+    try{
+      const bmp=await createImageBitmap(f);
+      const s=Math.min(bmp.width,bmp.height);
+      const c=document.createElement('canvas'); c.width=256; c.height=256;
+      c.getContext('2d').drawImage(bmp,(bmp.width-s)/2,(bmp.height-s)/2,s,s,0,0,256,256);
+      setPhoto(c.toDataURL('image/jpeg',0.75));
+    }catch(err){alert('Photo error: '+err.message);}
+  };
 
   const fetchOrders=async()=>{
     if(!user?.uid&&!auth.currentUser?.uid) return;
@@ -2895,7 +3074,8 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
     setEditSaving(true);
     try{
       const uid4=user?.uid||auth.currentUser?.uid;
-      await setDoc(doc(db,'users',uid4),{name:editName.trim(),phone:user?.phone},{merge:true});
+      await setDoc(doc(db,'users',uid4),{name:SEC.clean(editName,40),phone:user?.phone,photo:photo||''},{merge:true});
+      try{localStorage.setItem('db_photo',photo||'');const su=JSON.parse(localStorage.getItem('db_cust_user')||'null');if(su){su.photo=photo||'';su.name=SEC.clean(editName,40);localStorage.setItem('db_cust_user',JSON.stringify(su));}}catch(e){}
       alert('Profile updated!');
       setShowEditProfile(false);
     }catch(e){console.log(e);}
@@ -2911,9 +3091,11 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
       </div>
       <div style={{padding:'0 20px'}}>
         <div className="gc" style={{padding:20,marginBottom:14}}>
-          <div style={{width:72,height:72,borderRadius:20,background:'linear-gradient(135deg,#3DFF7A,#00C44F)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,fontWeight:800,color:'#0A1A0A',margin:'0 auto 16px'}}>{editName[0]||'U'}</div>
+          <div onClick={()=>document.getElementById('profPhotoUp').click()} style={{width:90,height:90,borderRadius:'50%',background:'linear-gradient(135deg,#3DFF7A,#00C44F)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,fontWeight:800,color:'#0A1A0A',margin:'0 auto 6px',overflow:'hidden',cursor:'pointer'}}>{photo?<img src={photo} alt="me" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:(editName[0]||'U')}</div>
+          <div onClick={()=>document.getElementById('profPhotoUp').click()} style={{textAlign:'center',fontSize:12,fontWeight:700,color:'var(--green)',marginBottom:16,cursor:'pointer'}}>📷 {photo?'Change photo':'Add photo'}</div>
+          <input id="profPhotoUp" type="file" accept="image/*" style={{display:'none'}} onChange={pickPhoto}/>
           <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:6}}>Full Name</div>
-          <input className="dbi" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Apna naam likho" style={{marginBottom:16}}/>
+          <input className="dbi" maxLength={40} value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Apna naam likho" style={{marginBottom:16}}/>
           <div style={{fontSize:12,color:'var(--t3)',fontWeight:600,marginBottom:6}}>Phone Number</div>
           <input className="dbi" value={(user&&user.phone)||''} disabled style={{opacity:.5,marginBottom:16}}/>
           <div style={{fontSize:11,color:'var(--t3)',marginBottom:16}}>📱 Phone number change nahi hoga</div>
@@ -3036,7 +3218,7 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
           </div>
           <div className="gc" style={{padding:22,borderRadius:24,textAlign:'center'}}>
             <div style={{width:92,height:92,margin:'0 auto',borderRadius:'50%',padding:3,background:'conic-gradient(from 180deg, var(--green,#3DFF7A), var(--gold,#D4AF37), var(--green,#3DFF7A))',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <div style={{width:'100%',height:'100%',borderRadius:'50%',background:'var(--card,#0d1a0d)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,fontWeight:800}}>{(user&&user.name&&user.name[0])||'U'}</div>
+              <div style={{width:'100%',height:'100%',borderRadius:'50%',background:'var(--card,#0d1a0d)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,fontWeight:800,overflow:'hidden'}}>{photo?<img src={photo} alt="me" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:((user&&user.name&&user.name[0])||'U')}</div>
             </div>
             <div style={{fontSize:20,fontWeight:800,marginTop:10}}>{(user&&user.name)||'User'}</div>
             <div style={{fontSize:13,opacity:.7,marginTop:2}}>+91 {(user&&user.phone)||'XXXXXXXXXX'}</div>
@@ -3060,7 +3242,7 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
             <Ic n="arrow" s={16} c="#8A9A8A"/>
           </div>
         ))}
-        <button className="btng rip" onClick={()=>{if(window.confirm('Sign out karna chahte ho?')){try{localStorage.removeItem('db_cust_user');localStorage.removeItem('db_name');}catch(e){}import('firebase/auth').then(({signOut,getAuth})=>{signOut(getAuth()).catch(()=>{}).finally(()=>window.location.reload());}).catch(()=>window.location.reload());}}} style={{width:'100%',marginTop:8}}>{t.signOut}</button>
+        <button className="btng rip" onClick={()=>{if(window.confirm('Sign out karna chahte ho?')){try{localStorage.removeItem('db_cust_user');localStorage.removeItem('db_name');}catch(e){}import('firebase/auth').then(({signOut,getAuth})=>{signOut(getAuth()).catch(()=>{}).finally(()=>window.location.reload());}).catch(()=>window.location.reload());}}} style={{width:'100%',marginTop:12,padding:'18px',fontSize:17,fontWeight:800,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.45)',background:'rgba(255,107,107,.08)'}}>🚪 {t.signOut}</button>
       </div>
     </div>
   );
@@ -3071,7 +3253,7 @@ function LoginForm({color,icon,role,cred,onLogin,onBack,hint}) {
   const [id,setId]=useState('');const [pass,setPass]=useState('');const [show,setShow]=useState(false);
   const [err,setErr]=useState('');const [load,setLoad]=useState(false);
   const rgb={'#3DFF7A':'61,255,122','#00C44F':'0,196,79','#D4AF37':'212,175,55','#FF8C42':'255,140,66'}[color]||'61,255,122';
-  const attempt=()=>{setErr('');const ok=cred(id.trim(),pass.trim());if(!ok){setErr('Invalid credentials or account disabled.');return;}setLoad(true);setTimeout(()=>onLogin(ok),1000);};
+  const attempt=async()=>{setErr('');const lk=SEC.hit('login_'+role,5,15);if(lk){setErr('Too many attempts. Try again in '+lk+' min.');return;}let ok=null;try{ok=await cred(id.trim(),pass.trim());}catch(e){ok=null;}if(!ok){setErr('Invalid credentials or account disabled.');return;}SEC.reset('login_'+role);setLoad(true);setTimeout(()=>onLogin(ok),1000);};
   return (
     <div style={{position:'absolute',inset:0,background:`radial-gradient(ellipse at 30% 10%,rgba(${rgb},.04),#070907)`,display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <SBar/><div style={{padding:'2px 20px 0'}}><div style={{display:'inline-flex',alignItems:'center',gap:8,cursor:'pointer',padding:'6px 0'}} onClick={onBack}><Ic n="back" s={16} c="#5A6A5A"/><span style={{fontSize:13,color:'var(--t3)',fontWeight:600}}>Back</span></div></div>
@@ -3724,11 +3906,13 @@ function AdminOTPScreen({onVerify, onBack}) {
   const [smsToken,setSmsToken]=useState('');
 
   const send=async()=>{
+    const lkA=SEC.hit('admin_otp_send',6,15);
+    if(lkA){setErr('Too many OTP requests. Try again in '+lkA+' min.');return;}
     setErr('');setMsg('');setLoading(true);
     let emailSent=false;
     const code=String(Math.floor(100000+Math.random()*900000));
     try{
-      localStorage.setItem('db_admin_otp',code);
+      await SEC.saveOtp('db_admin_otp',code,'admin');
       const ejsRes=await fetch('https://api.emailjs.com/api/v1.0/email/send',{
         method:'POST',
         headers:{'Content-Type':'application/json','origin':'http://localhost'},
@@ -3740,7 +3924,7 @@ function AdminOTPScreen({onVerify, onBack}) {
           template_params:{to_name:'Admin',otp_code:code,to_email:ADMIN_EMAIL}
         })
       });
-      if(ejsRes.ok) emailSent=true; else console.log('Admin EmailJS err:',await ejsRes.text());
+      if(ejsRes.ok) emailSent=true; else console.log('Admin EmailJS send failed');
     }catch(e){console.log('Admin email err:',e);}
     let tok='';
     try{
@@ -3757,10 +3941,11 @@ function AdminOTPScreen({onVerify, onBack}) {
 
   const verify=async()=>{
     if(otp.length!==6){setErr('6-digit OTP daalo');return;}
+    const lkB=SEC.hit('admin_otp_verify',5,15);
+    if(lkB){setErr('Too many wrong attempts. Try again in '+lkB+' min.');return;}
     setLoading(true);setErr('');
     let ok=false;
-    const saved=localStorage.getItem('db_admin_otp');
-    if(saved&&otp===saved){ok=true;localStorage.removeItem('db_admin_otp');}
+    if(await SEC.checkOtp('db_admin_otp',otp,'admin')) ok=true;
     if(!ok&&smsToken){
       try{
         const r=await fetch('/api/verifyotp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:smsToken,userOtp:otp})});
@@ -3769,7 +3954,7 @@ function AdminOTPScreen({onVerify, onBack}) {
       }catch(e){console.log('Admin verify err:',e);}
     }
     setLoading(false);
-    if(ok){try{localStorage.setItem('db_admin','true');}catch(e){}onVerify();}
+    if(ok){try{localStorage.setItem('db_admin','true');localStorage.setItem('db_admin_ts',String(Date.now()));SEC.reset('admin_otp_verify');}catch(e){}onVerify();}
     else setErr('❌ Galat OTP! Email ya SMS check karo.');
   };
 
@@ -3801,6 +3986,12 @@ function AdminOTPScreen({onVerify, onBack}) {
 }
 
 function AdminApp({data,setData,onBack}) {
+  // Security: 15 min inactivity par admin auto-logout
+  useEffect(()=>{
+    let tm; const reset=()=>{clearTimeout(tm);tm=setTimeout(()=>{try{onBack&&onBack();}catch(e){}},15*60*1000);};
+    const ev=['pointerdown','keydown','scroll','touchstart']; ev.forEach(x=>window.addEventListener(x,reset,{passive:true})); reset();
+    return()=>{clearTimeout(tm);ev.forEach(x=>window.removeEventListener(x,reset));};
+  },[]);
   const [tab,setTab]=useState('dash');
   const [pcTab,setPcTab]=useState('veg');
   const [editId,setEditId]=useState(null);
@@ -4011,7 +4202,7 @@ function AdminApp({data,setData,onBack}) {
     <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <SBar/>
       <div style={{padding:'4px 20px 8px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}><div><div style={{fontSize:16,fontWeight:800,color:'#FF8C42'}}>🍓 Master Control</div><div style={{fontSize:11,color:'var(--t3)'}}>Admin: {ADMIN_ID}</div></div></div>
+        <div style={{display:'flex',alignItems:'center',gap:10}}><div><div style={{fontSize:16,fontWeight:800,color:'#FF8C42'}}>🍓 Master Control</div><div style={{fontSize:11,color:'var(--t3)'}}>Master Admin</div></div></div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
   <div style={{background:'rgba(255,140,66,.1)',border:'1px solid rgba(255,140,66,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF8C42',fontWeight:700}}>🔐 ADMIN</div>
   <div onClick={onBack} style={{background:'rgba(255,107,107,.1)',border:'1px solid rgba(255,107,107,.25)',borderRadius:50,padding:'4px 12px',fontSize:11,color:'#FF6B6B',fontWeight:700,cursor:'pointer'}}>Logout</div>
@@ -4837,7 +5028,7 @@ const [authReady, setAuthReady] = useState(false);
           // Custom OTP login session restore
           try {
             const saved=localStorage.getItem('db_cust_user');
-            if(saved){const u2=JSON.parse(saved);setUser(u2);setPhase('app');}
+            if(saved){const u2=JSON.parse(saved);if(u2&&u2.ts&&Date.now()-u2.ts>30*864e5){localStorage.removeItem('db_cust_user');}else{setUser(u2);setPhase('app');}}
           } catch(e){}
         }
       } catch(e){ console.log('Auth user error:',e); }
@@ -4854,7 +5045,7 @@ const [authReady, setAuthReady] = useState(false);
   const [portal, setPortal] = useState(()=>{try{return localStorage.getItem('db_portal')||'customer';}catch(e){return 'customer';}});
   const [riderU, setRiderU] = useState(()=>{try{const r=localStorage.getItem('db_rider');return r?JSON.parse(r):null;}catch(e){return null;}});
   const [shopU,  setShopU ] = useState(()=>{try{const s=localStorage.getItem('db_shop');return s?JSON.parse(s):null;}catch(e){return null;}});
-  const [adminA, setAdminA] = useState(()=>{try{return localStorage.getItem('db_admin')==='true';}catch(e){return false;}});
+  const [adminA, setAdminA] = useState(()=>{try{return localStorage.getItem('db_admin')==='true'&&(Date.now()-Number(localStorage.getItem('db_admin_ts')||0))<2*3600*1000;}catch(e){return false;}});
   const [adminOtp, setAdminOtp] = useState(false); // admin ne creds daale, ab OTP verify pending
 
   // Save portal sessions to localStorage
@@ -4862,8 +5053,8 @@ const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{try{if(riderU)localStorage.setItem('db_rider',JSON.stringify(riderU));else localStorage.removeItem('db_rider');}catch(e){}}, [riderU]);
   useEffect(()=>{try{if(shopU)localStorage.setItem('db_shop',JSON.stringify(shopU));else localStorage.removeItem('db_shop');}catch(e){}}, [shopU]);
   useEffect(()=>{try{localStorage.setItem('db_admin',adminA?'true':'false');}catch(e){}}, [adminA]);
-  const [theme, setTheme] = useState(()=>{ try{return localStorage.getItem('db_theme')||'eco';}catch(e){return 'eco';} });
-  useEffect(()=>{ try{localStorage.setItem('db_theme',theme);}catch(e){} },[theme]);
+  const [theme, setTheme] = useState(()=>{ try{return localStorage.getItem('db_theme2')||'diwali';}catch(e){return 'diwali';} });
+  useEffect(()=>{ try{localStorage.setItem('db_theme2',theme);}catch(e){} },[theme]);
 
  const handleCapSelect = id => {
   if(id==='help') {
@@ -4891,7 +5082,7 @@ const [authReady, setAuthReady] = useState(false);
       if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>{const s=(data.shops||[]).find(s=>s.id===id&&s.pass===p&&s.active);return s||null;}} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='admin') {
         if(!adminA) {
-          if(!adminOtp) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>(id===ADMIN_ID&&p===ADMIN_PASS)?true:null} onLogin={()=>setAdminOtp(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
+          if(!adminOtp) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={async(id,p)=>(await SEC.hash(id+'|'+p+'|dbsalt1'))===ADMIN_HASH?true:null} onLogin={()=>setAdminOtp(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
           return <AdminOTPScreen onVerify={()=>{setAdminOtp(false);setAdminA(true);}} onBack={()=>setAdminOtp(false)}/>;
         }
         return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}}/>;
@@ -4937,6 +5128,7 @@ const [authReady, setAuthReady] = useState(false);
         <style>{CSS}</style>
         <div className="phone" style={{width:390,height:vh,transform:`scale(${sc})`,transformOrigin:'top left',...getThemeStyle(theme)}}>
           {safeContent}
+          {theme==='diwali'&&<DiwaliFX/>}
         </div>
       </div>
     </ErrorBoundary>
