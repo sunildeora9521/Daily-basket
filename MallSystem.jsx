@@ -25,6 +25,7 @@ const MALL_CSS = `@import url('https://fonts.googleapis.com/css2?family=Space+Gr
 @keyframes mRoad{from{background-position:0 0}to{background-position:-80px 0}}
 @keyframes mBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 .mall .leaflet-container{background:#0B0F14;font-family:inherit}
+.mall .mall-dark-tiles{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.65)}
 .mall .leaflet-control-attribution{font-size:8px;background:rgba(0,0,0,.45)!important;color:#aaa}
 .mall .leaflet-control-attribution a{color:#ccc}`;
 
@@ -77,14 +78,14 @@ async function imgToData(file, max = 720, q = 0.72) {
 
 /* Firestore live collection hook. cons===null => disabled */
 function useCol(name, cons, key) {
-  const [d, setD] = useState([]); const [ld, setLd] = useState(!!cons);
+  const [d, setD] = useState([]); const [ld, setLd] = useState(!!cons); const [er, setEr] = useState('');
   useEffect(() => {
     if (!cons) { setD([]); setLd(false); return; }
-    setLd(true); let un = () => {};
-    try { un = onSnapshot(cons.length ? query(collection(db, name), ...cons) : collection(db, name), s => { setD(s.docs.map(x => ({ ...x.data(), id: x.id }))); setLd(false); }, () => setLd(false)); } catch (e) { setLd(false); }
+    setLd(true); setEr(''); let un = () => {};
+    try { un = onSnapshot(cons.length ? query(collection(db, name), ...cons) : collection(db, name), s => { setD(s.docs.map(x => ({ ...x.data(), id: x.id }))); setLd(false); }, e => { setLd(false); setEr((e && (e.code || e.message)) || 'error'); }); } catch (e) { setLd(false); }
     return () => { try { un(); } catch (e) {} };
   }, [name, key]);
-  return [d, ld];
+  return [d, ld, er];
 }
 /* mall screens ke time: Diwali FX band, status bar ka rang match */
 function useMallChrome(bg) {
@@ -254,12 +255,13 @@ function MallOrders({ T, type, orders, say, onBack, focusId }) {
 const G_CATS = [['All', '🛒'], ['Staples', '🌾'], ['Dal & Pulses', '🫘'], ['Vegetables', '🥬'], ['Fruits', '🍎'], ['Dairy', '🥛'], ['Snacks', '🍪'], ['Beverages', '🥤'], ['Household', '🧴'], ['Personal Care', '🧼']];
 
 function GroceryApp({ user, onBack }) {
-  const T = TH.grocery; useMallChrome(T.bg);
+  const T = TH.grocery;
   const [say, toast] = useToast();
   const [view, setView] = useState('home'); const [shop, setShop] = useState(null);
+  useMallChrome(view === 'home' ? '#0FA968' : T.bg);
   const [cat, setCat] = useState('All'); const [q, setQ] = useState(''); const [focus, setFocus] = useState(null);
   const cart = useCart();
-  const [shopsAll, sl] = useCol('mall_partners', [where('type', '==', 'grocery')], 'gs');
+  const [shopsAll, sl, serr] = useCol('mall_partners', [where('type', '==', 'grocery')], 'gs');
   const shops = shopsAll.filter(s => s.active !== false);
   const [prodsAll, pl] = useCol('mall_products', [where('type', '==', 'grocery')], 'gp');
   const [orders] = useCol('mall_orders', user && user.uid ? [where('userId', '==', user.uid)] : null, 'go' + (user && user.uid));
@@ -299,6 +301,7 @@ function GroceryApp({ user, onBack }) {
         {!shop && <>
           <div style={{ padding: '2px 16px 8px', fontSize: 16, fontWeight: 800 }}>Shops near you</div>
           {sl && <Spin T={T} />}
+          {serr && <div style={{ margin: '0 16px 14px', padding: 14, background: '#FEE2E2', color: '#991B1B', borderRadius: 14, fontSize: 12.5, lineHeight: 1.5 }}>⚠️ Database permission error ({serr}). Firebase Rules me Mall collections ko Publish karo.</div>}
           {!sl && shops.length === 0 && <div style={{ margin: '0 16px 14px', padding: 18, background: T.card, borderRadius: 16, border: '1px dashed ' + T.line, color: T.sub, fontSize: 13, textAlign: 'center' }}>Abhi koi shop add nahi hui. Jaldi aa rahi hain! 🏪</div>}
           <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px 16px' }}>
             {shops.map(s => (
@@ -363,7 +366,7 @@ function FashionApp({ user, onBack }) {
   const [sel, setSel] = useState(null); const [size, setSize] = useState(''); const [shop, setShop] = useState(null); const [focus, setFocus] = useState(null);
   const [wish, setWish] = useState(() => { try { return JSON.parse(localStorage.getItem('mall_wish') || '[]'); } catch (e) { return []; } });
   const cart = useCart();
-  const [shopsAll] = useCol('mall_partners', [where('type', '==', 'fashion')], 'fs');
+  const [shopsAll, , serr] = useCol('mall_partners', [where('type', '==', 'fashion')], 'fs');
   const shops = shopsAll.filter(s => s.active !== false);
   const [prodsAll, pl] = useCol('mall_products', [where('type', '==', 'fashion')], 'fp');
   const [orders] = useCol('mall_orders', user && user.uid ? [where('userId', '==', user.uid)] : null, 'fo' + (user && user.uid));
@@ -469,6 +472,7 @@ function FashionApp({ user, onBack }) {
         </>}
         <div style={head({ padding: '0 16px 10px', fontSize: 22 }, 22)}>{cat === 'All' ? 'New arrivals' : cat}</div>
         {pl && <Spin T={T} />}
+        {serr && <div style={{ margin: '0 16px 14px', padding: 14, background: '#FEE2E2', color: '#991B1B', borderRadius: 14, fontSize: 12.5, lineHeight: 1.5 }}>⚠️ Database permission error ({serr}). Firebase Rules me Mall collections ko Publish karo.</div>}
         {!pl && shops.length === 0 && <div style={{ margin: '0 16px', padding: 22, border: '1px dashed ' + T.line, textAlign: 'center', color: T.sub, fontSize: 13 }}>Boutiques jald hi judne wali hain ✨</div>}
         {!pl && shops.length > 0 && prods.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: T.sub, fontSize: 13 }}>Kuch nahi mila 🔎</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 12px', padding: '0 16px' }}>{prods.map(p => <Tile key={p.id} p={p} />)}</div>
@@ -538,7 +542,7 @@ function CabMap({ center, pin, onMove, pickup, drop, route, driver, drivers, fit
     loadLeaflet().then(L => {
       if (dead || !el.current) return;
       const m = L.map(el.current, { zoomControl: false, attributionControl: true }).setView(center ? [center.lat, center.lng] : [26.2389, 73.0243], 15);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '© OpenStreetMap © CARTO' }).addTo(m);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'mall-dark-tiles', attribution: '© OpenStreetMap contributors' }).addTo(m);
       try { m.attributionControl.setPrefix(false); } catch (e) {}
       S.current.L = L; S.current.m = m; S.current.lay = {}; S.current.dm = {};
       m.on('moveend', () => { if (S.current.pin && S.current.onMove) { const c = m.getCenter(); S.current.onMove({ lat: r5(c.lat), lng: r5(c.lng) }); } });
@@ -596,12 +600,15 @@ function Booking({ T, types, partners, user, rides, say, onBack, onHistory }) {
   const [ctr, setCtr] = useState(null), [addr, setAddr] = useState(''), [fly, setFly] = useState(null);
   const [route, setRoute] = useState(null), [sel, setSel] = useState('mini'), [busy, setBusy] = useState(false);
   const [qt, setQt] = useState(''), [res, setRes] = useState([]), [srch, setSrch] = useState(false), [fit, setFit] = useState(0);
-  useEffect(() => {
-    let off = false; const def = { lat: 26.2389, lng: 73.0243 };
-    const done = (p, real) => { if (off) return; setFly({ ...p, k: Date.now() }); setCtr(p); if (!real) say('GPS off hai — map hila ke pickup set karo'); };
-    if (navigator.geolocation) navigator.geolocation.getCurrentPosition(g => done({ lat: r5(g.coords.latitude), lng: r5(g.coords.longitude) }, true), () => done(def, false), { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }); else done(def, false);
-    return () => { off = true; };
-  }, []);
+  const alive = useRef(true); useEffect(() => () => { alive.current = false; }, []);
+  const locate = manual => {
+    const def = { lat: 26.2389, lng: 73.0243 };
+    const done = (p, real) => { if (!alive.current) return; setFly({ ...p, k: Date.now() }); setCtr(p); if (!real) say('GPS nahi mila — map hila ke pickup set karo ya 🎯 dabao'); else if (manual) say('Location mil gayi ✓'); };
+    if (!navigator.geolocation) { if (manual) say('GPS support nahi hai'); else done(def, false); return; }
+    const ok = g => done({ lat: r5(g.coords.latitude), lng: r5(g.coords.longitude) }, true);
+    navigator.geolocation.getCurrentPosition(ok, () => navigator.geolocation.getCurrentPosition(ok, () => { if (manual) say('Location permission off hai — Chrome site settings me allow karo'); else done(def, false); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 }), { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+  };
+  useEffect(() => { locate(false); }, []);
   const pinStep = step === 'pickup' || step === 'dropmap';
   useEffect(() => { if (!ctr || !pinStep) return; setAddr(''); const t = setTimeout(async () => setAddr(await revGeo(ctr.lat, ctr.lng)), 650); return () => clearTimeout(t); }, [ctr && ctr.lat, ctr && ctr.lng, step]);
   useEffect(() => { if (step !== 'dest' || qt.trim().length < 3) { setRes([]); return; } setSrch(true); const t = setTimeout(async () => { setRes(await searchPlaces(qt.trim(), pickup)); setSrch(false); }, 700); return () => clearTimeout(t); }, [qt, step]);
@@ -621,7 +628,7 @@ function Booking({ T, types, partners, user, rides, say, onBack, onHistory }) {
   return (
     <>
       <CabMap center={fly} pin={pinStep} onMove={setCtr} pickup={step === 'pickup' || step === 'dropmap' ? (step === 'dropmap' ? pickup : null) : pickup} drop={step === 'options' ? drop : null} route={step === 'options' && route ? route.pts : null} drivers={nearDrivers.map(p => ({ id: p.id, loc: p.loc }))} fitKey={fit} bottomPad={step === 'options' ? 380 : 260} />
-      <TopBar T={T} onBack={step === 'pickup' ? onBack : () => setStep(step === 'options' ? 'dest' : step === 'dropmap' ? 'dest' : 'pickup')} right={<RoundBtn T={T} onClick={onHistory} style={{ boxShadow: '0 6px 18px rgba(0,0,0,.5)' }}>🕘</RoundBtn>} />
+      <TopBar T={T} onBack={step === 'pickup' ? onBack : () => setStep(step === 'options' ? 'dest' : step === 'dropmap' ? 'dest' : 'pickup')} right={<div style={{ display: 'flex', gap: 8 }}>{pinStep && <RoundBtn T={T} onClick={() => locate(true)} style={{ boxShadow: '0 6px 18px rgba(0,0,0,.5)' }}>🎯</RoundBtn>}<RoundBtn T={T} onClick={onHistory} style={{ boxShadow: '0 6px 18px rgba(0,0,0,.5)' }}>🕘</RoundBtn></div>} />
       {pinStep && <Pin label={step === 'pickup' ? 'Pickup here' : 'Drop here'} />}
       {step === 'pickup' && <Sheet T={T}>
         <div style={{ fontSize: 11, letterSpacing: 2, color: T.sub }}>PICKUP LOCATION</div>
