@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, messaging, requestNotificationPermission, onMessage } from "./firebase";
 import { collection, addDoc, getDocs, onSnapshot, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+import { MallApp, MallPartnerGate, MallAdminPanel } from "./MallSystem";
 /* ═══════════ SECURITY LAYER ═══════════ */
 // Frame-buster: app ko kisi doosri site ke iframe me chalne se rokta hai (clickjacking)
 try{ if(window.top!==window.self){ window.top.location.href=window.self.location.href; } }catch(e){}
@@ -96,6 +97,7 @@ function DiwaliFX(){
 
     const frame=(ts)=>{
       raf=requestAnimationFrame(frame);
+      if(document.body.getAttribute('data-mall')==='1'){ last=0; return; }
       if(!last) last=ts;
       let dt=(ts-last)/1000; last=ts; if(dt>.05) dt=.05; t+=dt;
       // spawners
@@ -133,12 +135,12 @@ function DiwaliFX(){
   const lc=['#FFD54A','#FF8A00','#FF4D6D','#4DEBFF','#7CFF6B'];
   return (
     <>
-      <div style={{position:'absolute',top:0,left:0,right:0,height:8,zIndex:9997,pointerEvents:'none',display:'flex',justifyContent:'space-around',alignItems:'center'}}>
+      <div className="dfx" style={{position:'absolute',top:0,left:0,right:0,height:8,zIndex:9997,pointerEvents:'none',display:'flex',justifyContent:'space-around',alignItems:'center'}}>
         {Array.from({length:15}).map((_,i)=>(
           <span key={i} style={{width:6,height:6,borderRadius:'50%',background:lc[i%5],boxShadow:'0 0 8px 2px '+lc[i%5],animation:'twinkle 1.4s ease-in-out '+(i*.11)+'s infinite'}}/>
         ))}
       </div>
-      <canvas ref={ref} style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:9998}}/>
+      <canvas ref={ref} className="dfx" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:9998}}/>
     </>
   );
 }
@@ -157,6 +159,7 @@ html,body{background:#070907;}body{font-family:'Outfit',sans-serif;color:var(--t
 
 @keyframes fadeIn   {from{opacity:0}to{opacity:1}}
 @keyframes fadeOut  {from{opacity:1}to{opacity:0}}
+body[data-mall="1"] .dfx{display:none!important}
 @keyframes twinkle {0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
 @keyframes fadeUp   {from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 @keyframes scaleIn  {from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
@@ -510,12 +513,15 @@ function CapModal({onClose, onSelect}) {
     {id:'help', icon:'❓', label:'How to Login',  labelHi:'कैसे लॉगिन करें', sub:'Help for new users',     subHi:'नए उपयोगकर्ताओं के लिए',  c:'#3DFF7A'},
     {id:'rider',icon:'🚲', label:'For Rider',      labelHi:'राइडर के लिए',    sub:'Delivery partner portal', subHi:'डिलीवरी पार्टनर पोर्टल',  c:'#00C44F'},
     {id:'shop', icon:'🏨', label:'For Shopkeeper', labelHi:'दुकानदार के लिए',  sub:'Restaurant & store portal',subHi:'रेस्तरां और स्टोर',         c:'#D4AF37'},
+    {id:'cab',icon:'🚕', label:'Cab Driver',      labelHi:'कैब ड्राइवर',     sub:'Daily Ride — requests & earnings',subHi:'डेली राइड पोर्टल',  c:'#FFD60A'},
+    {id:'mgrocery',icon:'🥬', label:'Grocery Partner', labelHi:'ग्रोसरी पार्टनर', sub:'Daily Mart — shop portal',subHi:'डेली मार्ट दुकान',     c:'#10B981'},
+    {id:'mfashion',icon:'👗', label:'Fashion Partner', labelHi:'फैशन पार्टनर',   sub:'Daily Style — boutique portal',subHi:'डेली स्टाइल बुटीक', c:'#E11D74'},
     {id:'admin',icon:'🍓', label:'Admin Access',   labelHi:'एडमिन एक्सेस',    sub:'Master control panel',    subHi:'मास्टर कंट्रोल',           c:'#FF8C42'},
   ];
-  const rgb={'#3DFF7A':'61,255,122','#00C44F':'0,196,79','#D4AF37':'212,175,55','#FF8C42':'255,140,66'};
+  const rgb={'#3DFF7A':'61,255,122','#00C44F':'0,196,79','#D4AF37':'212,175,55','#FF8C42':'255,140,66','#FFD60A':'255,214,10','#10B981':'16,185,129','#E11D74':'225,29,116'};
   return (
     <div className="ovl" onClick={onClose}>
-      <div className="modal" onClick={e=>e.stopPropagation()}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxHeight:'88%',overflowY:'auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <div>
             <div style={{fontSize:18,fontWeight:800}}>🧢 Switch Portal</div>
@@ -1714,6 +1720,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
   },[]);
   const [lastOrderId, setLastOrderId]=useState(null);
   const [scrMilk, setScrMilk]=useState(false);
+  const [mallApp, setMallApp]=useState(null);
   const [scrBulk, setScrBulk]=useState(false);
   const [premOpen, setPremOpen]=useState(false);
   const [adSlides,setAdSlides]=useState([]);
@@ -1739,7 +1746,7 @@ try { localImg=localStorage.getItem('prodImg_'+d.id); } catch(e) {}
     return()=>unsub();
   },[]);
 
-  useEffect(()=>{const iv=setInterval(()=>setAdIdx(i=>adSlides.length>0?(i+1)%adSlides.length:0),3000);return()=>clearInterval(iv);},[adSlides.length]);
+  useEffect(()=>{const iv=setInterval(()=>setAdIdx(i=>adSlides.length>0?(i+1)%Math.min(adSlides.length,6):0),4000);return()=>clearInterval(iv);},[adSlides.length]);
   useEffect(()=>{
     if(auth.currentUser?.uid){
       const _addrUid=user?.uid||auth.currentUser?.uid;
@@ -2259,7 +2266,7 @@ useEffect(()=>{
                 ? <img src={sl.imgUrl} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>
                 : <div style={{position:'absolute',right:-8,top:'50%',transform:'translateY(-50%)',fontSize:105,opacity:.14,filter:'blur(1px)',pointerEvents:'none'}}>{sl.emoji||'🛒'}</div>
               }
-              <div style={{position:'absolute',inset:0,padding:'16px 18px 14px'}}>
+              {!(sl.imgUrl&&sl.imgUrl!=='uploading...')&&<div style={{position:'absolute',inset:0,padding:'16px 18px 14px'}}>
               <div style={{position:'absolute',inset:0,background:'linear-gradient(90deg,rgba(0,0,0,.5) 50%,transparent)',pointerEvents:'none'}}/>
               <div style={{position:'absolute',right:40,top:-18,width:90,height:90,borderRadius:'50%',background:'rgba(255,255,255,.03)',pointerEvents:'none'}}/>
               <div style={{position:'relative',zIndex:1}}>
@@ -2270,7 +2277,7 @@ useEffect(()=>{
                 <div style={{fontSize:11,color:'rgba(255,255,255,.58)',marginTop:3,fontWeight:500}}>{sl.sub||''}</div>
                 <button className="btn rip" onClick={e=>{e.stopPropagation();try{if(sl.link==='milk')setScrMilk(true);else if(sl.link==='bulk')setScrBulk(true);else if(sl.link)window.open(sl.link,'_blank');}catch(e){}}} style={{marginTop:9,padding:'6px 16px',fontSize:12,fontFamily:fam,fontWeight:800}}>{sl.btn||'Learn More'} →</button>
               </div>
-              </div>
+              </div>}
             </div>
           </div>
           {visSlides.length>1&&<div style={{display:'flex',justifyContent:'center',gap:4,marginTop:7}}>
@@ -2292,9 +2299,9 @@ useEffect(()=>{
           <div className="sh"><div className="st">{isHi?'हमारी सेवाएं':'Our Services'}</div></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
             {[
-              {e:'🛒',l:'Groceries',s:isHi?'ताज़ा सामान':'Fresh daily',c:'#3DFF7A',go:()=>{setCatF('all');setSearchQ('');}},
-              {e:'🚕',l:'Cab',s:isHi?'राइड बुक करें':'Book a ride',c:'#FFD54A',go:()=>window.open('https://wa.me/916375565339?text='+encodeURIComponent('Daily Basket Cab booking chahiye'),'_blank')},
-              {e:'👗',l:'Fashion',s:isHi?'जल्द आ रहा है':'Coming soon',c:'#FF7AC8',soon:true,go:()=>{}}
+              {e:'🛒',l:'Groceries',s:isHi?'लोकल दुकानें':'Local shops',c:'#3DFF7A',go:()=>setMallApp('grocery')},
+              {e:'🚕',l:'Cab',s:isHi?'राइड बुक करें':'Book a ride',c:'#FFD54A',go:()=>setMallApp('cab')},
+              {e:'👗',l:'Fashion',s:isHi?'स्टाइल और ट्रेंड':'Style & trends',c:'#FF7AC8',go:()=>setMallApp('fashion')}
             ].map(sv=>(
               <div key={sv.l} onClick={sv.go} style={{position:'relative',padding:'16px 8px',borderRadius:18,textAlign:'center',cursor:'pointer',background:'var(--card)',border:'1px solid '+sv.c+'44',boxShadow:'0 0 14px '+sv.c+'18'}}>
                 {sv.soon&&<div style={{position:'absolute',top:6,right:6,fontSize:8,fontWeight:800,padding:'2px 6px',borderRadius:50,background:sv.c,color:'#1A0A04'}}>SOON</div>}
@@ -2376,6 +2383,7 @@ useEffect(()=>{
     return null;
   };
 
+  if(mallApp) return <MallApp kind={mallApp} user={user} onBack={()=>setMallApp(null)}/>;
   return (
     <div style={{position:'absolute',inset:0}}>
       <div className="scr">{renderScr()}</div>
@@ -4226,9 +4234,11 @@ function AdminApp({data,setData,onBack}) {
 </div>
       </div>
 <div style={{display:'flex',overflowX:'auto',padding:'0 20px 10px',gap:6,scrollbarWidth:'none',WebkitOverflowScrolling:'touch',msOverflowStyle:'none',flexShrink:0}}>
-        {[{id:'dash',l:'📊 Dash'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦 Prods'},{id:'shops',l:'🏨 Shops'},{id:'riders',l:'🚲 Riders'},{id:'coupons',l:'🏷️ Coupons'},{id:'slides',l:'🎨 Slides'},{id:'mandi',l:'🌾 Mandi'},{id:'reports',l:'📈 Reports'}].map(t=>(<div key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',fontSize:11,fontWeight:600,flexShrink:0,borderRadius:50,cursor:'pointer',whiteSpace:'nowrap',background:tab===t.id?'linear-gradient(135deg,#FF8C42,#FF6B20)':'rgba(255,140,66,.08)',color:tab===t.id?'#fff':'#FF8C42',border:`1px solid ${tab===t.id?'transparent':'rgba(255,140,66,.2)'}`}}>{t.l}</div>))}
+        {[{id:'dash',l:'📊 Dash'},{id:'orders',l:'📦 Orders'},{id:'prods',l:'🥦 Prods'},{id:'shops',l:'🏨 Shops'},{id:'riders',l:'🚲 Riders'},{id:'coupons',l:'🏷️ Coupons'},{id:'slides',l:'🎨 Slides'},{id:'mandi',l:'🌾 Mandi'},{id:'mall',l:'🏬 Mall'},{id:'reports',l:'📈 Reports'}].map(t=>(<div key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 12px',fontSize:11,fontWeight:600,flexShrink:0,borderRadius:50,cursor:'pointer',whiteSpace:'nowrap',background:tab===t.id?'linear-gradient(135deg,#FF8C42,#FF6B20)':'rgba(255,140,66,.08)',color:tab===t.id?'#fff':'#FF8C42',border:`1px solid ${tab===t.id?'transparent':'rgba(255,140,66,.2)'}`}}>{t.l}</div>))}
       </div>
       <div style={{flex:1,overflowY:'auto',overflowX:'hidden',padding:'0 20px 24px',WebkitOverflowScrolling:'touch',scrollbarWidth:'none'}}>
+
+        {tab==='mall'&&<MallAdminPanel/>}
 
         {tab==='dash'&&<>
           {/* 🔴 LIVE ALERT BANNER */}
@@ -5089,7 +5099,7 @@ const [authReady, setAuthReady] = useState(false);
   if(id==='help') {
     setPortal('help');
     setPhase('app');
-  } else if(id==='admin'||id==='rider'||id==='shop') {
+  } else if(id==='admin'||id==='rider'||id==='shop'||id==='cab'||id==='mgrocery'||id==='mfashion') {
     setPortal(id);
     setPhase('app');
   } else {
@@ -5107,6 +5117,7 @@ const [authReady, setAuthReady] = useState(false);
     if(phase==='language') return <LanguageScreen user={user} onSelect={l=>{setLang(l);setPhase('app');}}/>;
     if(phase==='app') {
       if(portal==='customer') return <CustomerApp user={user} lang={lang} setLang={setLang} data={data} setData={setData} theme={theme} setTheme={setTheme}/>;
+      if(portal==='cab'||portal==='mgrocery'||portal==='mfashion') return <MallPartnerGate type={portal==='cab'?'cab':portal==='mgrocery'?'grocery':'fashion'} onBack={()=>{setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_portal');}catch(e){}}}/>;
       if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>{const r=(data.riders||[]).find(r=>r.id===id&&r.pass===p&&r.active);return r||null;}} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>{const s=(data.shops||[]).find(s=>s.id===id&&s.pass===p&&s.active);return s||null;}} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='admin') {
