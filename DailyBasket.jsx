@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, messaging, requestNotificationPermission, onMessage } from "./firebase";
 import { collection, addDoc, getDocs, onSnapshot, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { MallApp, MallPartnerGate, MallAdminPanel } from "./MallSystem";
+import { MallApp, MallPartnerGate, MallAdminPanel, MallRiderTab } from "./MallSystem";
 /* ═══════════ SECURITY LAYER ═══════════ */
 // Frame-buster: app ko kisi doosri site ke iframe me chalne se rokta hai (clickjacking)
 try{ if(window.top!==window.self){ window.top.location.href=window.self.location.href; } }catch(e){}
@@ -60,7 +60,7 @@ function DiwaliFX(){
     resize(); window.addEventListener('resize',resize);
     const COLS=['#FFD54A','#FF8A00','#FF4D6D','#4DEBFF','#7CFF6B','#FF9BFF','#FFFFFF'];
     const P=[], R=[], CH=[], FL=[], Q=[];
-    const MAXP=300;
+    const MAXP=220;
     const rnd=(a,b)=>a+Math.random()*(b-a);
     const pick=()=>COLS[(Math.random()*COLS.length)|0];
     const spark=(x,y,vx,vy,life,col,size,g,drag)=>{ if(P.length<MAXP) P.push({x,y,vx,vy,life,max:life,col,size,g,drag}); };
@@ -78,9 +78,9 @@ function DiwaliFX(){
       FL.push({x,y,r:4,life:.16});
     };
     // Patakhe ki ladi (string of crackers)
-    const ladi=()=>{ const y=rnd(H*.45,H*.8), x0=rnd(30,W*.4), dir=Math.random()<.5?1:-1; for(let i=0;i<7;i++){ Q.push({at:t+i*.13,x:Math.min(W-10,Math.max(10,x0+dir*i*34+(dir<0?W*.4:0))),y:y+rnd(-8,8)}); } };
+    const ladi=()=>{ const y=rnd(H*.03,H*.08), x0=rnd(30,W*.4), dir=Math.random()<.5?1:-1; for(let i=0;i<7;i++){ Q.push({at:t+i*.13,x:Math.min(W-10,Math.max(10,x0+dir*i*34+(dir<0?W*.4:0))),y:y+rnd(-8,8)}); } };
     // Chakri (ground spinner)
-    const chakri=()=>{ CH.push({x:rnd(70,W-70),y:rnd(H*.55,H-150),a:0,life:4.2,max:4.2,col:Math.random()<.5?'#FFB000':'#FF6A00'}); };
+    const chakri=()=>{ CH.push({x:rnd(70,W-70),y:H-135,a:0,life:4.2,max:4.2,col:Math.random()<.5?'#FFB000':'#FF6A00'}); };
     // Fuljhadi (sparklers) — do corners
     const SPK=[{x:26,get y(){return H-135;},d:1},{x:W-26,get y(){return H-135;},d:-1}];
     let nextRocket=.6, nextPop=1.2, nextLadi=7, nextChakri=3.5;
@@ -102,7 +102,7 @@ function DiwaliFX(){
       let dt=(ts-last)/1000; last=ts; if(dt>.05) dt=.05; t+=dt;
       // spawners
       nextRocket-=dt; if(nextRocket<=0){ launch(); nextRocket=rnd(2,3.6); }
-      nextPop-=dt; if(nextPop<=0){ pop(rnd(20,W-20),rnd(H*.2,H*.85)); nextPop=rnd(1.4,2.8); }
+      nextPop-=dt; if(nextPop<=0){ pop(rnd(20,W-20),rnd(H*.03,H*.26)); nextPop=rnd(3,6); }
       nextLadi-=dt; if(nextLadi<=0){ ladi(); nextLadi=rnd(9,15); }
       nextChakri-=dt; if(nextChakri<=0){ if(CH.length<1) chakri(); nextChakri=rnd(8,13); }
       for(let i=Q.length-1;i>=0;i--){ if(t>=Q[i].at){ pop(Q[i].x,Q[i].y); Q.splice(i,1); } }
@@ -120,7 +120,7 @@ function DiwaliFX(){
       ctx.globalCompositeOperation='lighter';
       for(let i=P.length-1;i>=0;i--){ const p=P[i]; p.life-=dt; if(p.life<=0){ P.splice(i,1); continue; }
         p.vx*=p.drag; p.vy=p.vy*p.drag+p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
-        ctx.globalAlpha=Math.max(0,Math.min(1,p.life/p.max)); ctx.fillStyle=p.col; ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size); }
+        ctx.globalAlpha=.8*Math.max(0,Math.min(1,p.life/p.max)); ctx.fillStyle=p.col; ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size); }
       for(let i=FL.length-1;i>=0;i--){ const f=FL[i]; f.life-=dt; if(f.life<=0){ FL.splice(i,1); continue; }
         f.r+=dt*180; ctx.globalAlpha=Math.max(0,f.life*3.5); ctx.fillStyle='#FFF3C4'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,6.283); ctx.fill(); }
       ctx.globalAlpha=.95;
@@ -145,6 +145,80 @@ function DiwaliFX(){
   );
 }
 
+/* ═══════════ DIWALI HERO ARTWORK (SVG: lanterns, toran, rangoli, diyas) ═══════════ */
+function DiwaliHero({ isHi }) {
+  const stars = [[22,30],[58,18],[96,42],[140,22],[214,26],[250,44],[292,20],[336,34],[120,66],[246,70],[20,88],[340,92],[176,14],[72,74],[300,68]];
+  const flowers = []; for (let i = 0; i < 17; i++) { const x = 12 + i * 21.9; const y = 7 + 15 * Math.sin(Math.PI * (x - 12) / 336); flowers.push({ x, y, hue: i % 2 }); }
+  const diyas = [[52, 0.82], [116, 0.95], [180, 1.18], [244, 0.95], [308, 0.82]];
+  const petals = Array.from({ length: 16 }, (_, i) => i * 22.5);
+  return (
+    <div style={{ position: 'relative', borderRadius: 24, overflow: 'hidden', border: '1.5px solid rgba(255,200,70,.45)', boxShadow: '0 10px 34px rgba(255,120,0,.28), inset 0 0 40px rgba(255,170,40,.12)', marginBottom: 14 }}>
+      <svg viewBox="0 0 360 200" width="100%" style={{ display: 'block' }} role="img" aria-label="Shubh Deepawali">
+        <defs>
+          <linearGradient id="dhBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#14040c" /><stop offset=".55" stopColor="#3a0c0b" /><stop offset="1" stopColor="#8e2b06" /></linearGradient>
+          <radialGradient id="dhGlowG" cx="180" cy="196" r="190" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#FFB02E" stopOpacity=".6" /><stop offset=".55" stopColor="#FF6A00" stopOpacity=".18" /><stop offset="1" stopColor="#FF6A00" stopOpacity="0" /></radialGradient>
+          <linearGradient id="dhGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFF4B0" /><stop offset=".5" stopColor="#FFC83D" /><stop offset="1" stopColor="#E08A00" /></linearGradient>
+          <linearGradient id="dhLan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#FF6A3D" /><stop offset="1" stopColor="#B80F0A" /></linearGradient>
+          <linearGradient id="dhBowl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFD76A" /><stop offset="1" stopColor="#A9620A" /></linearGradient>
+          <radialGradient id="dhFlameG" cx=".5" cy=".75" r=".7"><stop offset="0" stopColor="#FFFBE0" /><stop offset=".45" stopColor="#FFC21A" /><stop offset="1" stopColor="#FF5A00" /></radialGradient>
+          <radialGradient id="dhHalo"><stop offset="0" stopColor="#FFB84A" stopOpacity=".75" /><stop offset="1" stopColor="#FF7A00" stopOpacity="0" /></radialGradient>
+        </defs>
+        <rect width="360" height="200" fill="url(#dhBg)" />
+        <rect width="360" height="200" fill="url(#dhGlowG)" />
+        {stars.map(([x, y], i) => <circle key={i} className="dh-star" cx={x} cy={y} r={i % 3 === 0 ? 1.6 : 1.1} fill="#FFE9A8" style={{ animationDelay: (i * 0.37) + 's' }} />)}
+        {/* rangoli mandala */}
+        <g transform="translate(180 205)" opacity=".5">
+          <g><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="90s" repeatCount="indefinite" />
+            {[118, 96, 74].map((r, i) => <circle key={r} r={r} fill="none" stroke="#FFC83D" strokeWidth={i === 0 ? 1.4 : .8} strokeDasharray={i === 1 ? '2 5' : i === 2 ? '6 3' : '0'} opacity={.55} />)}
+            {petals.map(a => <g key={a} transform={`rotate(${a})`}><path d="M0 -76 C-9 -92 -9 -108 0 -122 C9 -108 9 -92 0 -76Z" fill="none" stroke="#FFC83D" strokeWidth=".9" /><circle cy="-70" r="2.2" fill="#FF8A1F" /></g>)}
+            {petals.map(a => <g key={'s' + a} transform={`rotate(${a + 11.25})`}><path d="M0 -52 L5 -63 L0 -74 L-5 -63Z" fill="#FFC83D" opacity=".55" /></g>)}
+          </g>
+        </g>
+        {/* lanterns */}
+        {[[30, 1], [330, -1]].map(([x, d]) => (
+          <g key={x} transform={`translate(${x} 0) scale(.82)`}>
+            <g><animateTransform attributeName="transform" type="rotate" values="-6 0 0;6 0 0;-6 0 0" dur={d > 0 ? '4.2s' : '3.6s'} repeatCount="indefinite" />
+              <line x1="0" y1="0" x2="0" y2="38" stroke="#C98A1B" strokeWidth="1.2" />
+              <circle cy="62" r="34" fill="url(#dhHalo)" className="dh-glow" />
+              <path d="M-9 38 H9 L7 44 H-7Z" fill="#E0A21A" />
+              <path d="M-7 44 C-23 54 -23 80 -9 90 H9 C23 80 23 54 7 44Z" fill="url(#dhLan)" stroke="#FFC83D" strokeWidth="1" />
+              <path d="M0 44 C-8 56 -8 78 0 90 M0 44 C8 56 8 78 0 90 M-14 52 Q0 58 14 52 M-17 66 Q0 72 17 66 M-14 80 Q0 86 14 80" fill="none" stroke="#FFC83D" strokeWidth=".8" opacity=".8" />
+              <path d="M-9 90 H9 L6 96 H-6Z" fill="#E0A21A" />
+              <line y1="96" y2="110" stroke="#FFC83D" strokeWidth="1" />
+              <circle cy="112" r="2.6" fill="#FFC83D" /><path d="M-4 114 L0 124 L4 114Z" fill="#FF8A1F" />
+            </g>
+          </g>
+        ))}
+        {/* marigold toran */}
+        <path d={flowers.map((f, i) => (i ? 'L' : 'M') + f.x + ' ' + (f.y + 1)).join(' ')} fill="none" stroke="#B8801A" strokeWidth="1.3" />
+        {flowers.map((f, i) => (
+          <g key={i} transform={`translate(${f.x} ${f.y + 4})`}>
+            <ellipse cx="-7" cy="5" rx="5" ry="2.2" fill="#2F9E44" transform="rotate(-30 -7 5)" /><ellipse cx="7" cy="5" rx="5" ry="2.2" fill="#2F9E44" transform="rotate(30 7 5)" />
+            <circle r="7" fill={f.hue ? '#FF8A1F' : '#FFB703'} /><circle r="4.6" fill={f.hue ? '#FFB703' : '#FF8A1F'} opacity=".9" /><circle r="2.2" fill="#FFE08A" />
+          </g>
+        ))}
+        {/* title */}
+        <g>
+          <text x="180" y="94" textAnchor="middle" fontFamily="'Playfair Display','Noto Serif Devanagari',serif" fontSize={isHi ? 30 : 25} fontWeight="700" fill="url(#dhGold)" stroke="#4a1a00" strokeWidth=".7" paintOrder="stroke" letterSpacing={isHi ? 0 : .5}>{isHi ? 'शुभ दीपावली' : 'Shubh Deepawali'}</text>
+          <path d="M96 112 H160 M200 112 H264" stroke="#FFC83D" strokeWidth=".9" opacity=".75" /><path d="M180 107 L185 112 L180 117 L175 112Z" fill="#FFC83D" />
+          <text x="180" y="132" textAnchor="middle" fontFamily="'Outfit',sans-serif" fontSize="10" letterSpacing={isHi ? 1 : 3} fill="#FFD9A0" opacity=".95">{isHi ? 'दीपों का त्योहार · डेली बास्केट' : 'DIWALI SPECIAL · DAILY BASKET'}</text>
+        </g>
+        {/* diyas */}
+        {diyas.map(([x, s], i) => (
+          <g key={x} transform={`translate(${x} 174) scale(${s})`}>
+            <circle cy="-8" r="30" fill="url(#dhHalo)" className="dh-glow" style={{ animationDelay: (i * .4) + 's' }} />
+            <path className="dh-flame" style={{ animationDelay: (i * .23) + 's' }} d="M0 -5 C-8 -14 -4 -26 0 -36 C4 -26 8 -14 0 -5Z" fill="url(#dhFlameG)" />
+            <path d="M-19 0 H19 C19 12 9 18 0 18 C-9 18 -19 12 -19 0Z" fill="url(#dhBowl)" stroke="#6b3a00" strokeWidth=".6" />
+            <path d="M19 0 C26 -1 30 -5 31 -9 C27 -5 24 -3 19 -3Z" fill="#E0A21A" />
+            <path d="M-12 7 Q0 12 12 7" fill="none" stroke="#FFE9A8" strokeWidth=".9" opacity=".7" />
+            <ellipse cy="19" rx="13" ry="2.4" fill="#000" opacity=".28" />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 /* ═══════════ GLOBAL CSS ═══════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800&family=Noto+Sans+Devanagari:wght@400;600;700;800&display=swap');
@@ -161,6 +235,12 @@ html,body{background:#070907;}body{font-family:'Outfit',sans-serif;color:var(--t
 @keyframes fadeOut  {from{opacity:1}to{opacity:0}}
 body[data-mall="1"] .dfx{display:none!important}
 @keyframes twinkle {0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+@keyframes dhFlame{0%,100%{transform:scale(1,1) skewX(0)}25%{transform:scale(.9,1.1) skewX(-3deg)}50%{transform:scale(1.06,.94) skewX(2deg)}75%{transform:scale(.94,1.07) skewX(-2deg)}}
+@keyframes dhGlow{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes dhStar{0%,100%{opacity:.3}50%{opacity:1}}
+.dh-flame{transform-box:fill-box;transform-origin:50% 100%;animation:dhFlame 1.3s ease-in-out infinite}
+.dh-glow{animation:dhGlow 2.4s ease-in-out infinite}
+.dh-star{animation:dhStar 2.6s ease-in-out infinite}
 @keyframes fadeUp   {from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 @keyframes scaleIn  {from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
 @keyframes slideUp  {from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
@@ -2295,7 +2375,7 @@ useEffect(()=>{
   </div>
         {/* Services */}
         <div style={{padding:'0 20px',marginBottom:20}}>
-          {theme==='diwali'&&<div style={{marginBottom:14,padding:'12px 16px',borderRadius:16,textAlign:'center',fontSize:14,fontWeight:800,background:'linear-gradient(135deg,rgba(255,176,0,.18),rgba(255,106,0,.12))',border:'1px solid rgba(255,176,0,.35)'}}>🪔 {isHi?'शुभ दीपावली!':'Shubh Deepawali!'} ✨ <span style={{fontWeight:600,fontSize:12,opacity:.8}}>{isHi?'दिवाली स्पेशल':'Diwali specials'}</span></div>}
+          {theme==='diwali'&&<DiwaliHero isHi={isHi}/>}
           <div className="sh"><div className="st">{isHi?'हमारी सेवाएं':'Our Services'}</div></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
             {[
@@ -3437,11 +3517,12 @@ function RiderApp({rider,data,setData,onBack}) {
         </div>
       ))}
       <div style={{padding:'0 16px 10px',display:'flex',gap:8}}>
-        {[{id:'dash',l:'🏠 Dash'},{id:'pickups',l:`📦 Pickups${avail.length>0?' ('+avail.length+')':''}`},{id:'orders',l:'📋 Mine'},{id:'earn',l:'💰 Earn'}].map(t=>(
+        {[{id:'dash',l:'🏠 Dash'},{id:'pickups',l:`📦 Pickups${avail.length>0?' ('+avail.length+')':''}`},{id:'orders',l:'📋 Mine'},{id:'mall',l:'🏬 Mall'},{id:'earn',l:'💰 Earn'}].map(t=>(
           <div key={t.id} className={`cp ${tab===t.id?'on':''}`} onClick={()=>setTab(t.id)} style={{flex:1,textAlign:'center',padding:'8px 2px',fontSize:11,fontWeight:700}}>{t.l}</div>
         ))}
       </div>
       <div className="scr" style={{position:'relative',padding:'0 16px 24px'}}>
+        {tab==='mall'&&<MallRiderTab rider={rider}/>}
         {tab==='dash'&&<>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
             {[{i:'🚴',v:active.length,l:'Active Now',c:'#3DFF7A'},{i:'📦',v:avail.length,l:'Awaiting Pickup',c:'#FF8C42'},{i:'✅',v:todayCount,l:'Today Done',c:'#D4AF37'},{i:'💰',v:`₹${todayEarn}`,l:'Today Earned',c:'#D4AF37'}].map((s,i)=>(
@@ -5080,7 +5161,8 @@ const [authReady, setAuthReady] = useState(false);
   useEffect(()=>{try{if(riderU)localStorage.setItem('db_rider',JSON.stringify(riderU));else localStorage.removeItem('db_rider');}catch(e){}}, [riderU]);
   useEffect(()=>{try{if(shopU)localStorage.setItem('db_shop',JSON.stringify(shopU));else localStorage.removeItem('db_shop');}catch(e){}}, [shopU]);
   useEffect(()=>{try{localStorage.setItem('db_admin',adminA?'true':'false');}catch(e){}}, [adminA]);
-  const [theme, setTheme] = useState(()=>{ try{return localStorage.getItem('db_theme2')||'diwali';}catch(e){return 'diwali';} });
+  const DIWALI_END = new Date('2026-11-16T00:00:00').getTime(); // Diwali ke baad theme apne aap normal ho jayegi
+  const [theme, setTheme] = useState(()=>{ let t='diwali'; try{t=localStorage.getItem('db_theme2')||'diwali';}catch(e){} if(t==='diwali'&&Date.now()>DIWALI_END) t='eco'; return t; });
   useEffect(()=>{ try{localStorage.setItem('db_theme2',theme);}catch(e){} },[theme]);
   const themeBg=({eco:'#070907',premium:'#050400',light:'#F2F5F2',ocean:'#04070D',sunset:'#100604',violet:'#0A0612',diwali:'#130502'})[theme]||'#070907';
   // Status bar / navigation area ko app ke rang me blend karo (black patti hatane ke liye)
