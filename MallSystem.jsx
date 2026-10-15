@@ -134,12 +134,28 @@ function useCart() {
   return { ...c, add, inc, dec, clear, count, subtotal, qtyOf };
 }
 
+/* ───── platform fee / ledger config (admin se badalta hai) ───── */
+const FEE_DEF = { platformFee: 2, feeStartMs: 0, riderPay: 30, groceryDelivery: 25, groceryFree: 299, fashionDelivery: 40, fashionFree: 999 };
+function useFees() {
+  const [c, setC] = useState(FEE_DEF);
+  useEffect(() => { getDoc(doc(db, 'mall_config', 'fees')).then(s => { if (s.exists()) setC({ ...FEE_DEF, ...s.data() }); }).catch(() => {}); }, []);
+  const active = !!c.feeStartMs && Date.now() >= c.feeStartMs;
+  return { ...c, active, platformNow: active ? (Number(c.platformFee) || 0) : 0 };
+}
+/* order deliver hone par ledger entry banti hai (kisne cash collect kiya, kisko kitna dena hai) */
+async function finishOrder(o, by, rider) {
+  let cfg = FEE_DEF; try { const s = await getDoc(doc(db, 'mall_config', 'fees')); if (s.exists()) cfg = { ...FEE_DEF, ...s.data() }; } catch (e) {}
+  const now = Date.now(), riderPay = by === 'rider' ? (Number(cfg.riderPay) || 0) : 0, pf = o.platformFee || 0;
+  await setDoc(doc(db, 'mall_ledger', o.id), { orderId: o.id, type: o.type, shopId: o.shopId, shopName: o.shopName, riderId: by === 'rider' ? rider.id : '', riderName: by === 'rider' ? (rider.name || '') : '', collectedBy: by, subtotal: o.subtotal || 0, delivery: o.delivery || 0, platformFee: pf, total: o.total || 0, riderPay, deliveredMs: now, riderSettled: by !== 'rider', shopPaid: by === 'shop', feeSettled: by === 'shop' ? !(pf > 0) : true });
+  await updateDoc(doc(db, 'mall_orders', o.id), { status: 'delivered', deliveredMs: now, deliveredBy: by });
+}
+
 const STATUS_FLOW = ['placed', 'accepted', 'packed', 'out', 'delivered'];
 const STATUS_LBL = { placed: 'Order placed', accepted: 'Accepted', packed: 'Packed', out: 'Out for delivery', delivered: 'Delivered', cancelled: 'Cancelled' };
 
 /* ───────── shared cart + orders screens (grocery & fashion) ───────── */
 function MallCart({ T, type, cart, user, say, onBack, onPlaced }) {
-  const sub = cart.subtotal, free = type === 'grocery' ? 299 : 999, fee = type === 'grocery' ? 25 : 40, delivery = sub >= free ? 0 : fee;
+  const fees = useFees(); const sub = cart.subtotal, free = type === 'grocery' ? fees.groceryFree : fees.fashionFree, fee = type === 'grocery' ? fees.groceryDelivery : fees.fashionDelivery, delivery = sub >= free ? 0 : fee, pf = fees.platformNow;
   const sv = (() => { try { return JSON.parse(localStorage.getItem('mall_addr') || '{}'); } catch (e) { return {}; } })();
   const [f, setF] = useState({ flat: sv.flat || '', area: sv.area || '', note: '', phone: (user && user.phone) || sv.phone || '' });
   const [busy, setBusy] = useState(false);
@@ -154,7 +170,7 @@ function MallCart({ T, type, cart, user, say, onBack, onPlaced }) {
         type, shopId: cart.shopId, shopName: cart.shopName, shopPhone: cart.shopPhone || '', userId: user.uid, userName: clean(user.name, 40), phone: f.phone,
         address: clean(f.flat, 80) + ', ' + clean(f.area, 80), note: clean(f.note, 120),
         items: cart.items.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, unit: i.unit, size: i.size, emoji: i.emoji })),
-        subtotal: sub, delivery, total: sub + delivery, pay: 'cod', status: 'placed', createdMs: Date.now(), createdAt: serverTimestamp()
+        subtotal: sub, delivery, platformFee: pf, total: sub + delivery + pf, pay: 'cod', status: 'placed', createdMs: Date.now(), createdAt: serverTimestamp()
       });
       try { localStorage.setItem('mall_addr', JSON.stringify({ flat: f.flat, area: f.area, phone: f.phone })); } catch (e) {}
       cart.clear(); onPlaced(ref.id);
@@ -190,13 +206,14 @@ function MallCart({ T, type, cart, user, say, onBack, onPlaced }) {
         <div style={{ background: T.card, border: '1px solid ' + T.line, borderRadius: 16, padding: 14 }}>
           <Row l="Subtotal" v={rs(sub)} T={T} />
           <Row l="Delivery" v={delivery ? rs(delivery) : 'FREE'} T={T} g={!delivery} />
+          <Row l="Platform fee" v={pf ? rs(pf) : 'FREE 🎉'} T={T} g={!pf} />
           {delivery > 0 && <div style={{ fontSize: 11, color: T.sub, margin: '-2px 0 8px' }}>Add {rs(free - sub)} more for free delivery</div>}
           <div style={{ borderTop: '1px dashed ' + T.line, margin: '8px 0' }} />
-          <Row l="Total (Cash on Delivery)" v={rs(sub + delivery)} T={T} b />
+          <Row l="Total (Cash on Delivery)" v={rs(sub + delivery + pf)} T={T} b />
         </div>
       </Scroll>
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '12px 16px calc(14px + env(safe-area-inset-bottom,0px))', background: T.bg, borderTop: '1px solid ' + T.line }}>
-        <div onClick={place} className="tap" style={{ background: T.acc, color: T.accTxt, borderRadius: serif ? 4 : 16, padding: 16, textAlign: 'center', fontWeight: 700, fontSize: 15, opacity: busy ? .6 : 1, letterSpacing: serif ? 1.5 : 0, textTransform: serif ? 'uppercase' : 'none' }}>{busy ? 'Placing…' : 'Place Order · ' + rs(sub + delivery)}</div>
+        <div onClick={place} className="tap" style={{ background: T.acc, color: T.accTxt, borderRadius: serif ? 4 : 16, padding: 16, textAlign: 'center', fontWeight: 700, fontSize: 15, opacity: busy ? .6 : 1, letterSpacing: serif ? 1.5 : 0, textTransform: serif ? 'uppercase' : 'none' }}>{busy ? 'Placing…' : 'Place Order · ' + rs(sub + delivery + pf)}</div>
       </div>
     </>
   );
@@ -230,6 +247,7 @@ function MallOrders({ T, type, orders, say, onBack, focusId }) {
                 <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 50, background: canc ? '#FEE2E2' : o.status === 'delivered' ? '#DCFCE7' : T.acc2, color: canc ? '#B91C1C' : o.status === 'delivered' ? '#15803D' : T.ink }}>{STATUS_LBL[o.status] || o.status}</div>
               </div>
               <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>{(o.items || []).map(i => i.qty + '× ' + i.name + (i.size ? ' (' + i.size + ')' : '')).join(', ')}</div>
+              {o.riderName && o.status !== 'delivered' && o.status !== 'cancelled' && <div style={{ fontSize: 12.5, fontWeight: 600, background: T.acc2, borderRadius: 12, padding: '8px 12px', marginBottom: 8 }}>🛵 {o.status === 'out' ? 'Delivery partner' : 'Pickup ke liye aa raha hai'}: {o.riderName}{o.riderPhone && <a href={'tel:' + o.riderPhone} style={{ color: T.acc, marginLeft: 8, textDecoration: 'none', fontWeight: 700 }}>📞 Call</a>}</div>}
               {!canc && <div style={{ display: 'flex', alignItems: 'center', margin: '10px 0' }}>
                 {STATUS_FLOW.map((s, i) => (<React.Fragment key={s}>
                   <div style={{ width: 14, height: 14, borderRadius: '50%', background: i <= idx ? T.acc : T.line, flexShrink: 0, boxShadow: i === idx ? '0 0 0 4px ' + T.acc + '33' : 'none' }} />
@@ -305,7 +323,7 @@ function GroceryApp({ user, onBack }) {
           {!sl && shops.length === 0 && <div style={{ margin: '0 16px 14px', padding: 18, background: T.card, borderRadius: 16, border: '1px dashed ' + T.line, color: T.sub, fontSize: 13, textAlign: 'center' }}>Abhi koi shop add nahi hui. Jaldi aa rahi hain! 🏪</div>}
           <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px 16px' }}>
             {shops.map(s => (
-              <div key={s.id} onClick={() => { setShop(s); setCat('All'); setQ(''); }} className="tap" style={{ width: 200, flexShrink: 0, background: T.card, borderRadius: 20, border: '1px solid ' + T.line, padding: 14, cursor: 'pointer', boxShadow: '0 6px 20px rgba(15,169,104,.08)' }}>
+              <div key={s.id} onClick={() => { setShop(s); setCat('All'); setQ(''); }} className="tap" style={{ width: 250, flexShrink: 0, background: T.card, borderRadius: 20, border: '1px solid ' + T.line, padding: 14, cursor: 'pointer', boxShadow: '0 6px 20px rgba(15,169,104,.08)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 46, height: 46, borderRadius: 14, background: '#E5F7EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🏪</div>
                   <div style={{ minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div><div style={{ fontSize: 11, color: T.sub }}>{s.area || 'Bhopalgarh'}</div></div>
@@ -326,8 +344,8 @@ function GroceryApp({ user, onBack }) {
             const qty = cart.qtyOf(p.id), off = p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0, out = p.inStock === false;
             return (
               <div key={p.id} style={{ background: T.card, borderRadius: 20, border: '1px solid ' + T.line, overflow: 'hidden', opacity: out ? .55 : 1, animation: 'mFade .4s ease both' }}>
-                <div style={{ height: 104, background: 'linear-gradient(135deg,#EAF8EF,#F8FFF2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52, position: 'relative' }}>
-                  {p.img ? <img src={p.img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : (p.emoji || '🛒')}
+                <div style={{ height: 124, background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52, position: 'relative' }}>
+                  {p.img ? <img src={p.img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', padding: 6, boxSizing: 'border-box' }} /> : (p.emoji || '🛒')}
                   {off > 0 && <div style={{ position: 'absolute', top: 8, left: 8, background: '#FF4D4F', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 8 }}>{off}% OFF</div>}
                   {out && <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#555' }}>OUT OF STOCK</div>}
                 </div>
@@ -951,7 +969,7 @@ function DriverApp({ partner, onLogout }) {
 
 /* ═══════════════════════ SHOP / BOUTIQUE PARTNER APP ═══════════════════════ */
 const EMOJIS = ['🥕', '🍅', '🥔', '🧅', '🥬', '🍎', '🍌', '🍇', '🥛', '🧈', '🧀', '🍞', '🥚', '🌾', '🫘', '🍪', '🍫', '🥤', '☕', '🧴', '🧼', '🪥', '🍚', '🧂', '🛒'];
-const NEXT = { placed: ['accepted', 'Accept order'], accepted: ['packed', 'Mark packed'], packed: ['out', 'Out for delivery'], out: ['delivered', 'Mark delivered'] };
+const NEXT = { placed: ['accepted', 'Accept order'], accepted: ['packed', 'Packed — rider bulao 🛵'] };
 
 function ShopPartnerApp({ type, partner, onLogout }) {
   const T = TH[type]; useMallChrome(T.bg); const [say, toast] = useToast(); const serif = type === 'fashion', PC = PCFG[type];
@@ -963,7 +981,7 @@ function ShopPartnerApp({ type, partner, onLogout }) {
   const nNew = orders.filter(o => o.status === 'placed').length;
   useEffect(() => { if (nNew > prevN.current) { try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) {} say('🔔 Naya order aaya!'); } prevN.current = nNew; }, [nNew]);
   const shown = sorted.filter(o => flt === 'new' ? o.status === 'placed' : flt === 'active' ? ['accepted', 'packed', 'out'].includes(o.status) : ['delivered', 'cancelled'].includes(o.status));
-  const move = async (o, s) => { try { await updateDoc(doc(db, 'mall_orders', o.id), { status: s, [s + 'Ms']: Date.now() }); } catch (e) { say(e.message); } };
+  const move = async (o, s, extra) => { try { await updateDoc(doc(db, 'mall_orders', o.id), { status: s, [s + 'Ms']: Date.now(), ...(s === 'packed' ? { needRider: true } : {}), ...(extra || {}) }); } catch (e) { say(e.message); } };
   const reject = async o => { if (!window.confirm('Order reject karein?')) return; try { await updateDoc(doc(db, 'mall_orders', o.id), { status: 'cancelled', cancelledBy: 'shop' }); } catch (e) { say(e.message); } };
   const setOpen = async v => { try { await updateDoc(doc(db, 'mall_partners', partner.id), { open: v }); say(v ? 'Store open ✅' : 'Store closed'); } catch (e) { say(e.message); } };
   const delP = async p => { if (!window.confirm('"' + p.name + '" delete karein?')) return; try { await deleteDoc(doc(db, 'mall_products', p.id)); } catch (e) { say(e.message); } };
@@ -997,6 +1015,11 @@ function ShopPartnerApp({ type, partner, onLogout }) {
               <a href={'tel:' + o.phone} style={{ padding: '10px 12px', textDecoration: 'none', fontSize: 18 }}>📞</a>
               <a href={'https://wa.me/91' + o.phone} target="_blank" rel="noreferrer" style={{ padding: '10px 6px', textDecoration: 'none', fontSize: 18 }}>💬</a>
             </div>
+            {o.status === 'accepted' && <div onClick={() => move(o, 'out', { deliveredBy: 'shop' })} style={{ fontSize: 12, fontWeight: 700, color: T.sub, padding: '8px 2px 0', cursor: 'pointer' }}>🚶 Khud deliver karunga (rider nahi)</div>}
+            {o.status === 'packed' && !o.riderId && <div style={{ fontSize: 12.5, color: T.sub, padding: '8px 2px 0' }}>⏳ Rider ka intezaar… <span onClick={() => move(o, 'out', { deliveredBy: 'shop', needRider: false })} style={{ color: T.acc, fontWeight: 700, cursor: 'pointer', marginLeft: 6 }}>Khud deliver karo</span></div>}
+            {o.status === 'packed' && o.riderId && <div style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 2px 0' }}>🛵 {o.riderName} pickup ke liye aa raha hai {o.riderPhone && <a href={'tel:' + o.riderPhone} style={{ color: T.acc, textDecoration: 'none', marginLeft: 6 }}>📞</a>}</div>}
+            {o.status === 'out' && o.deliveredBy === 'shop' && <div onClick={() => finishOrder(o, 'shop').catch(e => say(e.message))} className="tap" style={{ marginTop: 8, background: T.acc, color: T.accTxt, padding: 12, textAlign: 'center', fontWeight: 700, fontSize: 13.5, borderRadius: serif ? 4 : 12, cursor: 'pointer' }}>✅ Mark delivered · cash {rs(o.total)}</div>}
+            {o.status === 'out' && o.deliveredBy !== 'shop' && <div style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 2px 0' }}>🛵 {o.riderName} deliver kar raha hai</div>}
           </div>)}
         </Scroll></>}
       {tab === 'products' && <Scroll style={{ padding: '4px 16px 100px' }}>
@@ -1068,8 +1091,10 @@ function MallAdminPanel() {
   const [sub, setSub] = useState('partners'), [ft, setFt] = useState('cab'), [msg, setMsg] = useState(''), [cred, setCred] = useState(null), [busy, setBusy] = useState(false), [show, setShow] = useState(false);
   const say = m => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
   const [all] = useCol('mall_partners', [], 'adm');
-  const [orders] = useCol('mall_orders', sub === 'orders' || sub === 'stats' ? [] : null, 'admo' + (sub === 'orders' || sub === 'stats'));
-  const [rides] = useCol('cab_rides', sub === 'rides' || sub === 'stats' ? [] : null, 'admr' + (sub === 'rides' || sub === 'stats'));
+  const needO = ['orders', 'stats', 'analytics'].includes(sub), needR = ['rides', 'stats', 'analytics'].includes(sub), needL = ['ledger', 'analytics'].includes(sub);
+  const [orders] = useCol('mall_orders', needO ? [] : null, 'admo' + needO);
+  const [rides] = useCol('cab_rides', needR ? [] : null, 'admr' + needR);
+  const [ledger] = useCol('mall_ledger', needL ? [] : null, 'adml' + needL);
   const blank = { name: '', ownerName: '', phone: '', area: '', vehicleType: 'mini', vehicleModel: '', vehicleNo: '' };
   const [f, setF] = useState(blank); const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const list = all.filter(p => p.type === ft).sort((a, b) => (b.createdMs || 0) - (a.createdMs || 0));
@@ -1107,7 +1132,7 @@ function MallAdminPanel() {
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>🏬 Super Mall</div>
       <div style={{ fontSize: 12, color: AC.sub, marginBottom: 12 }}>Shops, boutiques aur cab drivers manage karo</div>
       {msg && <div style={{ position: 'sticky', top: 0, zIndex: 5, background: '#111', color: '#fff', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 10 }}>{msg}</div>}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 14 }}>{[['partners', '👥 Partners'], ['orders', '📦 Orders'], ['rides', '🚕 Rides'], ['fares', '💰 Fares'], ['stats', '📊 Stats']].map(([k, l]) => <div key={k} onClick={() => setSub(k)} style={aBtn(sub === k)}>{l}</div>)}</div>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 14 }}>{[['partners', '👥 Partners'], ['orders', '📦 Orders'], ['rides', '🚕 Rides'], ['ledger', '🧾 Ledger'], ['analytics', '📈 Analytics'], ['fares', '💰 Fares'], ['stats', '📊 Stats']].map(([k, l]) => <div key={k} onClick={() => setSub(k)} style={aBtn(sub === k)}>{l}</div>)}</div>
 
       {sub === 'partners' && <>
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 12 }}>{Object.keys(TYPE_LBL).map(k => <div key={k} onClick={() => { setFt(k); setShow(false); }} style={aBtn(ft === k)}>{TYPE_LBL[k]} ({all.filter(p => p.type === k).length})</div>)}</div>
@@ -1151,6 +1176,9 @@ function MallAdminPanel() {
         <div onClick={saveFares} style={aBtn(true, { textAlign: 'center', padding: 13, borderRadius: 12 })}>Save fares</div>
       </>}
 
+      {sub === 'ledger' && <LedgerPanel ledger={ledger} say={say} />}
+      {sub === 'analytics' && <AnalyticsPanel orders={orders} rides={rides} ledger={ledger} partners={all} />}
+
       {sub === 'stats' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {[['🚕 Drivers', all.filter(p => p.type === 'cab').length], ['🟢 Online now', all.filter(p => p.type === 'cab' && fresh(p)).length], ['🥬 Grocery shops', all.filter(p => p.type === 'grocery').length], ['👗 Boutiques', all.filter(p => p.type === 'fashion').length], ['📦 Orders today', ordToday.length], ['💵 Order value today', rs(ordToday.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0))], ['🚕 Rides today', ridesToday.length], ['💰 Ride fares today', rs(ridesToday.reduce((s, r) => s + (r.fare || 0), 0))]].map(([l, v]) => <div key={l} style={{ ...card, marginBottom: 0, textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 800, color: AC.acc }}>{v}</div><div style={{ fontSize: 11.5, color: AC.sub }}>{l}</div></div>)}
       </div>}
@@ -1171,6 +1199,144 @@ function MallAdminPanel() {
   );
 }
 
+/* ═══════════════════════ ADMIN: LEDGER ═══════════════════════ */
+function LedgerPanel({ ledger, say }) {
+  const [cfg, setCfg] = useState(FEE_DEF);
+  useEffect(() => { getDoc(doc(db, 'mall_config', 'fees')).then(s => { if (s.exists()) setCfg({ ...FEE_DEF, ...s.data() }); }).catch(() => {}); }, []);
+  const set = (k, v) => setCfg(p => ({ ...p, [k]: v.replace(/[^\d.]/g, '') }));
+  const save = async extra => {
+    try {
+      const d = { platformFee: +cfg.platformFee || 0, riderPay: +cfg.riderPay || 0, groceryDelivery: +cfg.groceryDelivery || 0, groceryFree: +cfg.groceryFree || 0, fashionDelivery: +cfg.fashionDelivery || 0, fashionFree: +cfg.fashionFree || 0, feeStartMs: +cfg.feeStartMs || 0, ...(extra || {}), updatedMs: Date.now() };
+      await setDoc(doc(db, 'mall_config', 'fees'), d, { merge: true }); setCfg(p => ({ ...p, ...d })); say('Saved ✅');
+    } catch (e) { say(e.message); }
+  };
+  const startFree = () => { if (!window.confirm('4 mahine ka free period aaj se shuru karein? Uske baad ₹' + (+cfg.platformFee || 0) + ' per order customer se liya jayega.')) return; save({ feeStartMs: Date.now() + 120 * 864e5 }); };
+  const sum = (a, f) => a.reduce((s, x) => s + (Number(f(x)) || 0), 0);
+  const group = (rows, keyF, nameF) => { const m = {}; rows.forEach(r => { const k = keyF(r) || '—'; (m[k] = m[k] || { name: nameF(r), rows: [] }).rows.push(r); }); return Object.entries(m).map(([k, v]) => ({ k, ...v })); };
+  const settle = async (rows, patch) => { try { await Promise.all(rows.map(r => updateDoc(doc(db, 'mall_ledger', r.id), patch))); say('Settled ✅'); } catch (e) { say(e.message); } };
+  const riders = group(ledger.filter(r => r.collectedBy === 'rider' && !r.riderSettled), r => r.riderId, r => r.riderName || r.riderId);
+  const shopsPay = group(ledger.filter(r => r.collectedBy === 'rider' && !r.shopPaid), r => r.shopId, r => r.shopName);
+  const shopsOwe = group(ledger.filter(r => r.collectedBy === 'shop' && !r.feeSettled), r => r.shopId, r => r.shopName);
+  const card = { background: AC.bg, border: '1px solid ' + AC.line, borderRadius: 16, padding: 14, marginBottom: 10 };
+  const now = Date.now(), st = !cfg.feeStartMs ? 'Platform fee abhi OFF (free)' : cfg.feeStartMs > now ? 'FREE until ' + new Date(cfg.feeStartMs).toLocaleDateString('en-IN') + ' — phir ₹' + cfg.platformFee + '/order' : 'ON: ₹' + cfg.platformFee + ' per order (customer se)';
+  const field = (k, l) => <div key={k}><div style={{ fontSize: 10.5, color: AC.sub, marginBottom: 3 }}>{l}</div><input style={{ ...aInp, marginBottom: 0 }} inputMode="decimal" value={cfg[k] ?? ''} onChange={e => set(k, e.target.value)} /></div>;
+  return (
+    <>
+      <div style={card}>
+        <div style={{ fontWeight: 800, marginBottom: 4 }}>⚙️ Fees & payout</div>
+        <div style={{ fontSize: 12, color: AC.acc, marginBottom: 10 }}>{st}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>{[['platformFee', 'Platform fee ₹/order'], ['riderPay', 'Rider pay ₹/delivery'], ['groceryDelivery', 'Grocery delivery ₹'], ['groceryFree', 'Grocery free above ₹'], ['fashionDelivery', 'Fashion delivery ₹'], ['fashionFree', 'Fashion free above ₹']].map(([k, l]) => field(k, l))}</div>
+        <div style={{ display: 'flex', gap: 8 }}><div onClick={() => save()} style={aBtn(true, { flex: 1, textAlign: 'center', borderRadius: 12 })}>Save</div><div onClick={startFree} style={aBtn(false, { flex: 1, textAlign: 'center', borderRadius: 12 })}>▶ Start 4-month free</div></div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        {[['Delivered orders', ledger.length], ['Product value', rs(sum(ledger, r => r.subtotal))], ['Platform fee earned', rs(sum(ledger, r => r.platformFee))], ['Rider payouts', rs(sum(ledger, r => r.riderPay))]].map(([l, v]) => <div key={l} style={{ ...card, marginBottom: 0, textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: AC.acc }}>{v}</div><div style={{ fontSize: 11.5, color: AC.sub }}>{l}</div></div>)}
+      </div>
+      <div style={{ fontWeight: 800, margin: '14px 0 8px' }}>🛵 Riders se cash lena hai</div>
+      {riders.length === 0 && <div style={{ fontSize: 12.5, color: AC.sub, marginBottom: 8 }}>Sab settled ✓</div>}
+      {riders.map(g => { const held = sum(g.rows, r => r.total), earn = sum(g.rows, r => r.riderPay); return <div key={g.k} style={card}><b>{g.name}</b><div style={{ fontSize: 12, color: AC.sub, margin: '4px 0 8px' }}>{g.rows.length} orders · cash collected {rs(held)} · rider kamai {rs(earn)}<br />Deposit karna hai: <b style={{ color: 'inherit' }}>{rs(held - earn)}</b></div><div onClick={() => settle(g.rows, { riderSettled: true, riderSettledMs: Date.now() })} style={aBtn(true, { textAlign: 'center', borderRadius: 12 })}>✅ Cash mil gaya — settle</div></div>; })}
+      <div style={{ fontWeight: 800, margin: '14px 0 8px' }}>🏪 Shops ko dena hai (rider ne cash liya)</div>
+      {shopsPay.length === 0 && <div style={{ fontSize: 12.5, color: AC.sub, marginBottom: 8 }}>Sab paid ✓</div>}
+      {shopsPay.map(g => <div key={g.k} style={card}><b>{g.name}</b><div style={{ fontSize: 12, color: AC.sub, margin: '4px 0 8px' }}>{g.rows.length} orders · dena hai <b style={{ color: 'inherit' }}>{rs(sum(g.rows, r => r.subtotal))}</b> (product value)</div><div onClick={() => settle(g.rows, { shopPaid: true, shopPaidMs: Date.now() })} style={aBtn(true, { textAlign: 'center', borderRadius: 12 })}>💸 Paid</div></div>)}
+      <div style={{ fontWeight: 800, margin: '14px 0 8px' }}>🧾 Shops se platform fee lena hai (khud deliver)</div>
+      {shopsOwe.length === 0 && <div style={{ fontSize: 12.5, color: AC.sub, marginBottom: 8 }}>Kuch baaki nahi ✓</div>}
+      {shopsOwe.map(g => <div key={g.k} style={card}><b>{g.name}</b><div style={{ fontSize: 12, color: AC.sub, margin: '4px 0 8px' }}>{g.rows.length} orders · fee <b style={{ color: 'inherit' }}>{rs(sum(g.rows, r => r.platformFee))}</b></div><div onClick={() => settle(g.rows, { feeSettled: true, feeSettledMs: Date.now() })} style={aBtn(true, { textAlign: 'center', borderRadius: 12 })}>✅ Fee mil gayi</div></div>)}
+    </>
+  );
+}
+
+/* ═══════════════════════ ADMIN: ANALYTICS ═══════════════════════ */
+const Bars = ({ vals, labels, color, h = 84, fmt }) => {
+  const max = Math.max(1, ...vals);
+  return <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: h + 34 }}>{vals.map((v, i) => <div key={i} style={{ flex: 1, minWidth: 0, textAlign: 'center' }}><div style={{ fontSize: 8.5, color: AC.sub, height: 12, whiteSpace: 'nowrap', overflow: 'hidden' }}>{v ? (fmt ? fmt(v) : v) : ''}</div><div style={{ height: Math.max(2, Math.round(v / max * h)), background: color || AC.acc, borderRadius: '4px 4px 0 0', opacity: v ? 1 : .25 }} /><div style={{ fontSize: 8.5, color: AC.sub, marginTop: 3 }}>{labels[i]}</div></div>)}</div>;
+};
+function AnalyticsPanel({ orders, rides, ledger, partners }) {
+  const card = { background: AC.bg, border: '1px solid ' + AC.line, borderRadius: 16, padding: 14, marginBottom: 12 };
+  const day = 864e5, st = new Date().setHours(0, 0, 0, 0);
+  const live = orders.filter(o => o.status !== 'cancelled');
+  const days = Array.from({ length: 7 }, (_, i) => { const f = st - (6 - i) * day; return { f, t: f + day, l: new Date(f).toLocaleDateString('en-IN', { weekday: 'short' }) }; });
+  const perDay = days.map(d => live.filter(o => (o.createdMs || 0) >= d.f && (o.createdMs || 0) < d.t));
+  const hours = Array.from({ length: 24 }, (_, h) => live.filter(o => new Date(o.createdMs || 0).getHours() === h).length);
+  const peak = hours.indexOf(Math.max(...hours));
+  const agg = (rows, keyF, valF) => { const m = {}; rows.forEach(r => { const k = keyF(r); if (!k) return; m[k] = (m[k] || 0) + valF(r); }); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5); };
+  const prodRows = []; live.forEach(o => (o.items || []).forEach(i => prodRows.push({ n: i.name, q: i.qty })));
+  const topProd = agg(prodRows, r => r.n, r => r.q), topShop = agg(live, o => o.shopName, o => o.total || 0);
+  const delivered = orders.filter(o => o.status === 'delivered'), cancelled = orders.filter(o => o.status === 'cancelled');
+  const gmv = delivered.reduce((s, o) => s + (o.total || 0), 0), aov = delivered.length ? gmv / delivered.length : 0;
+  const done = rides.filter(r => r.status === 'completed'), rCan = rides.filter(r => r.status === 'cancelled');
+  const rDay = days.map(d => done.filter(r => (r.completedMs || 0) >= d.f && (r.completedMs || 0) < d.t));
+  const byVeh = agg(done, r => r.vehicleName, () => 1), topDrv = agg(done, r => r.driverName, r => r.fare || 0);
+  const fresh2 = partners.filter(p => p.type === 'cab' && fresh(p)).length;
+  const list = (rows, fmt) => rows.length === 0 ? <div style={{ fontSize: 12, color: AC.sub }}>Abhi data nahi</div> : rows.map(([k, v], i) => <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13, padding: '5px 0', borderBottom: i < rows.length - 1 ? '1px solid ' + AC.line : 'none' }}><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i + 1}. {k}</span><b>{fmt(v)}</b></div>);
+  const h12 = h => (h % 12 || 12) + (h < 12 ? 'am' : 'pm');
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        {[['Orders (total)', orders.length], ['Delivered', delivered.length], ['Avg order', rs(aov)], ['Cancel rate', orders.length ? Math.round(cancelled.length / orders.length * 100) + '%' : '—'], ['Rides done', done.length], ['Ride cancel', rides.length ? Math.round(rCan.length / rides.length * 100) + '%' : '—']].map(([l, v]) => <div key={l} style={{ ...card, marginBottom: 0, textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 800, color: AC.acc }}>{v}</div><div style={{ fontSize: 11.5, color: AC.sub }}>{l}</div></div>)}
+      </div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>📦 Orders — last 7 days</div><Bars vals={perDay.map(a => a.length)} labels={days.map(d => d.l)} /></div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>💵 Sales ₹ — last 7 days</div><Bars color="#4ADE80" vals={perDay.map(a => a.reduce((s, o) => s + (o.total || 0), 0))} labels={days.map(d => d.l)} fmt={v => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v} /></div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 2 }}>⏰ Orders by hour</div><div style={{ fontSize: 12, color: AC.sub, marginBottom: 8 }}>{Math.max(...hours) > 0 ? 'Peak time: ' + h12(peak) + ' – ' + h12((peak + 1) % 24) : 'Abhi data nahi'}</div><Bars color="#60A5FA" h={60} vals={hours} labels={hours.map((_, h) => h % 6 === 0 ? h12(h) : '')} /></div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>🔥 Top products</div>{list(topProd, v => v + ' pcs')}</div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>🏪 Top shops (sales)</div>{list(topShop, rs)}</div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>🚕 Rides — last 7 days</div><Bars color="#FFD60A" vals={rDay.map(a => a.length)} labels={days.map(d => d.l)} /><div style={{ fontSize: 12, color: AC.sub, marginTop: 8 }}>Drivers online abhi: <b style={{ color: 'inherit' }}>{fresh2}</b> · Total fares {rs(done.reduce((s, r) => s + (r.fare || 0), 0))}</div></div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>🚗 Vehicle type (rides)</div>{list(byVeh, v => v + ' rides')}</div>
+      <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>🏆 Top drivers (fare)</div>{list(topDrv, rs)}</div>
+      <div style={{ fontSize: 11.5, color: AC.sub, textAlign: 'center' }}>Platform fee earned: {rs(ledger.reduce((s, r) => s + (r.platformFee || 0), 0))} · GMV delivered: {rs(gmv)}</div>
+    </>
+  );
+}
+
+/* ═══════════════════════ RIDER: mall deliveries (existing rider app me tab) ═══════════════════════ */
+function MallRiderTab({ rider }) {
+  const fees = useFees(); const [msg, setMsg] = useState(''), prevN = useRef(0);
+  const say = m => { setMsg(m); setTimeout(() => setMsg(''), 2800); };
+  const [packed] = useCol('mall_orders', [where('status', '==', 'packed')], 'rpk');
+  const [mine] = useCol('mall_orders', [where('riderId', '==', rider.id)], 'rmn' + rider.id);
+  const [led] = useCol('mall_ledger', [where('riderId', '==', rider.id)], 'rld' + rider.id);
+  const avail = packed.filter(o => o.needRider && !o.riderId).sort((a, b) => (a.createdMs || 0) - (b.createdMs || 0));
+  const active = mine.filter(o => ['packed', 'out'].includes(o.status));
+  useEffect(() => { if (avail.length > prevN.current) { try { navigator.vibrate && navigator.vibrate([250, 120, 250]); } catch (e) {} say('🔔 Naya mall pickup!'); } prevN.current = avail.length; }, [avail.length]);
+  const mid = new Date().setHours(0, 0, 0, 0), today = led.filter(r => (r.deliveredMs || 0) >= mid);
+  const claim = async o => {
+    if (active.length >= 3) { say('Pehle purane orders deliver karo (max 3)'); return; }
+    try { await runTransaction(db, async tx => { const ref = doc(db, 'mall_orders', o.id); const s = await tx.get(ref); if (!s.exists() || s.data().status !== 'packed' || s.data().riderId) throw new Error('Ye order kisi aur rider ne le liya'); tx.update(ref, { riderId: rider.id, riderName: rider.name || 'Rider', riderPhone: rider.phone || '', riderClaimedMs: Date.now() }); }); say('Order le liya ✅'); }
+    catch (e) { say(e.message); }
+  };
+  const pick = o => updateDoc(doc(db, 'mall_orders', o.id), { status: 'out', outMs: Date.now() }).catch(e => say(e.message));
+  const deliver = o => { if (!window.confirm('Delivered? Customer se ' + rs(o.total) + ' cash collect kiya?')) return; finishOrder(o, 'rider', rider).then(() => say('Delivered ✅')).catch(e => say(e.message)); };
+  const nav = a => window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a), '_blank');
+  const C = { background: 'var(--glass,rgba(255,255,255,.05))', border: '1px solid var(--gb,rgba(255,255,255,.12))', borderRadius: 16, padding: 14, marginBottom: 12 };
+  const G = '#3DFF7A', B = (bg, c) => ({ flex: 1, textAlign: 'center', padding: '11px 8px', borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: 'pointer', background: bg, color: c, border: '1px solid ' + (bg === 'transparent' ? 'var(--gb,rgba(255,255,255,.2))' : bg) });
+  return (
+    <div style={{ padding: '10px 0 30px' }}>
+      {msg && <div style={{ background: '#111', color: '#fff', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 10 }}>{msg}</div>}
+      <div style={{ ...C, display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+        <div><div style={{ fontSize: 20, fontWeight: 800, color: G }}>{today.length}</div><div style={{ fontSize: 11, opacity: .7 }}>Mall deliveries aaj</div></div>
+        <div><div style={{ fontSize: 20, fontWeight: 800, color: G }}>{rs(today.reduce((s, r) => s + (r.riderPay || 0), 0))}</div><div style={{ fontSize: 11, opacity: .7 }}>Kamai aaj</div></div>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 800, margin: '4px 0 8px' }}>🚚 Meri deliveries ({active.length})</div>
+      {active.length === 0 && <div style={{ fontSize: 12.5, opacity: .6, marginBottom: 12 }}>Koi active order nahi</div>}
+      {active.map(o => <div key={o.id} style={{ ...C, border: '1.5px solid ' + G }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{o.type === 'fashion' ? '👗' : '🛒'} {o.shopName}</b><span style={{ fontSize: 12, fontWeight: 800, color: G }}>{o.status === 'packed' ? 'PICKUP' : 'DELIVER'}</span></div>
+        <div style={{ fontSize: 12.5, opacity: .8, margin: '6px 0' }}>📍 {o.address}<br />👤 {o.userName} · {o.phone}<br />💵 Cash collect: <b>{rs(o.total)}</b> ({(o.items || []).reduce((s, i) => s + i.qty, 0)} items)</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div onClick={() => nav(o.status === 'packed' ? (o.shopName + ' Bhopalgarh') : o.address)} style={B('transparent', 'inherit')}>🧭 Navigate</div>
+          <a href={'tel:' + o.phone} style={{ textDecoration: 'none', ...B('transparent', 'inherit') }}>📞 Customer</a>
+          {o.status === 'packed' ? <div onClick={() => pick(o)} style={B(G, '#052e12')}>Picked up</div> : <div onClick={() => deliver(o)} style={B(G, '#052e12')}>Delivered</div>}
+        </div>
+      </div>)}
+      <div style={{ fontSize: 13, fontWeight: 800, margin: '14px 0 8px' }}>📦 Pickup ke liye available ({avail.length})</div>
+      {avail.length === 0 && <div style={{ fontSize: 12.5, opacity: .6 }}>Abhi koi pickup ready nahi</div>}
+      {avail.map(o => <div key={o.id} style={C}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{o.type === 'fashion' ? '👗' : '🛒'} {o.shopName}</b><span style={{ fontSize: 12, opacity: .7 }}>{timeAgo(o.packedMs || o.createdMs)}</span></div>
+        <div style={{ fontSize: 12.5, opacity: .8, margin: '6px 0 10px' }}>Drop: {o.address}<br />Order {rs(o.total)} · aapki kamai ≈ <b>{rs(fees.riderPay)}</b>*</div>
+        <div onClick={() => claim(o)} style={B(G, '#052e12')}>Accept pickup</div>
+      </div>)}
+      <div style={{ fontSize: 10.5, opacity: .5, marginTop: 6 }}>* Admin ke set kiye rider pay ke hisaab se.</div>
+    </div>
+  );
+}
+
 /* ═══════════════════════ EXPORTS ═══════════════════════ */
 function MallApp({ kind, user, onBack }) {
   if (kind === 'cab') return <CabApp user={user} onBack={onBack} />;
@@ -1184,4 +1350,4 @@ function MallPartnerGate({ type, onBack }) {
   if (!p) return <PartnerLogin type={type} onLogin={login} onBack={onBack} />;
   return type === 'cab' ? <DriverApp partner={p} onLogout={logout} /> : <ShopPartnerApp type={type} partner={p} onLogout={logout} />;
 }
-export { MallApp, MallPartnerGate, MallAdminPanel, CAB_TYPES };
+export { MallApp, MallPartnerGate, MallAdminPanel, MallRiderTab, CAB_TYPES };
