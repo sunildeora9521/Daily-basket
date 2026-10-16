@@ -1,32 +1,14 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getMessaging } from 'firebase-admin/messaging';
-
-if (!getApps().length) {
-  initializeApp({
-    credential: cert({
-      projectId:   process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { topic, title, body, token } = req.body || {};
-  if (!title || !body) return res.status(400).json({ error: 'title and body required' });
+// POST /api/sendpush {topic,title,body}  — ab sirf ADMIN broadcast ke liye (pehle koi bhi bhej sakta tha)
+const L = require('../serverlib');
+const TOPICS = ['customers', 'riders', 'shops', 'drivers', 'mall_shops', 'admin'];
+module.exports = async (req, res) => {
+  if (L.cors(req, res)) return;
+  if (req.method !== 'POST') return L.fail(res, 405, 'Method not allowed');
+  const me = await L.bearer(req); if (!L.isAdmin(me)) return L.fail(res, 403, 'Admin login chahiye');
+  const { topic, title, body } = req.body || {};
+  if (!TOPICS.includes(topic) || !title || !body) return L.fail(res, 400, 'topic, title aur body chahiye');
   try {
-    const messaging = getMessaging();
-    const message = {
-      notification: { title, body },
-      android: { notification: { sound: 'default', priority: 'high' } },
-      apns: { payload: { aps: { sound: 'default' } } },
-    };
-    const result = token
-      ? await messaging.send({ ...message, token })
-      : await messaging.send({ ...message, topic });
-    return res.status(200).json({ success: true, result });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
+    await L.msg().send({ topic, data: { title: L.clean(title, 80), body: L.clean(body, 200), url: '/', tag: 'bc' + Date.now() }, android: { priority: 'high' }, webpush: { headers: { Urgency: 'high', TTL: '86400' } } });
+    return L.ok(res);
+  } catch (e) { return L.fail(res, 500, 'Push fail: ' + e.message); }
+};
