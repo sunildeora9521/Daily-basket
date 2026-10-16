@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { db } from "./firebase";
+import { db, auth, apiPost, signInToken, notifyEvent, requestNotificationPermission } from "./firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, onSnapshot, addDoc, getDoc, setDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, runTransaction, arrayUnion, increment } from "firebase/firestore";
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -148,6 +149,7 @@ async function finishOrder(o, by, rider) {
   const now = Date.now(), riderPay = by === 'rider' ? (Number(cfg.riderPay) || 0) : 0, pf = o.platformFee || 0;
   await setDoc(doc(db, 'mall_ledger', o.id), { orderId: o.id, type: o.type, shopId: o.shopId, shopName: o.shopName, riderId: by === 'rider' ? rider.id : '', riderName: by === 'rider' ? (rider.name || '') : '', collectedBy: by, subtotal: o.subtotal || 0, delivery: o.delivery || 0, platformFee: pf, total: o.total || 0, riderPay, deliveredMs: now, riderSettled: by !== 'rider', shopPaid: by === 'shop', feeSettled: by === 'shop' ? !(pf > 0) : true });
   await updateDoc(doc(db, 'mall_orders', o.id), { status: 'delivered', deliveredMs: now, deliveredBy: by });
+  notifyEvent('mall_order_status', { orderId: o.id });
 }
 
 const STATUS_FLOW = ['placed', 'accepted', 'packed', 'out', 'delivered'];
@@ -173,7 +175,7 @@ function MallCart({ T, type, cart, user, say, onBack, onPlaced }) {
         subtotal: sub, delivery, platformFee: pf, total: sub + delivery + pf, pay: 'cod', status: 'placed', createdMs: Date.now(), createdAt: serverTimestamp()
       });
       try { localStorage.setItem('mall_addr', JSON.stringify({ flat: f.flat, area: f.area, phone: f.phone })); } catch (e) {}
-      cart.clear(); onPlaced(ref.id);
+      notifyEvent('mall_order_new', { orderId: ref.id }); cart.clear(); onPlaced(ref.id);
     } catch (e) { say('Order fail: ' + e.message); }
     setBusy(false);
   };
@@ -639,7 +641,7 @@ function Booking({ T, types, partners, user, rides, say, onBack, onHistory }) {
   const book = async () => {
     if (busy || !route || !cur) return; const lk = hit('cab_book', 6, 30); if (lk) { say('Bahut zyada bookings. ' + lk + ' min baad try karo'); return; }
     setBusy(true);
-    try { await addDoc(collection(db, 'cab_rides'), { userId: user.uid, userName: clean(user.name, 40), phone: user.phone || '', pickup, drop, distanceKm: +route.km.toFixed(1), durationMin: Math.round(route.min), route: flatPts(route.pts), vehicle: cur.id, vehicleName: cur.n, fare: cur.fare, pay: 'cash', otp: String(1000 + Math.floor(Math.random() * 9000)), status: 'searching', createdMs: Date.now(), createdAt: serverTimestamp() }); }
+    try { const rr = await addDoc(collection(db, 'cab_rides'), { userId: user.uid, userName: clean(user.name, 40), phone: user.phone || '', pickup, drop, distanceKm: +route.km.toFixed(1), durationMin: Math.round(route.min), route: flatPts(route.pts), vehicle: cur.id, vehicleName: cur.n, fare: cur.fare, pay: 'cash', otp: String(1000 + Math.floor(Math.random() * 9000)), status: 'searching', createdMs: Date.now(), createdAt: serverTimestamp() }); notifyEvent('ride_new', { rideId: rr.id }); }
     catch (e) { say('Booking fail: ' + e.message); }
     setBusy(false);
   };
@@ -695,7 +697,7 @@ function RideView({ T, ride, say, onBack }) {
     const t = setInterval(() => { if (Date.now() - (ride.createdMs || 0) > 180000) { updateDoc(doc(db, 'cab_rides', ride.id), { status: 'cancelled', cancelledBy: 'system', reason: 'no_driver' }).then(() => say('Koi driver nahi mila. Thodi der baad try karo.')).catch(() => {}); } }, 5000);
     return () => clearInterval(t);
   }, [st, ride.id]);
-  const cancel = async () => { if (!window.confirm('Ride cancel karein?')) return; try { await updateDoc(doc(db, 'cab_rides', ride.id), { status: 'cancelled', cancelledBy: 'rider', cancelledMs: Date.now() }); } catch (e) { say('Cancel fail: ' + e.message); } };
+  const cancel = async () => { if (!window.confirm('Ride cancel karein?')) return; try { await updateDoc(doc(db, 'cab_rides', ride.id), { status: 'cancelled', cancelledBy: 'rider', cancelledMs: Date.now() }); notifyEvent('ride_status', { rideId: ride.id }); } catch (e) { say('Cancel fail: ' + e.message); } };
   const share = () => { const t = `Meri Daily Ride: ${ride.driverName || 'driver'} · ${ride.vehicleNo || ''} · ${ride.vehicleModel || ''}. ${pickup.addr} → ${drop.addr}`; if (navigator.share) navigator.share({ text: t }).catch(() => {}); else { try { navigator.clipboard.writeText(t); say('Ride details copy ho gaye'); } catch (e) {} } };
   const eta = dl ? etaMin(hav(dl, st === 'ongoing' ? drop : pickup) * 1.3) : null;
   const banner = st === 'searching' ? 'Finding your ' + ride.vehicleName + '…' : st === 'accepted' ? (eta ? 'Driver arriving in ' + eta + ' min' : 'Driver is on the way') : st === 'arrived' ? 'Driver has arrived 🎉' : 'On trip' + (eta ? ' · ' + eta + ' min to drop' : '');
@@ -805,11 +807,9 @@ function PartnerLogin({ type, onLogin, onBack }) {
     const lk = hit('mlogin', 5, 15); if (lk) { setErr('Too many attempts. Try again in ' + lk + ' min.'); return; }
     setBusy(true);
     try {
-      const a = await getDoc(doc(db, 'mall_auth', ID)); const h = await pHash(ID, pw.trim());
-      if (!a.exists() || a.data().passHash !== h || a.data().type !== type) { setErr('Invalid ID or password'); setBusy(false); return; }
-      const p = await getDoc(doc(db, 'mall_partners', ID));
-      if (!p.exists() || p.data().active === false) { setErr('Account disabled. Admin se contact karo.'); setBusy(false); return; }
-      unhit('mlogin'); onLogin({ ...p.data(), id: p.id });
+      const j = await apiPost('/api/login', { role: type, id: ID, pass: pw.trim() });
+      if (!j.success) { setErr(j.error === 'Invalid credentials' ? 'Invalid ID or password' : (j.error || 'Login error')); setBusy(false); return; }
+      await signInToken(j.customToken); unhit('mlogin'); onLogin(j.profile);
     } catch (e) { setErr(e.message || 'Login error'); }
     setBusy(false);
   };
@@ -862,6 +862,7 @@ function DriverApp({ partner, onLogout }) {
   const [me, setMe] = useState(partner), [tab, setTab] = useState('ride'), [pos, setPos] = useState(null), [otpIn, setOtpIn] = useState(''), [fit, setFit] = useState(1);
   const last = useRef(null), actRef = useRef(null), tick = useRef(0), prevN = useRef(0), logoutRef = useRef(onLogout); logoutRef.current = onLogout;
   const online = !!me.online;
+  useEffect(() => { try { requestNotificationPermission('partner'); } catch (e) {} }, []);
   useEffect(() => { const u = onSnapshot(doc(db, 'mall_partners', partner.id), s => { if (s.exists()) { const d = { ...s.data(), id: s.id }; setMe(d); if (d.active === false) logoutRef.current(); } }, () => {}); return () => u(); }, [partner.id]);
   const [mine] = useCol('cab_rides', [where('driverId', '==', partner.id)], 'm' + partner.id);
   const active = mine.find(r => ['accepted', 'arrived', 'ongoing'].includes(r.status)); actRef.current = active ? active.id : null;
@@ -889,10 +890,10 @@ function DriverApp({ partner, onLogout }) {
         const ref = doc(db, 'cab_rides', r.id); const s = await tx.get(ref); if (!s.exists() || s.data().status !== 'searching') throw new Error('Ye ride kisi aur ne le li');
         tx.update(ref, { status: 'accepted', driverId: partner.id, driverName: me.ownerName || me.name, driverPhone: me.phone || '', vehicleNo: me.vehicleNo || '', vehicleModel: me.vehicleModel || '', driverRating: ratingOf(me), driverLoc: pos ? { ...pos, ts: Date.now() } : null, acceptedMs: Date.now() });
       });
-      say('Ride accepted ✅'); setFit(k => k + 1);
+      say('Ride accepted ✅'); notifyEvent('ride_status', { rideId: r.id }); setFit(k => k + 1);
     } catch (e) { say(e.message); }
   };
-  const patch = async p => { try { await updateDoc(doc(db, 'cab_rides', active.id), p); } catch (e) { say(e.message); } };
+  const patch = async p => { try { await updateDoc(doc(db, 'cab_rides', active.id), p); notifyEvent('ride_status', { rideId: active.id }); } catch (e) { say(e.message); } };
   const startTrip = () => { if (otpIn !== String(active.otp)) { const lk = hit('otp_' + active.id, 5, 30); say(lk ? 'Bahut galat OTP — ' + lk + ' min ruko' : 'Wrong OTP'); return; } patch({ status: 'ongoing', startedMs: Date.now() }); setOtpIn(''); };
   const release = () => { if (!window.confirm('Ride chhod dein? Ye dusre driver ko chali jayegi.')) return; patch({ status: 'searching', driverId: null, driverName: null, driverPhone: null, vehicleNo: null, vehicleModel: null, driverLoc: null, declinedBy: arrayUnion(partner.id) }); };
   const nav = pt => window.open('https://www.google.com/maps/dir/?api=1&destination=' + pt.lat + ',' + pt.lng + '&travelmode=driving', '_blank');
@@ -979,10 +980,11 @@ function ShopPartnerApp({ type, partner, onLogout }) {
   const [prods] = useCol('mall_products', [where('shopId', '==', partner.id)], 'sp' + partner.id);
   const sorted = [...orders].sort((a, b) => (b.createdMs || 0) - (a.createdMs || 0));
   const nNew = orders.filter(o => o.status === 'placed').length;
+  useEffect(() => { try { requestNotificationPermission('partner'); } catch (e) {} }, []);
   useEffect(() => { if (nNew > prevN.current) { try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) {} say('🔔 Naya order aaya!'); } prevN.current = nNew; }, [nNew]);
   const shown = sorted.filter(o => flt === 'new' ? o.status === 'placed' : flt === 'active' ? ['accepted', 'packed', 'out'].includes(o.status) : ['delivered', 'cancelled'].includes(o.status));
-  const move = async (o, s, extra) => { try { await updateDoc(doc(db, 'mall_orders', o.id), { status: s, [s + 'Ms']: Date.now(), ...(s === 'packed' ? { needRider: true } : {}), ...(extra || {}) }); } catch (e) { say(e.message); } };
-  const reject = async o => { if (!window.confirm('Order reject karein?')) return; try { await updateDoc(doc(db, 'mall_orders', o.id), { status: 'cancelled', cancelledBy: 'shop' }); } catch (e) { say(e.message); } };
+  const move = async (o, s, extra) => { try { await updateDoc(doc(db, 'mall_orders', o.id), { status: s, [s + 'Ms']: Date.now(), ...(s === 'packed' ? { needRider: true } : {}), ...(extra || {}) }); notifyEvent('mall_order_status', { orderId: o.id }); } catch (e) { say(e.message); } };
+  const reject = async o => { if (!window.confirm('Order reject karein?')) return; try { await updateDoc(doc(db, 'mall_orders', o.id), { status: 'cancelled', cancelledBy: 'shop' }); notifyEvent('mall_order_status', { orderId: o.id }); } catch (e) { say(e.message); } };
   const setOpen = async v => { try { await updateDoc(doc(db, 'mall_partners', partner.id), { open: v }); say(v ? 'Store open ✅' : 'Store closed'); } catch (e) { say(e.message); } };
   const delP = async p => { if (!window.confirm('"' + p.name + '" delete karein?')) return; try { await deleteDoc(doc(db, 'mall_products', p.id)); } catch (e) { say(e.message); } };
   const stockP = async p => { try { await updateDoc(doc(db, 'mall_products', p.id), { inStock: p.inStock === false }); } catch (e) { say(e.message); } };
@@ -1108,17 +1110,17 @@ function MallAdminPanel() {
     if (ft === 'cab' && (!clean(f.ownerName, 40) || !clean(f.vehicleNo, 20))) { say('Driver ka naam aur vehicle number daalo'); return; }
     setBusy(true);
     try {
-      const id = await uniqueId(ft), pw = genPass(), h = await pHash(id, pw);
-      await setDoc(doc(db, 'mall_auth', id), { passHash: h, type: ft, createdMs: Date.now() });
+      const id = await uniqueId(ft);
       const base = { type: ft, name: clean(f.name, 60), ownerName: clean(f.ownerName, 40), phone: f.phone, area: clean(f.area, 80), active: true, open: true, ratingSum: 0, ratingCount: 0, createdMs: Date.now() };
       await setDoc(doc(db, 'mall_partners', id), ft === 'cab' ? { ...base, vehicleType: f.vehicleType, vehicleModel: clean(f.vehicleModel, 40), vehicleNo: clean(f.vehicleNo, 20).toUpperCase(), online: false } : base);
-      setCred({ id, pw, name: f.name, phone: f.phone, type: ft }); setF(blank); setShow(false);
+      const cj = await apiPost('/api/cred', { action: 'set', kind: ft, id }, true); if (!cj.success) throw new Error(cj.error || 'Password set nahi hua');
+      setCred({ id, pw: cj.pass, name: f.name, phone: f.phone, type: ft }); setF(blank); setShow(false);
     } catch (e) { say('Error: ' + e.message); }
     setBusy(false);
   };
-  const resetPw = async p => { if (!window.confirm(p.name + ' ka password reset karein?')) return; try { const pw = genPass(); await setDoc(doc(db, 'mall_auth', p.id), { passHash: await pHash(p.id, pw), type: p.type, createdMs: Date.now() }); setCred({ id: p.id, pw, name: p.name, phone: p.phone, type: p.type }); } catch (e) { say(e.message); } };
+  const resetPw = async p => { if (!window.confirm(p.name + ' ka password reset karein?')) return; try { const cj = await apiPost('/api/cred', { action: 'set', kind: p.type, id: p.id }, true); if (!cj.success) throw new Error(cj.error || 'Error'); setCred({ id: p.id, pw: cj.pass, name: p.name, phone: p.phone, type: p.type }); } catch (e) { say(e.message); } };
   const toggleA = async p => { try { await updateDoc(doc(db, 'mall_partners', p.id), { active: p.active === false, ...(p.active === false ? {} : { online: false }) }); } catch (e) { say(e.message); } };
-  const del = async p => { if (!window.confirm(p.name + ' ko permanently delete karein?')) return; try { await deleteDoc(doc(db, 'mall_partners', p.id)); await deleteDoc(doc(db, 'mall_auth', p.id)); say('Deleted'); } catch (e) { say(e.message); } };
+  const del = async p => { if (!window.confirm(p.name + ' ko permanently delete karein?')) return; try { await deleteDoc(doc(db, 'mall_partners', p.id)); await apiPost('/api/cred', { action: 'delete', kind: p.type, id: p.id }, true); say('Deleted'); } catch (e) { say(e.message); } };
   const saveFares = async () => { try { const t = {}; Object.keys(fares).forEach(k => { t[k] = { base: +fares[k].base || 0, km: +fares[k].km || 0, min: +fares[k].min || 0, per: +fares[k].per || 0 }; }); await setDoc(doc(db, 'mall_config', 'cab'), { types: t, updatedMs: Date.now() }); say('Fares save ho gaye ✅'); } catch (e) { say(e.message); } };
   const cancelOrder = async o => { if (!window.confirm('Order cancel karein?')) return; try { await updateDoc(doc(db, 'mall_orders', o.id), { status: 'cancelled', cancelledBy: 'admin' }); } catch (e) { say(e.message); } };
   const copy = t => { try { navigator.clipboard.writeText(t); say('Copied ✓'); } catch (e) { say('Copy nahi hua'); } };
@@ -1136,6 +1138,7 @@ function MallAdminPanel() {
 
       {sub === 'partners' && <>
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 12 }}>{Object.keys(TYPE_LBL).map(k => <div key={k} onClick={() => { setFt(k); setShow(false); }} style={aBtn(ft === k)}>{TYPE_LBL[k]} ({all.filter(p => p.type === k).length})</div>)}</div>
+        <div onClick={async () => { const j = await apiPost('/api/cred', { action: 'migrate' }, true); say(j.success ? ('Migrated ' + j.migrated + ' passwords ✅') : (j.error || 'Error')); }} style={aBtn(false, { textAlign: 'center', marginBottom: 8, fontSize: 11.5 })}>🔐 Purane rider/shop passwords hash karo</div>
         <div onClick={() => setShow(!show)} style={{ ...aBtn(show, { textAlign: 'center', padding: 13, borderRadius: 14, marginBottom: 12 }) }}>{show ? '✕ Close' : '＋ Add ' + (ft === 'cab' ? 'driver' : ft === 'grocery' ? 'grocery shop' : 'boutique')}</div>
         {show && <div style={card}>
           <input style={aInp} placeholder={ft === 'cab' ? 'Display name (e.g. Ramesh Cabs)' : 'Shop name'} maxLength={60} value={f.name} onChange={e => set('name', e.target.value)} />
@@ -1302,7 +1305,7 @@ function MallRiderTab({ rider }) {
     try { await runTransaction(db, async tx => { const ref = doc(db, 'mall_orders', o.id); const s = await tx.get(ref); if (!s.exists() || s.data().status !== 'packed' || s.data().riderId) throw new Error('Ye order kisi aur rider ne le liya'); tx.update(ref, { riderId: rider.id, riderName: rider.name || 'Rider', riderPhone: rider.phone || '', riderClaimedMs: Date.now() }); }); say('Order le liya ✅'); }
     catch (e) { say(e.message); }
   };
-  const pick = o => updateDoc(doc(db, 'mall_orders', o.id), { status: 'out', outMs: Date.now() }).catch(e => say(e.message));
+  const pick = o => updateDoc(doc(db, 'mall_orders', o.id), { status: 'out', outMs: Date.now() }).then(() => notifyEvent('mall_order_status', { orderId: o.id })).catch(e => say(e.message));
   const deliver = o => { if (!window.confirm('Delivered? Customer se ' + rs(o.total) + ' cash collect kiya?')) return; finishOrder(o, 'rider', rider).then(() => say('Delivered ✅')).catch(e => say(e.message)); };
   const nav = a => window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a), '_blank');
   const C = { background: 'var(--glass,rgba(255,255,255,.05))', border: '1px solid var(--gb,rgba(255,255,255,.12))', borderRadius: 16, padding: 14, marginBottom: 12 };
@@ -1344,9 +1347,20 @@ function MallApp({ kind, user, onBack }) {
   return <GroceryApp user={user} onBack={onBack} />;
 }
 function MallPartnerGate({ type, onBack }) {
-  const [p, setP] = useState(() => { try { const s = JSON.parse(localStorage.getItem('db_mall_p') || 'null'); if (s && s.type === type && Date.now() - (s.ts || 0) < 30 * 864e5) return s.p; } catch (e) {} return null; });
+  const [p, setP] = useState(null), [ready, setReady] = useState(false);
+  useEffect(() => {
+    const un = onAuthStateChanged(auth, u => {
+      try {
+        const sv = JSON.parse(localStorage.getItem('db_mall_p') || 'null');
+        if (u && sv && sv.type === type && u.uid === 'pt_' + sv.p.id && Date.now() - (sv.ts || 0) < 30 * 864e5) setP(sv.p); else setP(null);
+      } catch (e) { setP(null); }
+      setReady(true);
+    });
+    return () => { try { un(); } catch (e) {} };
+  }, [type]);
   const login = pp => { try { localStorage.setItem('db_mall_p', JSON.stringify({ type, ts: Date.now(), p: pp })); } catch (e) {} setP(pp); };
-  const logout = () => { try { localStorage.removeItem('db_mall_p'); } catch (e) {} setP(null); onBack(); };
+  const logout = () => { try { localStorage.removeItem('db_mall_p'); } catch (e) {} try { signOut(auth).catch(() => {}); } catch (e) {} setP(null); onBack(); };
+  if (!ready) return <Shell T={TH[type] || TH.cab}><Spin T={TH[type] || TH.cab} /></Shell>;
   if (!p) return <PartnerLogin type={type} onLogin={login} onBack={onBack} />;
   return type === 'cab' ? <DriverApp partner={p} onLogout={logout} /> : <ShopPartnerApp type={type} partner={p} onLogout={logout} />;
 }
