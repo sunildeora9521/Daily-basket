@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { auth, db, messaging, requestNotificationPermission, onMessage } from "./firebase";
+import { auth, db, messaging, requestNotificationPermission, onMessage, apiPost, signInToken, restoreCustomer, notifyEvent } from "./firebase";
 import { collection, addDoc, getDocs, onSnapshot, serverTimestamp, doc, updateDoc, deleteDoc, setDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { MallApp, MallPartnerGate, MallAdminPanel, MallRiderTab } from "./MallSystem";
@@ -143,6 +143,18 @@ function DiwaliFX(){
       <canvas ref={ref} className="dfx" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:9998}}/>
     </>
   );
+}
+
+/* ═══════════ SECURE LOGIN HELPERS (server se verify, Firebase custom token) ═══════════ */
+async function roleLogin(role,id,pass){
+  const j=await apiPost('/api/login',{role,id,pass});
+  if(!j.success){ if(j.error&&!/^Invalid credentials/.test(j.error)) throw new Error(j.error); return null; }
+  await signInToken(j.customToken); return j.profile;
+}
+async function adminLogin(id,pass){
+  const j=await apiPost('/api/admin',{step:'login',id,pass});
+  if(!j.success){ if(j.error&&!/^Invalid credentials/.test(j.error)) throw new Error(j.error); return null; }
+  return j;
 }
 
 /* ═══════════ DIWALI HERO ARTWORK (SVG: lanterns, toran, rangoli, diyas) ═══════════ */
@@ -524,9 +536,7 @@ function getGreetingKey() {
       }
 
 /* ═══════════ DATA ═══════════ */
-const ADMIN_HASH = 'd7f2e56317602b58642bb7dfdd6b2b51f3536ad0f59742d997d0795de46da624'; // SHA-256(id|pass|salt) — plaintext password code me nahi
-const ADMIN_EMAIL = 'dailybasketjodhpur@gmail.com'; // admin OTP yahan aayega (email zaroor)
-const ADMIN_PHONE = '6375565339';                 // SMS optional (fail ho to email se chalega)
+// Admin credentials ab sirf server (Vercel env) me hain: ADMIN_ID, ADMIN_PASSWORD, ADMIN_EMAIL, ADMIN_PHONE
 const DEMO_OTP = '123456';
 const mkData = () => ({
   products:[
@@ -1225,87 +1235,27 @@ function CustomerLogin({onLogin}) {
   const sendOTP = async () => {
     if(!name.trim()){setErr('Apna naam daalo');return;}
     if(phone.length!==10){setErr('Valid 10-digit mobile number daalo');return;}
-    const lkS=SEC.hit('otp_send',5,15);
-    if(lkS){setErr('Too many OTP requests. Try again in '+lkS+' min.');return;}
     setErr(''); setLoading(true);
     try {
-      // Step 1: Email OTP pehle bhejo — EmailJS browser API (client-side)
-      let emailSent = false;
-      if(emailOtp && email.includes('@') && email.includes('.')) {
-        const emailCode = String(Math.floor(100000+Math.random()*900000));
-        await SEC.saveOtp('db_email_otp', emailCode, phone);
-        try {
-          const ejsRes = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-            method:'POST',
-            headers:{'Content-Type':'application/json','origin':'http://localhost'},
-            body: JSON.stringify({
-              service_id:'service_stnx9cf',
-              template_id:'template_1zx0d4g',
-              user_id:'d_7tKaWwZUPNIH54P',
-              accessToken:'dwdte_YEIdiFgSomNI1Pi',
-              template_params:{
-                to_name: name.trim(),
-                otp_code: emailCode,
-                to_email: email
-              }
-            })
-          });
-          if(ejsRes.ok) emailSent = true;
-          else console.log('EmailJS send failed');
-        } catch(e){ console.log('Email OTP err:',e); }
-      }
-
-      // Step 2: SMS OTP try karo — fail ho to bhi email se kaam chalega
-      let smsToken = '';
-      try {
-        const res = await fetch('/api/sendotp', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({phone})
-        });
-        const data = await res.json();
-        if(data.success) smsToken = data.token;
-      } catch(e){ console.log('SMS OTP err:',e); }
-
-      // Agar dono fail ho to error do
-      if(!smsToken && !emailSent) {
-        throw new Error('OTP send nahi hua. Internet check karo.');
-      }
-
-      setToken(smsToken);
-      setOtpSentTo(emailOtp && email.includes('@') ? phone+'|'+email : phone);
+      const wantEmail = !!(emailOtp && email.includes('@') && email.includes('.'));
+      const j = await apiPost('/api/sendotp',{phone,name:name.trim(),email:wantEmail?email.trim():''});
+      if(!j.success) throw new Error(j.error||'OTP send nahi hua. Internet check karo.');
+      setToken(j.token);
+      setOtpSentTo((j.sms?phone:'')+'|'+(j.email?email.trim():''));
       setStep('otp'); setResend(30);
-    } catch(e) { setErr(e.message); }
+    } catch(e) { setErr(e.message||'OTP send nahi hua. Dobara try karo.'); }
     setLoading(false);
   };
 
   const verifyOTP = async () => {
     if(otp.length!==6){setErr('6 digit OTP daalo');return;}
-    const lkV=SEC.hit('otp_verify',6,10);
-    if(lkV){setErr('Too many wrong attempts. Try again in '+lkV+' min.');return;}
     setLoading(true); setErr('');
     try {
-      let verified = false;
-
-      // Email OTP check karo pehle (agar SMS nahi aaya)
-      if(emailOtp && email.includes('@')) {
-        if(await SEC.checkOtp('db_email_otp', otp, phone)) verified = true;
-      }
-
-      // Agar email se verify nahi hua to SMS se try karo
-      if(!verified && token) {
-        const res = await fetch('/api/verifyotp', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({token, userOtp:otp})
-        });
-        const data = await res.json();
-        if(data.success) verified = true;
-        else throw new Error('Galat OTP! Dobara check karo.');
-      }
-
-      if(!verified) throw new Error('Galat OTP! Email ya SMS check karo.');
-
-      SEC.reset('otp_verify');
-      const uid = 'ph_'+phone;
+      const j = await apiPost('/api/session',{token,userOtp:otp,name:name.trim()});
+      if(!j.success) throw new Error(j.error||'Galat OTP! Dobara check karo.');
+      await signInToken(j.customToken);
+      try{ localStorage.setItem('db_devkey', j.deviceKey); }catch(e){}
+      const uid = j.uid;
       const uData = {name:SEC.clean(name,40), phone, uid, email:SEC.clean(email,80), ts:Date.now()};
       try {
         await setDoc(doc(db,'users',uid),{name:SEC.clean(name,40),phone,email:SEC.clean(email,80),updatedAt:serverTimestamp()},{merge:true});
@@ -1400,10 +1350,10 @@ function CustomerLogin({onLogin}) {
               <span style={{fontSize:14,color:'var(--t3)'}}>Back</span>
             </div>
             <div style={{textAlign:'center',marginBottom:24}}>
-              <div style={{fontSize:40,marginBottom:12}}>{sentEmail?'📱📧':'📱'}</div>
+              <div style={{fontSize:40,marginBottom:12}}>{sentEmail&&sentPhone?'📱📧':sentEmail?'📧':'📱'}</div>
               <div style={{fontSize:22,fontWeight:800,marginBottom:6}}>Verify OTP</div>
               <div style={{fontSize:13,color:'var(--t3)',marginBottom:4}}>OTP has been sent to:</div>
-              <div style={{fontSize:14,fontWeight:700,color:'var(--green)'}}>📱 +91 {sentPhone}</div>
+              {sentPhone&&<div style={{fontSize:14,fontWeight:700,color:'var(--green)'}}>📱 +91 {sentPhone}</div>}
               {sentEmail&&<div style={{fontSize:13,fontWeight:600,color:'#3DFF7A',marginTop:4}}>📧 {sentEmail}</div>}
             </div>
 
@@ -1884,7 +1834,10 @@ useEffect(()=>{
     try {
       requestNotificationPermission('customers');
       onMessage(messaging, payload => {
-        console.log('Notification:', payload);
+        try{
+          const d=payload.data||payload.notification||{};
+          if(window.Notification&&Notification.permission==='granted'&&d.title){ new Notification(d.title,{body:d.body||'',icon:'/icon-192.png',tag:d.tag}); }
+        }catch(e){}
       });
     } catch(e) {
       console.log('Messaging error:', e);
@@ -1947,7 +1900,7 @@ useEffect(()=>{
     });
     // Push notification to admin/shop - order placed
     try{
-      await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'shops',title:'🛒 Naya Order! / नया ऑर्डर मिला है',body:`${userName} ne ₹${total} ka order kiya / ${userName} ने ₹${total} का ऑर्डर किया है`})});
+      await notifyEvent('order_new',{orderId:oRef.id});
     }catch(ne){console.log('Push skipped:',ne);}
     const earned=Math.floor(total/10);
     const newPoints=usePoints?Math.max(0,points-(Math.floor(points/10)*10))+earned:points+earned;
@@ -1970,6 +1923,7 @@ useEffect(()=>{
           // Mark first delivery used — SIRF ek baar
           ...(firstFree && {firstDelUsed:true}),
         },{merge:true});
+        await setDoc(fDoc(db,'leaderboard',uid),{name:userName,ecoScore:parseFloat((prevEco+newItemsKg).toFixed(3))},{merge:true});
         // Local state bhi update karo — dobara free nahi milegi
         if(firstFree){
           setFirstDelUsed(true);
@@ -2722,7 +2676,7 @@ function EcoScr({t,fam,isHi,user,points=0}) {
     },()=>{});
     const q2=query(collection(db,'orders'),where('userId','==',uid));
     getDocs(q2).then(snap=>{ setOrders(snap.docs.map(d=>({id:d.id,...d.data()}))); }).catch(()=>{});
-    getDocs(collection(db,'users')).then(snap=>{
+    getDocs(collection(db,'leaderboard')).then(snap=>{
       const users=snap.docs.map(d=>({...d.data(),uid:d.id})).filter(u=>u.ecoScore>0).sort((a,b)=>(b.ecoScore||0)-(a.ecoScore||0)).slice(0,5);
       setLeaderboard(users);
     }).catch(()=>{});
@@ -3154,7 +3108,7 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
     if(!user?.uid&&!auth.currentUser?.uid) return;
     setLoadingOrders(true);
     try{
-      const q=await getDocs(collection(db,'orders'));
+      const q=await getDocs(query(collection(db,'orders'),where('userId','==',(user?.uid||auth.currentUser?.uid))));
       const myOrders=q.docs
         .map(d=>({id:d.id,...d.data()}))
         .filter(o=>o.userId===(user?.uid||auth.currentUser?.uid))
@@ -3167,7 +3121,7 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
   const fetchMilkSubs=async()=>{
     if(!user?.uid&&!auth.currentUser?.uid) return;
     try{
-      const q=await getDocs(collection(db,'milk_subscriptions'));
+      const q=await getDocs(query(collection(db,'milk_subscriptions'),where('userId','==',(user?.uid||auth.currentUser?.uid))));
       const my=q.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.userId===(user?.uid||auth.currentUser?.uid));
       setMilkSubs(my);
     }catch(e){console.log(e);}
@@ -3347,7 +3301,7 @@ function ProfileScr({user,t,fam,lang,isHi,onReorder,points=312}) {
             <Ic n="arrow" s={16} c="#8A9A8A"/>
           </div>
         ))}
-        <button className="btng rip" onClick={()=>{if(window.confirm('Sign out karna chahte ho?')){try{localStorage.removeItem('db_cust_user');localStorage.removeItem('db_name');}catch(e){}import('firebase/auth').then(({signOut,getAuth})=>{signOut(getAuth()).catch(()=>{}).finally(()=>window.location.reload());}).catch(()=>window.location.reload());}}} style={{width:'100%',marginTop:12,padding:'18px',fontSize:17,fontWeight:800,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.45)',background:'rgba(255,107,107,.08)'}}>🚪 {t.signOut}</button>
+        <button className="btng rip" onClick={()=>{if(window.confirm('Sign out karna chahte ho?')){try{const dk=localStorage.getItem('db_devkey');if(dk)apiPost('/api/session',{revoke:true,deviceKey:dk});localStorage.removeItem('db_devkey');localStorage.removeItem('db_cust_user');localStorage.removeItem('db_name');}catch(e){}import('firebase/auth').then(({signOut,getAuth})=>{signOut(getAuth()).catch(()=>{}).finally(()=>window.location.reload());}).catch(()=>window.location.reload());}}} style={{width:'100%',marginTop:12,padding:'18px',fontSize:17,fontWeight:800,color:'#FF6B6B',border:'1px solid rgba(255,107,107,.45)',background:'rgba(255,107,107,.08)'}}>🚪 {t.signOut}</button>
       </div>
     </div>
   );
@@ -3358,7 +3312,7 @@ function LoginForm({color,icon,role,cred,onLogin,onBack,hint}) {
   const [id,setId]=useState('');const [pass,setPass]=useState('');const [show,setShow]=useState(false);
   const [err,setErr]=useState('');const [load,setLoad]=useState(false);
   const rgb={'#3DFF7A':'61,255,122','#00C44F':'0,196,79','#D4AF37':'212,175,55','#FF8C42':'255,140,66'}[color]||'61,255,122';
-  const attempt=async()=>{setErr('');const lk=SEC.hit('login_'+role,5,15);if(lk){setErr('Too many attempts. Try again in '+lk+' min.');return;}let ok=null;try{ok=await cred(id.trim(),pass.trim());}catch(e){ok=null;}if(!ok){setErr('Invalid credentials or account disabled.');return;}SEC.reset('login_'+role);setLoad(true);setTimeout(()=>onLogin(ok),1000);};
+  const attempt=async()=>{setErr('');const lk=SEC.hit('login_'+role,5,15);if(lk){setErr('Too many attempts. Try again in '+lk+' min.');return;}let ok=null,em='';try{ok=await cred(id.trim(),pass.trim());}catch(e){ok=null;em=e.message||'';}if(!ok){setErr(em||'Invalid credentials or account disabled.');return;}SEC.reset('login_'+role);setLoad(true);setTimeout(()=>onLogin(ok),1000);};
   return (
     <div style={{position:'absolute',inset:0,background:`radial-gradient(ellipse at 30% 10%,rgba(${rgb},.04),#070907)`,display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <SBar/><div style={{padding:'2px 20px 0'}}><div style={{display:'inline-flex',alignItems:'center',gap:8,cursor:'pointer',padding:'6px 0'}} onClick={onBack}><Ic n="back" s={16} c="#5A6A5A"/><span style={{fontSize:13,color:'var(--t3)',fontWeight:600}}>Back</span></div></div>
@@ -3451,7 +3405,7 @@ function RiderApp({rider,data,setData,onBack}) {
   };
 
   const deliver=async id=>{
-    try{ await updateDoc(doc(db,'orders',id),{status:'delivered',deliveredAt:serverTimestamp()}); }catch(e){}
+    try{ await updateDoc(doc(db,'orders',id),{status:'delivered',deliveredAt:serverTimestamp()}); notifyEvent('order_status',{orderId:id}); }catch(e){}
   };
 
   const callCustomer=(phone)=>{if(phone) window.location.href=`tel:+91${phone.replace(/\D/g,'')}`;};
@@ -3720,6 +3674,7 @@ function ShopApp({shop,data,setData,onBack}) {
   const confirmO=async o=>{
     try{
       await updateDoc(doc(db,'orders',o.id),{status:'confirmed',confirmedAt:serverTimestamp(),shopId:shop.id,shopName:shop.name});
+      notifyEvent('order_status',{orderId:o.id});
       try{
         await addDoc(collection(db,'notifications'),{
           userId:o.userId,
@@ -3736,7 +3691,7 @@ function ShopApp({shop,data,setData,onBack}) {
   const packO=async o=>{
     try{
       await updateDoc(doc(db,'orders',o.id),{status:'packed',packedAt:serverTimestamp()});
-      try{ await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'riders',title:'📦 Order Ready for Pickup! / पिकअप के लिए तैयार',body:'Ek order pack ho gaya, abhi pickup karo! / एक ऑर्डर पैक हो गया है, उठा लो!'})}); }catch(ne){}
+      notifyEvent('order_status',{orderId:o.id});
     }
     catch(e){alert('Error: '+e.message);}
   };
@@ -3747,6 +3702,7 @@ function ShopApp({shop,data,setData,onBack}) {
     try{
       const o=realOrders.find(x=>x.id===id);
       await updateDoc(doc(db,'orders',id),{status:'cancelled',cancelledAt:serverTimestamp(),shopId:shop.id});
+      notifyEvent('order_status',{orderId:id});
       try{
         await addDoc(collection(db,'notifications'),{
           userId:o?.userId,
@@ -4003,70 +3959,38 @@ function AdminModal({children,onClose}){
   return <div className="ovl" onClick={onClose} style={{alignItems:'flex-end'}}><div className="modal" ref={ref} onClick={e=>e.stopPropagation()}>{children}</div></div>;
 }
 /* ═══════════ ADMIN OTP VERIFICATION (email + mobile) ═══════════ */
-function AdminOTPScreen({onVerify, onBack}) {
+function AdminOTPScreen({onVerify, onBack, info}) {
   const [otp,setOtp]=useState('');
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState('');
   const [msg,setMsg]=useState('');
-  const [resend,setResend]=useState(0);
-  const [smsToken,setSmsToken]=useState('');
+  const [resend,setResend]=useState(30);
+  const [otk,setOtk]=useState((info&&info.token)||'');
+  const [proof,setProof]=useState((info&&info.proof)||'');
+  const note=j=>setMsg(j.email?('✅ OTP email pe bheja: '+j.email+(j.sms?' + 📱 SMS':'')):'✅ OTP SMS pe bheja');
+  useEffect(()=>{ if(info) note(info); },[]);
 
   const send=async()=>{
-    const lkA=SEC.hit('admin_otp_send',6,15);
-    if(lkA){setErr('Too many OTP requests. Try again in '+lkA+' min.');return;}
     setErr('');setMsg('');setLoading(true);
-    let emailSent=false;
-    const code=String(Math.floor(100000+Math.random()*900000));
-    try{
-      await SEC.saveOtp('db_admin_otp',code,'admin');
-      const ejsRes=await fetch('https://api.emailjs.com/api/v1.0/email/send',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','origin':'http://localhost'},
-        body:JSON.stringify({
-          service_id:'service_stnx9cf',
-          template_id:'template_1zx0d4g',
-          user_id:'d_7tKaWwZUPNIH54P',
-          accessToken:'dwdte_YEIdiFgSomNI1Pi',
-          template_params:{to_name:'Admin',otp_code:code,to_email:ADMIN_EMAIL}
-        })
-      });
-      if(ejsRes.ok) emailSent=true; else console.log('Admin EmailJS send failed');
-    }catch(e){console.log('Admin email err:',e);}
-    let tok='';
-    try{
-      const r=await fetch('/api/sendotp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:ADMIN_PHONE})});
-      const d=await r.json();
-      if(d.success) tok=d.token;
-    }catch(e){console.log('Admin SMS err:',e);}
-    setSmsToken(tok);
-    if(!emailSent&&!tok){setErr('OTP send nahi hua. Internet check karo.');setLoading(false);return;}
-    const maskedEmail=ADMIN_EMAIL.replace(/(.{2}).*(@.*)/,'$1***$2');
-    setMsg(emailSent?('✅ OTP email pe bheja: '+maskedEmail+(tok?' + 📱 SMS':'')):'✅ OTP SMS pe bheja');
-    setResend(30);setLoading(false);
+    const j=await apiPost('/api/admin',{step:'resend',proof});
+    if(j.success){ setOtk(j.token); setProof(j.proof); note(j); setResend(30); }
+    else setErr(j.error||'OTP send nahi hua. Dobara login karo.');
+    setLoading(false);
   };
 
   const verify=async()=>{
     if(otp.length!==6){setErr('6-digit OTP daalo');return;}
-    const lkB=SEC.hit('admin_otp_verify',5,15);
-    if(lkB){setErr('Too many wrong attempts. Try again in '+lkB+' min.');return;}
     setLoading(true);setErr('');
-    let ok=false;
-    if(await SEC.checkOtp('db_admin_otp',otp,'admin')) ok=true;
-    if(!ok&&smsToken){
-      try{
-        const r=await fetch('/api/verifyotp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:smsToken,userOtp:otp})});
-        const d=await r.json();
-        if(d.success) ok=true;
-      }catch(e){console.log('Admin verify err:',e);}
-    }
-    setLoading(false);
-    if(ok){try{localStorage.setItem('db_admin','true');localStorage.setItem('db_admin_ts',String(Date.now()));SEC.reset('admin_otp_verify');}catch(e){}onVerify();}
-    else setErr('❌ Galat OTP! Email ya SMS check karo.');
+    const j=await apiPost('/api/admin',{step:'verify',token:otk,otp});
+    if(j.success){
+      try{ await signInToken(j.customToken); localStorage.setItem('db_admin','true');localStorage.setItem('db_admin_ts',String(Date.now())); }
+      catch(e){ setErr('Sign-in fail: '+e.message); setLoading(false); return; }
+      setLoading(false); onVerify();
+    } else { setLoading(false); setErr('❌ '+(j.error||'Galat OTP!')); }
   };
 
   const onOtpChange=e=>{setOtp(e.target.value.replace(/\D/g,'').slice(0,6));setErr('');};
 
-  useEffect(()=>{send();},[]);
   useEffect(()=>{if(resend<=0)return;const iv=setInterval(()=>setResend(r=>Math.max(0,r-1)),1000);return()=>clearInterval(iv);},[resend]);
 
   return (
@@ -4098,6 +4022,7 @@ function AdminApp({data,setData,onBack}) {
     const ev=['pointerdown','keydown','scroll','touchstart']; ev.forEach(x=>window.addEventListener(x,reset,{passive:true})); reset();
     return()=>{clearTimeout(tm);ev.forEach(x=>window.removeEventListener(x,reset));};
   },[]);
+  useEffect(()=>{ try{requestNotificationPermission('admin');}catch(e){} },[]);
   const [tab,setTab]=useState('dash');
   const [pcTab,setPcTab]=useState('veg');
   const [editId,setEditId]=useState(null);
@@ -4270,12 +4195,14 @@ function AdminApp({data,setData,onBack}) {
     if(!nsF.name||!nsF.owner||!nsF.phone){alert('Name, owner aur phone required hai!');return;}
     const idx=(data.shops||[]).length+1;
     const sid=`SHP${String(idx).padStart(3,'0')}`;
-    const s={id:sid,name:nsF.name,owner:nsF.owner,phone:nsF.phone,cuisine:nsF.cuisine,imgUrl:nsF.imgUrl||'',emoji:nsF.emoji||'🏪',badge:nsF.badge||'',deliveryTime:nsF.deliveryTime||'30-40 min',rating:parseFloat(nsF.rating)||4.5,pass:`Shop@${String(idx).padStart(3,'0')}`,active:true,totalOrders:0,totalRevenue:0,todayOrders:0,todayRevenue:0};
+    const s={id:sid,name:nsF.name,owner:nsF.owner,phone:nsF.phone,cuisine:nsF.cuisine,imgUrl:nsF.imgUrl||'',emoji:nsF.emoji||'🏪',badge:nsF.badge||'',deliveryTime:nsF.deliveryTime||'30-40 min',rating:parseFloat(nsF.rating)||4.5,active:true,totalOrders:0,totalRevenue:0,todayOrders:0,todayRevenue:0};
     try{
       await setDoc(doc(db,'shops',sid),s);
+      const cj=await apiPost('/api/cred',{action:'set',kind:'shop',id:sid},true);
+      if(!cj.success) throw new Error(cj.error||'Password set nahi hua');
       setData(d=>({...d,shops:[...d.shops,s]}));
-      setCreds({type:'Shop',id:s.id,pass:s.pass});
-      alert(`✅ Shop registered!\nID: ${s.id}\nPass: ${s.pass}`);
+      setCreds({type:'Shop',id:s.id,pass:cj.pass});
+      alert(`✅ Shop registered!\nID: ${s.id}\nPass: ${cj.pass}\n(Ye password sirf abhi dikhega)`);
     }catch(e){
       alert('Save failed: '+e.message);
       setData(d=>({...d,shops:[...d.shops,s]}));
@@ -4286,12 +4213,14 @@ function AdminApp({data,setData,onBack}) {
   const regRider=async()=>{
     const idx=(firestoreRiders.length||data.riders.length)+1;
     const rid=nrF.customId||`RDR${String(idx).padStart(3,'0')}`;
-    const r={id:rid,name:nrF.name,phone:nrF.phone,pass:nrF.customPass||`Rider@${String(idx).padStart(3,'0')}`,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
+    const r={id:rid,name:nrF.name,phone:nrF.phone,active:true,online:false,totalOrders:0,totalEarnings:0,todayEarnings:0,todayOrders:0,rating:5.0};
     try{
       
       await setDoc(doc(db,'riders',rid),r);
-      setCreds({type:'Rider',id:r.id,pass:r.pass});
-      alert(`✅ Rider registered!\nID: ${r.id}\nPass: ${r.pass}`);
+      const cj=await apiPost('/api/cred',{action:'set',kind:'rider',id:rid,pass:nrF.customPass||''},true);
+      if(!cj.success) throw new Error(cj.error||'Password set nahi hua');
+      setCreds({type:'Rider',id:r.id,pass:cj.pass});
+      alert(`✅ Rider registered!\nID: ${r.id}\nPass: ${cj.pass}\n(Ye password sirf abhi dikhega)`);
     }catch(e){
       alert('Save failed: '+e.message+'\n\nRider added locally only.');
       setData(d=>({...d,riders:[...d.riders.filter(x=>x.id!==rid),r]}));
@@ -4620,7 +4549,7 @@ function AdminApp({data,setData,onBack}) {
                   <div style={{fontSize:11,color:'var(--t3)',marginBottom:6}}>{s.owner} · {s.cuisine}</div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
                     <span style={{background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>ID: {s.id}</span>
-                    <span style={{background:'rgba(212,175,55,.08)',border:'1px solid rgba(212,175,55,.15)',color:'#D4AF37',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>Pass: {s.pass}</span>
+                    <span onClick={async()=>{if(!window.confirm('Naya password banayein?'))return;const cj=await apiPost('/api/cred',{action:'set',kind:'shop',id:s.id},true);if(cj.success)setCreds({type:'Shop',id:s.id,pass:cj.pass});else alert(cj.error||'Error');}} style={{background:'rgba(212,175,55,.08)',border:'1px solid rgba(212,175,55,.15)',color:'#D4AF37',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50,cursor:'pointer'}}>🔑 Reset pass</span>
                   </div>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <span style={{fontSize:11,color:'var(--t3)'}}>Orders:{s.totalOrders||0} · ₹{(s.totalRevenue||0).toLocaleString()}</span>
@@ -4684,7 +4613,7 @@ function AdminApp({data,setData,onBack}) {
                   </div>
                   <div style={{display:'flex',gap:6,marginBottom:8}}>
                     <span style={{background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>ID: {r.id}</span>
-                    <span style={{background:'rgba(0,196,79,.08)',border:'1px solid rgba(0,196,79,.15)',color:'#00C44F',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>Pass: {r.pass}</span>
+                    <span onClick={async()=>{if(!window.confirm('Naya password banayein?'))return;const cj=await apiPost('/api/cred',{action:'set',kind:'rider',id:r.id,pass:''},true);if(cj.success)setCreds({type:'Rider',id:r.id,pass:cj.pass});else alert(cj.error||'Error');}} style={{background:'rgba(0,196,79,.08)',border:'1px solid rgba(0,196,79,.15)',color:'#00C44F',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50,cursor:'pointer'}}>🔑 Reset pass</span>
                   </div>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <span style={{fontSize:11,color:'var(--t3)'}}>⭐{r.rating} · {r.totalOrders} orders</span>
@@ -4767,10 +4696,8 @@ function AdminApp({data,setData,onBack}) {
                   }
                   // Real push notification (with sound) to all customer devices
                   try{
-                    const pushRes=await fetch('/api/sendpush',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:'customers',title,body})});
-                    const pushData=await pushRes.json();
-                    console.log('Push result:',pushData);
-                    if(!pushRes.ok||pushData.error){ alert('⚠️ Push error: '+(pushData.error||pushRes.status)); }
+                    const okp=await notifyEvent('broadcast',{topic:'customers',title,body});
+                    if(!okp){ alert('⚠️ Push error: broadcast nahi gaya (admin login check karo)'); }
                   }catch(ne){ alert('⚠️ Push fetch error: '+ne.message); }
                   setNotifForm({title:'',body:''});
                   setSendNotifOpen(false);
@@ -5125,7 +5052,14 @@ const [authReady, setAuthReady] = useState(false);
         // Admin portal mein hain to phase/portal override mat karo
         const currentPortal=localStorage.getItem('db_portal')||'customer';
         const isAdminPortal=currentPortal==='admin'||localStorage.getItem('db_admin')==='true';
-        if(u && !isAdminPortal){
+        const rid=u?u.uid:'';
+        if(u && /^(rd_|sh_|pt_|adm_)/.test(rid)){
+          /* role session (rider/shop/partner/admin) — portal screens khud sambhalte hain */
+        } else if(u && rid.startsWith('ph_') && !isAdminPortal){
+          let su=null; try{su=JSON.parse(localStorage.getItem('db_cust_user')||'null');}catch(e){}
+          const uData=(su&&su.uid===rid)?su:{name:(localStorage.getItem('db_name')||'User'),phone:rid.slice(3),uid:rid};
+          setUser(uData); setPhase('app');
+        } else if(u && !isAdminPortal){
           let savedName='User';
           try { savedName=localStorage.getItem('db_name')||'User'; } catch(e) {}
           const uData={name:u.displayName||savedName, phone:u.phoneNumber||'', uid:u.uid};
@@ -5136,7 +5070,7 @@ const [authReady, setAuthReady] = useState(false);
           // Custom OTP login session restore
           try {
             const saved=localStorage.getItem('db_cust_user');
-            if(saved){const u2=JSON.parse(saved);if(u2&&u2.ts&&Date.now()-u2.ts>30*864e5){localStorage.removeItem('db_cust_user');}else{setUser(u2);setPhase('app');}}
+            if(saved){const u2=JSON.parse(saved);if(u2&&u2.ts&&Date.now()-u2.ts>30*864e5){localStorage.removeItem('db_cust_user');}else{setUser(u2);setPhase('app');restoreCustomer().then(r=>{if(r===false){try{localStorage.removeItem('db_cust_user');}catch(e){}window.location.reload();}});}}
           } catch(e){}
         }
       } catch(e){ console.log('Auth user error:',e); }
@@ -5155,6 +5089,18 @@ const [authReady, setAuthReady] = useState(false);
   const [shopU,  setShopU ] = useState(()=>{try{const s=localStorage.getItem('db_shop');return s?JSON.parse(s):null;}catch(e){return null;}});
   const [adminA, setAdminA] = useState(()=>{try{return localStorage.getItem('db_admin')==='true'&&(Date.now()-Number(localStorage.getItem('db_admin_ts')||0))<2*3600*1000;}catch(e){return false;}});
   const [adminOtp, setAdminOtp] = useState(false); // admin ne creds daale, ab OTP verify pending
+  // Purane (token-less) role sessions saaf karo + portal badalne par customer session wapas lao
+  useEffect(()=>{
+    if(!authReady) return;
+    const id=(auth.currentUser&&auth.currentUser.uid)||'';
+    if(riderU&&!id.startsWith('rd_')){ setRiderU(null); try{localStorage.removeItem('db_rider');}catch(e){} }
+    if(shopU&&!id.startsWith('sh_')){ setShopU(null); try{localStorage.removeItem('db_shop');}catch(e){} }
+    if(adminA&&id!=='adm_main'){ setAdminA(false); try{localStorage.removeItem('db_admin');}catch(e){} }
+  },[authReady]);
+  useEffect(()=>{
+    if(!authReady||portal!=='customer'||!user) return;
+    const cu=auth.currentUser; if(!cu||!String(cu.uid).startsWith('ph_')) restoreCustomer();
+  },[portal,authReady]);
 
   // Save portal sessions to localStorage
   useEffect(()=>{try{localStorage.setItem('db_portal',portal);}catch(e){}}, [portal]);
@@ -5200,12 +5146,12 @@ const [authReady, setAuthReady] = useState(false);
     if(phase==='app') {
       if(portal==='customer') return <CustomerApp user={user} lang={lang} setLang={setLang} data={data} setData={setData} theme={theme} setTheme={setTheme}/>;
       if(portal==='cab'||portal==='mgrocery'||portal==='mfashion') return <MallPartnerGate type={portal==='cab'?'cab':portal==='mgrocery'?'grocery':'fashion'} onBack={()=>{setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_portal');}catch(e){}}}/>;
-      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>{const r=(data.riders||[]).find(r=>r.id===id&&r.pass===p&&r.active);return r||null;}} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
-      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>{const s=(data.shops||[]).find(s=>s.id===id&&s.pass===p&&s.active);return s||null;}} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
+      if(portal==='rider') return (!riderU?<LoginForm color="#00C44F" icon="🚲" role="Rider" cred={(id,p)=>roleLogin('rider',id,p)} onLogin={r=>setRiderU(r)} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<RiderApp rider={riderU} data={data} setData={setData} onBack={()=>{setRiderU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_rider');localStorage.removeItem('db_portal');}catch(e){}}}/>);
+      if(portal==='shop') return (!shopU?<LoginForm color="#D4AF37" icon="🏨" role="Shop" cred={(id,p)=>roleLogin('shop',id,p)} onLogin={s=>setShopU(s)} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>:<ShopApp shop={shopU} data={data} setData={setData} onBack={()=>{setShopU(null);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_shop');localStorage.removeItem('db_portal');}catch(e){}}}/>);
       if(portal==='admin') {
         if(!adminA) {
-          if(!adminOtp) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={async(id,p)=>(await SEC.hash(id+'|'+p+'|dbsalt1'))===ADMIN_HASH?true:null} onLogin={()=>setAdminOtp(true)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
-          return <AdminOTPScreen onVerify={()=>{setAdminOtp(false);setAdminA(true);}} onBack={()=>setAdminOtp(false)}/>;
+          if(!adminOtp) return <LoginForm color="#FF8C42" icon="🍓" role="Admin" cred={(id,p)=>adminLogin(id,p)} onLogin={j=>setAdminOtp(j)} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}} hint={null}/>;
+          return <AdminOTPScreen info={adminOtp} onVerify={()=>{setAdminOtp(false);setAdminA(true);}} onBack={()=>setAdminOtp(false)}/>;
         }
         return <AdminApp data={data} setData={setData} onBack={()=>{setAdminA(false);setPortal('customer');setPhase('splash');try{localStorage.removeItem('db_admin');localStorage.removeItem('db_portal');}catch(e){}}}/>;
       }
