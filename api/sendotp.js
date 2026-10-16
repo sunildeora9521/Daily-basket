@@ -1,45 +1,18 @@
-// /api/sendemailotp.js - Vercel Serverless Function
-// Uses EmailJS free tier OR simple SMTP
-
-export default async function handler(req, res) {
-  if(req.method !== 'POST') return res.status(405).json({success:false,error:'Method not allowed'});
-  
-  const {email, name, otp} = req.body;
-  if(!email || !otp) return res.status(400).json({success:false,error:'Missing fields'});
-
+// POST /api/sendotp  {phone, email?, name?}  ->  {success, token, sms, email}
+// OTP server banata hai; client kabhi OTP ka code nahi dekhta (token me OTP nahi hota).
+const L = require('../serverlib');
+module.exports = async (req, res) => {
+  if (L.cors(req, res)) return;
+  if (req.method !== 'POST') return L.fail(res, 405, 'Method not allowed');
+  const { phone, email, name } = req.body || {};
+  if (!/^[6-9]\d{9}$/.test(String(phone || ''))) return L.fail(res, 400, 'Valid 10-digit mobile number daalo');
+  const em = email && /^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$/.test(String(email)) ? String(email).trim() : '';
   try {
-    // Using EmailJS REST API (free - 200 emails/month)
-    const EMAILJS_SERVICE_ID  = process.env.EMAILJS_SERVICE_ID;
-    const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID;
-    const EMAILJS_PUBLIC_KEY  = process.env.EMAILJS_PUBLIC_KEY;
-    const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
-
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        service_id:  EMAILJS_SERVICE_ID,
-        template_id: EMAILJS_TEMPLATE_ID,
-        user_id:     EMAILJS_PUBLIC_KEY,
-        accessToken: EMAILJS_PRIVATE_KEY,
-        template_params: {
-          to_email: email,
-          to_name:  name || 'Customer',
-          otp_code: otp,
-          app_name: 'Daily Basket'
-        }
-      })
-    });
-
-    if(response.ok) {
-      return res.status(200).json({success:true});
-    } else {
-      const err = await response.text();
-      throw new Error(err);
-    }
-  } catch(e) {
-    console.error('Email OTP error:', e);
-    // Don't fail login if email fails - SMS OTP is primary
-    return res.status(200).json({success:true, warning:'Email send failed but SMS OTP sent'});
-  }
-}
+    if (!(await L.rl('otp_ph_' + phone, 5, 900))) return L.fail(res, 429, 'Bahut zyada OTP requests. 15 min baad try karo.');
+    if (!(await L.rl('otp_ip_' + L.ip(req), 25, 3600))) return L.fail(res, 429, 'Bahut zyada requests. Thodi der baad try karo.');
+    const { otp, token } = L.makeOtp('login', phone);
+    const [sms, mail] = await Promise.all([L.sendSms(phone, otp), em ? L.sendEmail(em, name, otp) : false]);
+    if (!sms && !mail) return L.fail(res, 502, 'OTP bhej nahi paye. Thodi der baad try karo.');
+    return L.ok(res, { token, sms: !!sms, email: !!mail });
+  } catch (e) { console.error('sendotp', e.message); return L.fail(res, 500, e.message.includes('OTP_SECRET') ? e.message : 'Server error'); }
+};
