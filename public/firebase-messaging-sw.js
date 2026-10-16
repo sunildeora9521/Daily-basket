@@ -12,13 +12,29 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Server ab data-only push bhejta hai (title/body/url/tag) — yahin se notification dikhti hai (duplicate nahi)
 messaging.onBackgroundMessage((payload) => {
-  const title = (payload.notification && payload.notification.title) || 'Daily Basket';
-  const body = (payload.notification && payload.notification.body) || '';
+  const d = payload.data || {}, n = payload.notification || {};
+  const title = d.title || n.title || 'Daily Basket';
   self.registration.showNotification(title, {
-    body: body,
+    body: d.body || n.body || '',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    vibrate: [200, 100, 200]
+    tag: d.tag || undefined,
+    renotify: !!d.tag,
+    vibrate: [200, 100, 200],
+    data: { url: d.url || '/' }
   });
+});
+
+// Notification tap karne par app khule / focus ho
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ('focus' in c) { return c.focus(); } }
+      return clients.openWindow(url);
+    })
+  );
 });
