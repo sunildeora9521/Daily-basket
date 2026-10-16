@@ -1,26 +1,15 @@
-const crypto = require('crypto');
-
-module.exports = (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin','*');
-  res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers','Content-Type');
-  if (req.method==='OPTIONS') return res.status(200).end();
-
+// POST /api/verifyotp {token, userOtp} -> {success, phone}   (sirf check; login ke liye /api/session use hota hai)
+const L = require('../serverlib');
+module.exports = async (req, res) => {
+  if (L.cors(req, res)) return;
+  if (req.method !== 'POST') return L.fail(res, 405, 'Method not allowed');
   const { token, userOtp } = req.body || {};
-  if (!token||!userOtp) return res.status(400).json({error:'Missing fields'});
-
+  if (!token || !userOtp) return L.fail(res, 400, 'Missing fields');
   try {
-    const [raw,sig] = token.split('.');
-    const secret    = process.env.OTP_SECRET || 'db_fallback';
-    const expected  = crypto.createHmac('sha256',secret).update(raw).digest('hex');
-    if (sig!==expected) return res.status(400).json({error:'Invalid token'});
-
-    const {phone,otp,exp} = JSON.parse(Buffer.from(raw,'base64').toString());
-    if (Date.now()>exp)        return res.status(400).json({error:'OTP expired'});
-    if (userOtp.trim()!==otp)  return res.status(400).json({error:'Galat OTP!'});
-
-    return res.json({success:true, phone});
-  } catch(e) {
-    return res.status(500).json({error:e.message});
-  }
+    const t = String(token).split('.')[0]; let n = ''; try { n = JSON.parse(Buffer.from(t, 'base64url').toString()).n; } catch (e) {}
+    if (!n || !(await L.rl('v_' + n, 6, 600))) return L.fail(res, 429, 'Bahut zyada galat try. Naya OTP mangao.');
+    const p = L.checkOtp(token, userOtp, 'login');
+    if (!p) return L.fail(res, 400, 'Galat ya expired OTP');
+    return L.ok(res, { phone: p.s });
+  } catch (e) { return L.fail(res, 500, 'Server error'); }
 };
