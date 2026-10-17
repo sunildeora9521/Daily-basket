@@ -83,7 +83,7 @@ function verifyPass(pw, rec) {
 /* ───── senders ───── */
 // sendSms / sendEmail: success par true, fail par chhota sa karan (string) — taaki pata chale kya galat hai
 async function sendSms(phone, otp) {
-  const key = process.env.FAST2SMS_API_KEY; if (!key) return 'FAST2SMS_API_KEY env nahi hai';
+  const key = (process.env.FAST2SMS_API_KEY || '').trim(); if (!key) return 'FAST2SMS_API_KEY env nahi hai';
   try {
     const r = await fetch('https://www.fast2sms.com/dev/bulkV2?route=otp&variables_values=' + otp + '&numbers=' + phone + '&flash=0', { headers: { authorization: key } });
     const j = await r.json().catch(() => ({}));
@@ -92,8 +92,8 @@ async function sendSms(phone, otp) {
   } catch (e) { return 'Fast2SMS network error'; }
 }
 async function sendEmail(to, name, otp) {
-  const { EMAILJS_SERVICE_ID: s, EMAILJS_TEMPLATE_ID: t, EMAILJS_PUBLIC_KEY: u, EMAILJS_PRIVATE_KEY: k } = process.env;
-  if (!s || !t || !u) return 'EMAILJS_* env nahi hain'; if (!to) return 'email diya nahi';
+  const E = process.env, s = (E.EMAILJS_SERVICE_ID || '').trim(), t = (E.EMAILJS_TEMPLATE_ID || '').trim(), u = (E.EMAILJS_PUBLIC_KEY || '').trim(), k = (E.EMAILJS_PRIVATE_KEY || '').trim();
+  if (!s || !t || !u) return 'EMAILJS service/template/public key env khali hain'; if (!k) return 'EMAILJS_PRIVATE_KEY env khali hai (EmailJS → Account → General → Private Key paste karo)'; if (!to) return 'email diya nahi';
   try {
     const r = await fetch('https://api.emailjs.com/api/v1.0/email/send', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ service_id: s, template_id: t, user_id: u, accessToken: k, template_params: { to_email: to, to_name: clean(name, 40) || 'Customer', otp_code: otp, app_name: 'Daily Basket' } }) });
