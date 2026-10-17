@@ -4,8 +4,8 @@ const L = require('../serverlib');
 const SESSION_MS = 2 * 3600 * 1000;
 async function sendBoth(res, otpObj) {
   const email = process.env.ADMIN_EMAIL, phone = process.env.ADMIN_PHONE;
-  const [mail, sms] = await Promise.all([L.sendEmail(email, 'Admin', otpObj.otp), /^[6-9]\d{9}$/.test(phone || '') ? L.sendSms(phone, otpObj.otp) : false]);
-  return { mail, sms };
+  const [mail, sms] = await Promise.all([L.sendEmail(email, 'Admin', otpObj.otp), /^[6-9]\d{9}$/.test(phone || '') ? L.sendSms(phone, otpObj.otp) : 'ADMIN_PHONE set nahi']);
+  return { mail: mail === true, sms: sms === true, why: 'Email: ' + (mail === true ? 'ok' : mail) + ' | SMS: ' + (sms === true ? 'ok' : sms) };
 }
 module.exports = async (req, res) => {
   if (L.cors(req, res)) return;
@@ -18,13 +18,13 @@ module.exports = async (req, res) => {
       const good = L.safeEq(b.id || '', process.env.ADMIN_ID) & L.safeEq(b.pass || '', process.env.ADMIN_PASSWORD);
       if (!good) return L.fail(res, 401, 'Invalid credentials');
       const o = L.makeOtp('admin', 'admin', 300); const s = await sendBoth(res, o);
-      if (!s.mail && !s.sms) return L.fail(res, 502, 'OTP bhej nahi paye (email/SMS config check karo)');
+      if (!s.mail && !s.sms) return L.fail(res, 502, 'OTP nahi gaya → ' + s.why);
       return L.ok(res, { token: o.token, proof: L.makeProof('admproof', 'admin', 600, { r: 0 }), email: s.mail ? L.mask(process.env.ADMIN_EMAIL) : '', sms: !!s.sms });
     }
     if (b.step === 'resend') {
       const p = L.checkProof(b.proof, 'admproof'); if (!p || p.r >= 3) return L.fail(res, 401, 'Dobara login karo');
       const o = L.makeOtp('admin', 'admin', 300); const s = await sendBoth(res, o);
-      if (!s.mail && !s.sms) return L.fail(res, 502, 'OTP bhej nahi paye');
+      if (!s.mail && !s.sms) return L.fail(res, 502, 'OTP nahi gaya → ' + s.why);
       return L.ok(res, { token: o.token, proof: L.makeProof('admproof', 'admin', Math.max(60, Math.round((p.e - Date.now()) / 1000)), { r: p.r + 1 }), email: s.mail ? L.mask(process.env.ADMIN_EMAIL) : '', sms: !!s.sms });
     }
     if (b.step === 'verify') {
