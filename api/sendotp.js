@@ -11,8 +11,8 @@ module.exports = async (req, res) => {
     if (!(await L.rl('otp_ph_' + phone, 5, 900))) return L.fail(res, 429, 'Bahut zyada OTP requests. 15 min baad try karo.');
     if (!(await L.rl('otp_ip_' + L.ip(req), 25, 3600))) return L.fail(res, 429, 'Bahut zyada requests. Thodi der baad try karo.');
     const { otp, token } = L.makeOtp('login', phone);
-    const [sms, mail] = await Promise.all([L.sendSms(phone, otp), em ? L.sendEmail(em, name, otp) : false]);
-    if (!sms && !mail) return L.fail(res, 502, 'OTP bhej nahi paye. Thodi der baad try karo.');
-    return L.ok(res, { token, sms: !!sms, email: !!mail });
+    const [sms, mail] = await Promise.all([L.sendSms(phone, otp), em ? L.sendEmail(em, name, otp) : 'email tick nahi kiya']);
+    if (sms !== true && mail !== true) return L.fail(res, 502, 'OTP nahi gaya → SMS: ' + sms + ' | Email: ' + mail);
+    return L.ok(res, { token, sms: sms === true, email: mail === true });
   } catch (e) { console.error('sendotp', e.message); return L.fail(res, 500, e.message.includes('OTP_SECRET') ? e.message : 'Server error'); }
 };
