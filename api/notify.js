@@ -43,7 +43,8 @@ module.exports = async (req, res) => {
       if (gate(o, res)) return;
       try { await W.reconcileOrder(ref, o); } catch (e) { console.error('reconcile', e.message); }
       const p = payload('🛒 Naya Order!', (o.userName || 'Customer') + ' ne ₹' + o.total + ' ka order kiya', '/', 'o' + ref.id);
-      sent = (await toTopic('shops', p)) + (await toTopic('admin', p));
+      // food/grocery order: sirf chuni hui shop ko; purane (category-broadcast) orders sab shops ko
+      sent = (o.shopId ? await toTokens(await tokensFor('pid', String(o.shopId)), p) : await toTopic('shops', p)) + (await toTopic('admin', p));
     } else if (ev === 'order_status') {
       if (!staff) return L.fail(res, 403, 'Not allowed');
       const ref = d.collection('orders').doc(String(b.orderId || '')), s0 = await ref.get(); if (!s0.exists) return L.fail(res, 404, 'Not found');
