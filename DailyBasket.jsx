@@ -157,6 +157,26 @@ async function adminLogin(id,pass){
   return j;
 }
 
+/* ═══════════ PHOTO SHRINK: kisi bhi photo ko chhota JPEG banata hai (Firestore 1MB limit se bachne ke liye) ═══════════ */
+async function shrinkImage(file,max=900,q=0.78,limit=450000){
+  if(!file) throw new Error('Photo nahi mili');
+  if(file.type&&!/^image\//.test(file.type)) throw new Error('Sirf image choose karo');
+  const viaImg=url=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>rej(new Error('decode'));im.src=url;});
+  let src=null,w=0,h=0;
+  try{ src=await createImageBitmap(file); w=src.width; h=src.height; }catch(e){ src=null; }
+  if(!src){ const u=URL.createObjectURL(file); try{ src=await viaImg(u); w=src.naturalWidth; h=src.naturalHeight; }catch(e){ src=null; } try{URL.revokeObjectURL(u);}catch(e){} }
+  if(!src){ try{ const d=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('read'));r.readAsDataURL(file);}); src=await viaImg(d); w=src.naturalWidth; h=src.naturalHeight; }catch(e){ src=null; } }
+  if(!src||!w||!h) throw new Error('Photo open nahi ho rahi (HEIC?). JPG/PNG choose karo');
+  let k=Math.min(1,max/Math.max(w,h)), out='';
+  for(let i=0;i<7;i++){
+    const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(w*k)); c.height=Math.max(1,Math.round(h*k));
+    const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(src,0,0,c.width,c.height);
+    out=c.toDataURL('image/jpeg',q); if(out.length<=limit) break; q=Math.max(.45,q-.1); k*=.85;
+  }
+  return out;
+}
+const pickImg=(e,cb,max,q)=>{ const f=e.target.files&&e.target.files[0]; try{e.target.value='';}catch(x){} if(!f) return; shrinkImage(f,max,q).then(cb).catch(err=>alert('📷 '+err.message)); };
+
 /* ═══════════ SESSION ROUTING: Firebase login (uid prefix) hi tay karta hai ki app kaunsa portal khole ═══════════ */
 function routeFromAuth(uid, adminOk, sv, cur){
   const o={role:'',portal:undefined,phase:undefined,adminA:undefined,signOut:false,restore:false,clearRoles:[],user:'',clearCust:false,legacy:false};
@@ -184,6 +204,168 @@ function routeFromAuth(uid, adminOk, sv, cur){
     }
   }
   return o;
+}
+
+
+/* ═══════════ FOOD + GROCERIES (Daily Basket theme) — shop-wise menu, same cart & orders ═══════════ */
+const FOOD_SUBS=['Burger','Pizza','Momos','Rolls & Wraps','Sandwich','Chinese','Biryani & Rice','Fries & Snacks','Beverages','Desserts'];
+const GROC_SUBS=['Atta & Rice','Dal & Pulses','Oil & Ghee','Masala & Spices','Snacks & Biscuits','Beverages','Household','Personal Care'];
+const GROC_EMO={'Atta & Rice':'🌾','Dal & Pulses':'🫘','Oil & Ghee':'🛢️','Masala & Spices':'🌶️','Snacks & Biscuits':'🍪','Beverages':'🥤','Household':'🧴','Personal Care':'🧼'};
+// shop-specific (food/grocery) item ka shopId — cart/order isi se ek hi shop ko route hota hai
+const KIND=p=>(p&&p.shopId&&(p.cat==='food'||p.cat==='grocery'))?String(p.shopId):'';
+const pName=(p,isHi)=>(isHi&&p.nameHi)?p.nameHi:p.name;
+const VegDot=({veg})=>veg===null||veg===undefined?null:<span style={{display:'inline-flex',width:14,height:14,border:'1.5px solid '+(veg?'#22C55E':'#EF4444'),borderRadius:3,alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{width:7,height:7,borderRadius:'50%',background:veg?'#22C55E':'#EF4444'}}/></span>;
+const QtyBtn=({q,onAdd,onRem,small})=>q>0?(
+  <div style={{display:'flex',alignItems:'center',background:'var(--green)',color:'var(--btnTxt,#0A1A0A)',borderRadius:10,overflow:'hidden'}}>
+    <div onClick={onRem} style={{width:small?28:32,height:small?28:32,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,cursor:'pointer'}}>−</div>
+    <div style={{minWidth:18,textAlign:'center',fontSize:13,fontWeight:800}}>{q}</div>
+    <div onClick={onAdd} style={{width:small?28:32,height:small?28:32,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,cursor:'pointer'}}>+</div>
+  </div>
+):<div onClick={onAdd} style={{padding:small?'6px 16px':'8px 20px',borderRadius:10,border:'1.5px solid var(--green)',color:'var(--green)',fontSize:12.5,fontWeight:800,cursor:'pointer',background:'rgba(0,0,0,.15)'}}>ADD</div>;
+const SearchBox=({q,setQ,ph})=><div className="gc" style={{display:'flex',alignItems:'center',gap:10,padding:'0 14px',borderRadius:16,marginBottom:12}}><span style={{opacity:.6}}>🔍</span><input value={q} onChange={e=>setQ(e.target.value)} placeholder={ph} style={{flex:1,border:'none',outline:'none',background:'transparent',color:'inherit',padding:'13px 0',fontSize:14,fontFamily:'inherit'}}/>{q&&<span onClick={()=>setQ('')} style={{opacity:.6,cursor:'pointer'}}>✕</span>}</div>;
+
+function FoodScr({t,fam,isHi,data,cart,onAdd,onRem}){
+  const [rest,setRest]=useState(null),[q,setQ]=useState(''),[vegOnly,setVegOnly]=useState(false),[cu,setCu]=useState('All'),[sub,setSub]=useState('All');
+  const shops=(data.shops||[]).filter(s=>String(s.category||'').toLowerCase().includes('food')&&s.active!==false);
+  const items=(data.products||[]).filter(p=>p&&p.active&&p.name&&p.cat==='food'&&p.shopId&&(p.stock==null||p.stock>0));
+  const qOf=id=>(cart.find(i=>i.id===id)||{}).qty||0;
+  const itemsOf=sid=>items.filter(p=>String(p.shopId)===String(sid));
+  const add=p=>onAdd({...p,shopName:(shops.find(s=>String(s.id)===String(p.shopId))||{}).name||p.shopName||''});
+  const lc=x=>String(x||'').toLowerCase();
+  const CUIS=['All','Burger','Pizza','Momos','Rolls','Chinese','Sandwich','Biryani','Fries','Beverages'];
+  const shopMatch=s=>(cu==='All'||lc(s.cuisine).includes(lc(cu))||itemsOf(s.id).some(p=>lc(p.sub).includes(lc(cu))||lc(p.name).includes(lc(cu))))&&(!q||lc(s.name).includes(lc(q))||lc(s.cuisine).includes(lc(q))||itemsOf(s.id).some(p=>lc(p.name).includes(lc(q))));
+  const card={padding:14,marginBottom:12,borderRadius:20,cursor:'pointer'};
+  if(rest){
+    const all=itemsOf(rest.id), subs=['All',...Array.from(new Set(all.map(p=>p.sub).filter(Boolean)))];
+    const list=all.filter(p=>(!vegOnly||p.veg!==false)&&(sub==='All'||p.sub===sub)&&(!q||lc(p.name).includes(lc(q))||lc(p.nameHi).includes(lc(q))));
+    return (
+      <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+        <SBar/>
+        <div style={{padding:'4px 20px 10px',display:'flex',alignItems:'center',gap:12}}>
+          <BBtn onClick={()=>{setRest(null);setQ('');setSub('All');}}/>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:18,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{rest.name}</div><div style={{fontSize:11.5,color:'var(--t3)'}}>{rest.cuisine||'Fast food'} · ⭐ {rest.rating||4.3} · {rest.deliveryTime||rest.eta||'25-35 min'}</div></div>
+        </div>
+        <div className="scr" style={{position:'relative',padding:'0 20px 130px'}}>
+          <SearchBox q={q} setQ={setQ} ph={isHi?'डिश खोजें…':'Search dishes…'}/>
+          <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:12,paddingBottom:2}}>
+            <div onClick={()=>setVegOnly(!vegOnly)} className="cp" style={{border:'1.5px solid '+(vegOnly?'#22C55E':'var(--gb)'),color:vegOnly?'#22C55E':'inherit',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><VegDot veg={true}/> Veg only</div>
+            {subs.map(c=><div key={c} onClick={()=>setSub(c)} className={`cp ${sub===c?'on':''}`} style={{flexShrink:0}}>{c}</div>)}
+          </div>
+          {list.length===0&&<div style={{textAlign:'center',padding:40,opacity:.6,fontSize:13}}>{all.length?'Koi dish nahi mili 🔎':'Is restaurant ka menu jald aayega 🍽️'}</div>}
+          {list.map(p=>(
+            <div key={p.id} className="gc" style={{display:'flex',gap:12,padding:12,marginBottom:10,borderRadius:18,alignItems:'center'}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}><VegDot veg={p.veg}/><span style={{fontSize:14.5,fontWeight:700}}>{pName(p,isHi)}</span></div>
+                <div style={{fontSize:14,fontWeight:800,color:'var(--green)'}}>₹{p.price}{p.unit?<span style={{fontSize:11,color:'var(--t3)',fontWeight:500}}> · {p.unit}</span>:null}</div>
+                {p.about&&<div style={{fontSize:11.5,color:'var(--t3)',marginTop:3,lineHeight:1.45,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{p.about}</div>}
+              </div>
+              <div style={{width:86,flexShrink:0,textAlign:'center'}}>
+                <div style={{width:86,height:78,borderRadius:14,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:38,overflow:'hidden',marginBottom:-12,position:'relative'}}>{p.imgUrl?<img src={p.imgUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:(p.emoji||'🍔')}</div>
+                <div style={{position:'relative',display:'flex',justifyContent:'center'}}><QtyBtn q={qOf(p.id)} onAdd={()=>add(p)} onRem={()=>onRem(p.id)} small/></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  const visible=shops.filter(shopMatch);
+  const popular=items.filter(p=>(!vegOnly||p.veg!==false)&&(!q||lc(p.name).includes(lc(q)))).slice(0,10);
+  return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+      <SBar/>
+      <div style={{padding:'4px 20px 10px'}}>
+        <div style={{fontSize:22,fontWeight:800}}>🍔 {t.food||'Food'}</div>
+        <div style={{fontSize:12,color:'var(--t3)'}}>{isHi?'फास्ट फूड · तेज़ डिलीवरी':'Fast food · seedha aapke darwaze par'}</div>
+      </div>
+      <div className="scr" style={{position:'relative',padding:'0 20px 130px'}}>
+        <SearchBox q={q} setQ={setQ} ph={isHi?'रेस्टोरेंट या डिश खोजें…':'Restaurant ya dish search karo…'}/>
+        <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:14,paddingBottom:2}}>
+          <div onClick={()=>setVegOnly(!vegOnly)} className="cp" style={{border:'1.5px solid '+(vegOnly?'#22C55E':'var(--gb)'),color:vegOnly?'#22C55E':'inherit',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><VegDot veg={true}/> Veg only</div>
+          {CUIS.map(c=><div key={c} onClick={()=>setCu(c)} className={`cp ${cu===c?'on':''}`} style={{flexShrink:0}}>{c}</div>)}
+        </div>
+        {popular.length>0&&<>
+          <div className="sh"><div className="st">🔥 {isHi?'लोकप्रिय':'Popular dishes'}</div></div>
+          <div style={{display:'flex',gap:12,overflowX:'auto',marginBottom:18,paddingBottom:4}}>
+            {popular.map(p=>(
+              <div key={p.id} className="gc" style={{width:150,flexShrink:0,borderRadius:18,padding:10}}>
+                <div style={{height:84,borderRadius:12,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:40,overflow:'hidden',marginBottom:8}}>{p.imgUrl?<img src={p.imgUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:(p.emoji||'🍔')}</div>
+                <div style={{display:'flex',alignItems:'center',gap:5}}><VegDot veg={p.veg}/><span style={{fontSize:12.5,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{pName(p,isHi)}</span></div>
+                <div style={{fontSize:10.5,color:'var(--t3)',margin:'2px 0 8px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(shops.find(s=>String(s.id)===String(p.shopId))||{}).name||p.shopName}</div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><b style={{color:'var(--green)'}}>₹{p.price}</b><QtyBtn q={qOf(p.id)} onAdd={()=>add(p)} onRem={()=>onRem(p.id)} small/></div>
+              </div>
+            ))}
+          </div>
+        </>}
+        <div className="sh"><div className="st">🏪 {isHi?'रेस्टोरेंट':'Restaurants'} ({visible.length})</div></div>
+        {shops.length===0&&<div className="gc" style={{...card,textAlign:'center',opacity:.8,cursor:'default'}}><div style={{fontSize:40}}>🍽️</div><div style={{marginTop:6,fontSize:13}}>Abhi koi restaurant nahi judi — jald hi aa rahe hain!</div></div>}
+        {shops.length>0&&visible.length===0&&<div style={{textAlign:'center',padding:30,opacity:.6,fontSize:13}}>Koi restaurant nahi mili 🔎</div>}
+        {visible.map(s=>{const n=itemsOf(s.id).length;return(
+          <div key={s.id} className="gc" onClick={()=>{setRest(s);setQ('');setSub('All');}} style={card}>
+            <div style={{display:'flex',gap:12,alignItems:'center'}}>
+              <div style={{width:62,height:62,borderRadius:16,background:'linear-gradient(135deg,rgba(255,140,0,.25),rgba(255,60,0,.12))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,overflow:'hidden',flexShrink:0}}>{s.imgUrl?<img src={s.imgUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:'🍔'}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:15.5,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
+                <div style={{fontSize:12,color:'var(--t3)',margin:'2px 0 6px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.cuisine||'Fast food'}{s.area?' · '+s.area:''}</div>
+                <div style={{display:'flex',gap:10,fontSize:11.5,alignItems:'center'}}><span style={{background:'rgba(34,197,94,.15)',color:'#22C55E',fontWeight:800,padding:'2px 8px',borderRadius:8}}>⭐ {s.rating||4.3}</span><span style={{color:'var(--t2)'}}>🕒 {s.deliveryTime||s.eta||'25-35 min'}</span><span style={{color:'var(--t3)'}}>{n} items</span></div>
+              </div>
+            </div>
+          </div>);})}
+      </div>
+    </div>
+  );
+}
+
+function GroceriesScr({t,fam,isHi,data,cart,onAdd,onRem}){
+  const [q,setQ]=useState(''),[cat,setCat]=useState('All'),[shop,setShop]=useState('All');
+  const shops=(data.shops||[]).filter(s=>String(s.category||'').toLowerCase().includes('grocery')&&s.active!==false);
+  const items=(data.products||[]).filter(p=>p&&p.active&&p.name&&p.cat==='grocery'&&p.shopId&&(p.stock==null||p.stock>0));
+  const lc=x=>String(x||'').toLowerCase(), qOf=id=>(cart.find(i=>i.id===id)||{}).qty||0;
+  const shopOf=id=>shops.find(s=>String(s.id)===String(id))||{};
+  const add=p=>onAdd({...p,shopName:shopOf(p.shopId).name||p.shopName||''});
+  const list=items.filter(p=>shopOf(p.shopId).id!==undefined&&(cat==='All'||p.sub===cat)&&(shop==='All'||String(p.shopId)===String(shop))&&(!q||lc(p.name).includes(lc(q))||lc(p.nameHi).includes(lc(q))));
+  return (
+    <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',fontFamily:fam}}>
+      <SBar/>
+      <div className="scr" style={{position:'relative',padding:'4px 20px 130px'}}>
+        <div style={{position:'relative',borderRadius:24,overflow:'hidden',padding:'18px 18px 16px',marginBottom:14,background:'linear-gradient(135deg,rgba(255,176,0,.28),rgba(255,106,0,.1) 55%,rgba(61,255,122,.08))',border:'1px solid var(--gb)'}}>
+          <div style={{position:'absolute',right:-6,top:-8,fontSize:70,opacity:.18,transform:'rotate(12deg)'}}>🌾</div>
+          <div style={{position:'absolute',right:54,bottom:-14,fontSize:56,opacity:.14}}>🫘</div>
+          <div style={{fontSize:11,letterSpacing:3,color:'var(--gold,#D4AF37)',fontWeight:700}}>KIRANA BAZAAR</div>
+          <div style={{fontSize:24,fontWeight:800,lineHeight:1.15,margin:'4px 0 4px'}}>{isHi?'घर का सारा सामान':'Ghar ka saara saman'}</div>
+          <div style={{fontSize:12,color:'var(--t2)'}}>{isHi?'लोकल किराना दुकानों से, सीधे घर पर':'Local kirana dukaano se, seedha ghar par'}</div>
+        </div>
+        <SearchBox q={q} setQ={setQ} ph={isHi?'आटा, दाल, तेल खोजें…':'Atta, dal, tel search karo…'}/>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
+          {GROC_SUBS.map(c=>(
+            <div key={c} onClick={()=>setCat(cat===c?'All':c)} style={{textAlign:'center',padding:'10px 4px',borderRadius:16,cursor:'pointer',background:cat===c?'var(--gdim)':'var(--glass)',border:'1.5px solid '+(cat===c?'var(--green)':'var(--gb)')}}>
+              <div style={{fontSize:24}}>{GROC_EMO[c]}</div><div style={{fontSize:10,fontWeight:600,marginTop:3,lineHeight:1.2}}>{c}</div>
+            </div>
+          ))}
+        </div>
+        {shops.length>0&&<>
+          <div className="sh"><div className="st">🏪 {isHi?'दुकानें':'Dukaan chuno'}</div></div>
+          <div style={{display:'flex',gap:8,overflowX:'auto',marginBottom:16,paddingBottom:2}}>
+            <div onClick={()=>setShop('All')} className={`cp ${shop==='All'?'on':''}`} style={{flexShrink:0}}>Sab dukaan</div>
+            {shops.map(s=><div key={s.id} onClick={()=>setShop(shop===s.id?'All':s.id)} className={`cp ${shop===s.id?'on':''}`} style={{flexShrink:0}}>🏪 {s.name}</div>)}
+          </div>
+        </>}
+        <div className="sh"><div className="st">{cat==='All'?(isHi?'सभी सामान':'Saara saman'):cat} ({list.length})</div></div>
+        {shops.length===0&&<div className="gc" style={{padding:20,textAlign:'center',borderRadius:20,opacity:.85}}><div style={{fontSize:40}}>🛒</div><div style={{marginTop:6,fontSize:13}}>Abhi koi kirana dukaan nahi judi — jald hi aa rahi hain!</div></div>}
+        {shops.length>0&&list.length===0&&<div style={{textAlign:'center',padding:30,opacity:.6,fontSize:13}}>Koi saman nahi mila 🔎</div>}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          {list.map(p=>(
+            <div key={p.id} className="gc" style={{borderRadius:20,padding:10}}>
+              <div style={{height:92,borderRadius:14,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:44,overflow:'hidden',marginBottom:8}}>{p.imgUrl?<img src={p.imgUrl} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:(p.emoji||GROC_EMO[p.sub]||'🛒')}</div>
+              <div style={{fontSize:13,fontWeight:700,lineHeight:1.25,minHeight:32}}>{pName(p,isHi)}</div>
+              <div style={{fontSize:10.5,color:'var(--t3)',margin:'2px 0 8px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.unit} · {shopOf(p.shopId).name}</div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><b style={{color:'var(--green)',fontSize:15}}>₹{p.price}</b><QtyBtn q={qOf(p.id)} onAdd={()=>add(p)} onRem={()=>onRem(p.id)} small/></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ═══════════ DIWALI HERO ARTWORK (SVG: lanterns, toran, rangoli, diyas) ═══════════ */
@@ -511,7 +693,7 @@ function ThemePicker({theme, setTheme, onClose, isHi}) {
 /* ═══════════ TRANSLATIONS ═══════════ */
 const T = {
   en: {
-    home:'Home', combos:'Combos', food:'Food', eco:'Eco', profile:'Profile',
+    home:'Home', combos:'Groceries', food:'Food', eco:'Eco', profile:'Profile',
     goodMorning:'Good morning 👋', goodAfternoon:'Good afternoon 👋', goodEvening:'Good evening 👋', goodNight:'Good night 👋', freshVeggies:'Fresh Veggies\nDelivered Daily',
     shopNow:'Shop Now →', bestSellers:'Best Sellers', seeAll:'See all',
     categories:'Categories', all:'All', veggies:'Veggies', fruits:'Fruits',
@@ -535,7 +717,7 @@ const T = {
     forFreeDelivery:' more for free delivery', welcomeBack:'Welcome back! 👋',
   },
   hi: {
-    home:'होम', combos:'कॉम्बो', food:'खाना', eco:'इको', profile:'प्रोफाइल',
+    home:'होम', combos:'किराना', food:'खाना', eco:'इको', profile:'प्रोफाइल',
     goodMorning:'शुभ प्रभात 👋', goodAfternoon:'शुभ दिन 👋', goodEvening:'शुभ संध्या 👋', goodNight:'शुभ रात्रि 👋', freshVeggies:'ताजी सब्जियां\nघर पर डिलीवरी',
     shopNow:'अभी खरीदें →', bestSellers:'बेस्ट सेलर', seeAll:'सभी देखें',
     categories:'श्रेणियां', all:'सभी', veggies:'सब्जियां', fruits:'फल',
@@ -1234,7 +1416,7 @@ function BulkOrderScreen({onBack, user, fam}) {
               : <div><div style={{fontSize:36,marginBottom:8}}>📷</div><div style={{fontSize:13,fontWeight:600,color:'var(--t3)'}}>Apni order list ki photo upload karo</div><div style={{fontSize:11,color:'#5A6A5A',marginTop:4}}>JPG, PNG · Max 5MB</div></div>
             }
           </div>
-          <input id="bulkImg" type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setOrderImg(ev.target.result);r.readAsDataURL(f);}}}/>
+          <input id="bulkImg" type="file" accept="image/*" style={{display:'none'}} onChange={e=>pickImg(e,setOrderImg,1200,0.78)}/>
         </div>
         <div className="gc" style={{padding:16,marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>📝 Special Requirements</div>
@@ -1275,6 +1457,7 @@ function CustomerLogin({onLogin}) {
       setToken(j.token);
       setOtpSentTo((j.sms?phone:'')+'|'+(j.email?email.trim():''));
       setStep('otp'); setResend(30);
+      if(j.reused) setErr('ℹ️ OTP pehle hi bheja ja chuka hai — wahi OTP 5 min tak valid hai. Naya nahi bheja.');
     } catch(e) { setErr(e.message||'OTP send nahi hua. Dobara try karo.'); }
     setLoading(false);
   };
@@ -1894,7 +2077,14 @@ useEffect(()=>{
   },[showAddr,selP,track,shCart,scr]);
 
   const [isPlacing,setIsPlacing]=useState(false);
-  const addC=p=>setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
+  const addC=p=>{
+    const k=KIND(p);
+    if(cart.length&&(k||cart.some(i=>KIND(i)))&&cart.some(i=>KIND(i)!==k)){
+      if(!window.confirm('Cart me doosri shop ka saman hai. Purana cart hata ke naya shuru karein?')) return;
+      setCart([{...p,qty:1}]); return;
+    }
+    setCart(prev=>{const ex=prev.find(i=>i.id===p.id);return ex?prev.map(i=>i.id===p.id?{...i,qty:i.qty+1}:i):[...prev,{...p,qty:1}];});
+  };
   const remC=id=>setCart(prev=>{const it=prev.find(i=>i.id===id);return it&&it.qty>1?prev.map(i=>i.id===id?{...i,qty:i.qty-1}:i):prev.filter(i=>i.id!==id);});
   const place=async(addr)=>{
   if(isPlacing){return;} // Double click protection
@@ -1928,7 +2118,9 @@ useEffect(()=>{
       userId:uid||'guest_'+Date.now(),
       userName,
       userPhone,
-      items:cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price,emoji:i.emoji||'',cat:i.cat||''})),
+      items:cart.map(i=>({id:i.id,name:i.name,qty:i.qty,price:i.price,emoji:i.emoji||'',cat:i.cat||'',shopId:i.shopId||'',veg:(i.veg===undefined?null:i.veg)})),
+      shopId:(cart.length&&cart.every(i=>KIND(i)&&KIND(i)===KIND(cart[0])))?KIND(cart[0]):'',
+      shopName:(cart.length&&cart.every(i=>KIND(i)&&KIND(i)===KIND(cart[0])))?(cart[0].shopName||''):'',
       subtotal:sub,delivery:del,discount:discount,total,
       pointsUsed:hold?hold.points:0,pointsDiscount:hold?hold.points/10:0,walletHold:hold?hold.id:'',
       payMethod:payMethod,
@@ -1990,7 +2182,7 @@ useEffect(()=>{
 
   const navScrs=['home','combos','food','eco','profile'];
   const totalQ = cart.reduce((s,i)=>s+i.qty,0);
-  const activeProds = (data.products||[]).filter(p=>p&&p.active&&p.name);
+  const activeProds = (data.products||[]).filter(p=>p&&p.active&&p.name&&!KIND(p));
   const filtP = activeProds.filter(p=>{
     const matchCat = catF==='all'||p.cat===catF;
     const q = (searchQ||'').toLowerCase();
@@ -2449,8 +2641,8 @@ useEffect(()=>{
       </div>
     );
 
-    if(scr==='combos') return <CombosScr t={t} fam={fam} cart={cart} onAdd={addC} isHi={isHi}/>;
-    if(scr==='food')   return <FoodScr t={t} fam={fam} isHi={isHi}/>;
+    if(scr==='combos') return <GroceriesScr t={t} fam={fam} isHi={isHi} data={data} cart={cart} onAdd={addC} onRem={remC}/>;
+    if(scr==='food')   return <FoodScr t={t} fam={fam} isHi={isHi} data={data} cart={cart} onAdd={addC} onRem={remC}/>;
     if(scr==='eco')    return <EcoScr t={t} fam={fam} isHi={isHi} user={user} points={points}/>;
     if(scr==='profile')return <ProfileScr user={user} t={t} fam={fam} lang={lang} isHi={isHi} points={points} onReorder={items=>{items.forEach(item=>{for(let k=0;k<item.qty;k++)addC(item);});setShCart(true);}}/>;
     return null;
@@ -2626,71 +2818,6 @@ function CombosScr({t,fam,cart,onAdd,isHi}) {
   );
 }
 
-function FoodScr({t,fam,isHi}) {
-  const [shops,setShops]=useState([]);
-  useEffect(()=>{
-    const unsub=onSnapshot(collection(db,'shops'),snap=>{
-      const s=snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.active!==false&&s.name);
-      setShops(s);
-    });
-    return()=>unsub();
-  },[]);
-
-  return (
-    <div style={{paddingBottom:168,fontFamily:fam}}>
-      <SBar/>
-      <div style={{padding:'8px 20px 14px'}}><div style={{fontSize:22,fontWeight:800}}>{t.foodDelivery}</div><div style={{fontSize:13,color:'var(--t3)',marginTop:2}}>{t.hotMeals}</div></div>
-      <div style={{padding:'0 20px',marginBottom:18}}><div style={{background:'var(--card)',border:'1px solid rgba(61,255,122,.08)',borderRadius:14,padding:'12px 16px',display:'flex',alignItems:'center',gap:10}}><Ic n="search" s={18} c="#5A6A5A"/><span style={{fontSize:14,color:'#3A4A3A'}}>{isHi?'रेस्तरां खोजें…':'Search restaurants…'}</span></div></div>
-      <div style={{padding:'0 20px',marginBottom:18}}>
-        <div className="sh"><div className="st">{t.browseBy}</div></div>
-        <div className="srow">
-          {[{e:'🍕',l:'Pizza',lh:'पिज्जा'},{e:'🥗',l:'Salads',lh:'सलाद'},{e:'🍛',l:'Indian',lh:'भारतीय'},{e:'🧁',l:'Bakery',lh:'बेकरी'},{e:'🥪',l:'Snacks',lh:'स्नैक्स'},{e:'☕',l:'Coffee',lh:'कॉफी'}].map(c=>(
-            <div key={c.l} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,cursor:'pointer',flexShrink:0}}>
-              <div style={{width:60,height:60,borderRadius:18,background:'var(--card)',border:'1px solid rgba(61,255,122,.07)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26}}>{c.e}</div>
-              <span style={{fontSize:11,color:'var(--t3)',fontWeight:600}}>{isHi?c.lh:c.l}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{padding:'0 20px'}}>
-        <div className="sh"><div className="st">{t.nearYou}</div><div className="sl">{t.viewAll}</div></div>
-        {shops.length===0&&(
-          <div style={{textAlign:'center',padding:'40px 20px',color:'var(--t3)'}}>
-            <div style={{fontSize:40,marginBottom:10}}>🍽️</div>
-            <div style={{fontSize:14,fontWeight:600}}>{isHi?'अभी कोई रेस्तरां उपलब्ध नहीं':'No restaurants available yet'}</div>
-            <div style={{fontSize:12,marginTop:6,opacity:.6}}>{isHi?'जल्द ही आएंगे!':'Coming soon!'}</div>
-          </div>
-        )}
-        {shops.map((r,i)=>(
-          <div key={r.id} className="gc" style={{padding:0,marginBottom:12,cursor:'pointer',animation:`fadeUp .5s ease ${i*.1}s both`,overflow:'hidden',borderRadius:18}}>
-            {/* Shop banner image */}
-            {r.imgUrl&&<div style={{height:110,overflow:'hidden',position:'relative'}}>
-              <img src={r.imgUrl} alt={r.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-              <div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,transparent 50%,rgba(0,0,0,.6))'}}/>
-              {r.badge&&<span style={{position:'absolute',top:10,left:10,background:'rgba(61,255,122,.9)',color:'#0A1A0A',fontSize:10,fontWeight:800,padding:'3px 8px',borderRadius:20}}>{r.badge}</span>}
-            </div>}
-            <div style={{padding:'14px 16px',display:'flex',gap:14,alignItems:'center'}}>
-              {!r.imgUrl&&<div style={{width:68,height:68,borderRadius:18,flexShrink:0,background:'linear-gradient(135deg,#111A11,#0D160D)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,border:'1px solid rgba(61,255,122,.08)'}}>{r.emoji||'🏪'}</div>}
-              <div style={{flex:1}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
-                  <div style={{fontSize:15,fontWeight:700}}>{isHi?r.nameHi||r.name:r.name}</div>
-                  {r.badge&&!r.imgUrl&&<span style={{background:'rgba(61,255,122,.1)',border:'1px solid rgba(61,255,122,.2)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 6px',borderRadius:50}}>{r.badge}</span>}
-                </div>
-                <div style={{fontSize:12,color:'var(--t3)',marginBottom:5}}>{r.cuisine||r.cuisineType||'Restaurant'}</div>
-                <div style={{display:'flex',gap:12}}>
-                  {r.rating&&<span style={{fontSize:12,color:'#D4AF37',fontWeight:600}}>★ {r.rating}</span>}
-                  {r.deliveryTime&&<span style={{fontSize:12,color:'var(--t3)'}}>🕐 {r.deliveryTime}</span>}
-                  <span style={{fontSize:12,color:'#3DFF7A'}}>{t.freeDelivery}</span>
-                </div>
-              </div>
-              <Ic n="arrow" s={18} c="#5A6A5A"/>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function EcoScr({t,fam,isHi,user,points=0}) {
   const [orders,setOrders]=useState([]);
@@ -3114,7 +3241,7 @@ function WalletScr({user,onBack,isHi,fam}){
   const loadRf=async()=>{ try{ const q=await getDocs(query(collection(db,'refills'),where('uid','==',uid))); setRf(q.docs.map(d=>({...d.data(),id:d.id}))); }catch(e){} };
   useEffect(()=>{ load(); loadRf(); },[]);
   const apply=async()=>{ if(busy||!code.trim()) return; setBusy(true); setMsg(''); const j=await apiPost('/api/wallet',{action:'apply_referral',code:code.trim()},true); setMsg(j.success?('✅ '+j.message):('❌ '+(j.error||'Error'))); if(j.success){ setCode(''); load(); } setBusy(false); };
-  const share=()=>{ if(!w) return; const text='🛒 Daily Basket pe fresh sabzi, grocery aur cab — sab ek app me! Mera code '+w.refCode+' lagao. Pehla order deliver hote hi mujhe '+w.refPts+' points milenge 🎁 https://daily-basket-xi.vercel.app'; window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); };
+  const share=()=>{ if(!w) return; const text='🛒 Daily Basket pe fresh sabzi, grocery, food aur cab — sab ek app me! Mera code '+w.refCode+' lagao. Pehla order deliver hote hi mujhe '+w.refPts+' points (₹'+Math.floor(w.refPts/10)+') milenge 🎁 https://daily-basket-xi.vercel.app'; window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank'); };
   const copy=()=>{ try{ navigator.clipboard.writeText(w.refCode); setMsg('✅ Code copy ho gaya'); }catch(e){ setMsg('Code select karke copy karo'); } };
   const delRf=async id=>{ try{ await deleteDoc(doc(db,'refills',id)); }catch(e){} loadRf(); };
   const LBL={order_earn:'🛒 Order reward',referral:'🎁 Referral reward',redeem_hold:'💸 Points use kiye',redeem_refund:'↩️ Points wapas',migrated:'📦 Purane points'};
@@ -3138,13 +3265,13 @@ function WalletScr({user,onBack,isHi,fam}){
           </div>
           <div style={card}>
             <div style={{fontSize:15,fontWeight:800,marginBottom:4}}>🎁 Refer & Earn</div>
-            <div style={{fontSize:12,color:'var(--t3)',marginBottom:10,lineHeight:1.6}}>Dost ka pehla order (₹{w.minOrder}+) deliver hote hi aapko {w.refPts} points. Mahine me maximum {w.cap} points.</div>
+            <div style={{fontSize:12,color:'var(--t3)',marginBottom:10,lineHeight:1.6}}>Dost ka pehla order (₹{w.minOrder}+) deliver hote hi aapko <b style={{color:'#D4AF37'}}>{w.refPts} points (= ₹{Math.floor(w.refPts/10)})</b>. Mahine me maximum {w.maxRefs} referral.</div>
             <div className="selectable" style={{textAlign:'center',fontSize:30,fontWeight:800,letterSpacing:8,color:'#3DFF7A',padding:'10px 0',border:'1.5px dashed rgba(61,255,122,.4)',borderRadius:14,marginBottom:10}}>{w.refCode}</div>
             <div style={{display:'flex',gap:8,marginBottom:10}}>
               <div onClick={share} style={{flex:1,textAlign:'center',padding:'11px 8px',borderRadius:12,background:'#25D366',color:'#052e12',fontWeight:800,fontSize:13,cursor:'pointer'}}>💬 WhatsApp share</div>
               <div onClick={copy} style={{flex:1,textAlign:'center',padding:'11px 8px',borderRadius:12,border:'1px solid var(--gb,rgba(255,255,255,.2))',fontWeight:700,fontSize:13,cursor:'pointer'}}>📋 Copy</div>
             </div>
-            <div style={{fontSize:12,color:'var(--t3)'}}>Is mahine referral se: <b style={{color:'#D4AF37'}}>{w.refMonthEarned}/{w.cap}</b> points</div>
+            <div style={{fontSize:12,color:'var(--t3)'}}>Is mahine referral: <b style={{color:'#D4AF37'}}>{w.refMonthCount}/{w.maxRefs}</b> · {w.refMonthEarned} points mile</div>
             {!w.referred&&<div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--gb,rgba(255,255,255,.1))'}}>
               <div style={{fontSize:12.5,fontWeight:700,marginBottom:6}}>Kisi dost ne bheja? Unka code lagao</div>
               <div style={{display:'flex',gap:8}}>
@@ -3770,6 +3897,7 @@ function ShopApp({shop,data,setData,onBack}) {
   const shopCat=(shop.category||shop.cuisine||'').toLowerCase();
   const matchesShop=(o)=>{
     const items=o.items||[];
+    if(o.shopId) return String(o.shopId)===String(shop.id); // food/grocery: customer ne isi shop ko chuna
     if(shopCat.includes('veg')||shopCat.includes('fruit')||shopCat.includes('grocery'))
       return items.some(i=>(i.cat||'').match(/veg|fruit/i));
     if(shopCat.includes('food')||shopCat.includes('restaurant'))
@@ -3839,7 +3967,7 @@ function ShopApp({shop,data,setData,onBack}) {
   const [pcTab,setPcTab]=useState('veg');
   const [editId,setEditId]=useState(null);
   const [addP,setAddP]=useState(false);
-  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:''});
+  const [npF,setNpF]=useState({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:'',sub:'',veg:true});
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,'products'),snap=>{
       const all=snap.docs.map(d=>({...d.data(),id:d.data().id||d.id,firestoreId:d.id})).filter(p=>p.name);
@@ -3849,7 +3977,7 @@ function ShopApp({shop,data,setData,onBack}) {
     },()=>{});
     return()=>unsub();
   },[]);
-  const onImgPick=(e,cb)=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>cb(ev.target.result);r.readAsDataURL(f);};
+  const onImgPick=(e,cb)=>pickImg(e,cb,900,0.78);
   const toggleProd=async(fid,cur)=>{
     setMyProds(ps=>ps.map(p=>p.firestoreId===fid?{...p,active:!cur}:p));
     try{if(fid)await updateDoc(doc(db,'products',fid),{active:!cur});}catch(e){console.log(e);}
@@ -3860,12 +3988,12 @@ function ShopApp({shop,data,setData,onBack}) {
   };
   const addNewProd=async()=>{
     if(!npF.name||!npF.price){alert('Product ka naam aur price bharein!');return;}
-    const catTagMap={veg:'Fresh',fruit:'Fresh',milk:'Fresh',food:'Hot'};
-    const catTagHiMap={veg:'ताज़ा',fruit:'ताज़ा',milk:'ताज़ा',food:'गरम'};
-    const np={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock||0,about:npF.about||'',tag:catTagMap[npF.cat]||'New',tagHi:catTagHiMap[npF.cat]||'नया',active:true,shopId:shop.id,shopName:shop.name,createdAt:new Date().toISOString()};
+    const catTagMap={veg:'Fresh',fruit:'Fresh',milk:'Fresh',food:'Hot',grocery:'Kirana'};
+    const catTagHiMap={veg:'ताज़ा',fruit:'ताज़ा',milk:'ताज़ा',food:'गरम',grocery:'किराना'};
+    const np={id:Date.now(),name:npF.name,nameHi:npF.nameHi||npF.name,price:+npF.price,unit:npF.unit,emoji:npF.emoji||'🥦',imgUrl:npF.imgUrl||'',cat:npF.cat,stock:+npF.stock||0,about:npF.about||'',sub:(npF.cat==='food'||npF.cat==='grocery')?(npF.sub||''):'',veg:npF.cat==='food'?(npF.veg!==false):null,tag:catTagMap[npF.cat]||'New',tagHi:catTagHiMap[npF.cat]||'नया',active:true,shopId:shop.id,shopName:shop.name,createdAt:new Date().toISOString()};
     try{const ref=await addDoc(collection(db,'products'),np);np.firestoreId=ref.id;alert('Product add ho gaya!');}
     catch(e){alert('Save fail: '+e.message);setMyProds(ps=>[...ps,np]);}
-    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:''});
+    setNpF({name:'',nameHi:'',cat:'veg',price:'',unit:'500g',emoji:'🥦',imgUrl:'',stock:'50',about:'',sub:'',veg:true});
     setAddP(false);
   };
   const deleteProd=async(fid)=>{
@@ -3937,7 +4065,7 @@ function ShopApp({shop,data,setData,onBack}) {
           <div className="sh"><div className="st">Mere Products ({myProds.length})</div><button className="btn rip" onClick={()=>setAddP(true)} style={{padding:'8px 16px',fontSize:12,width:'auto',flexShrink:0}}>+ Add Product</button></div>
           {lowStock.length>0&&<div className="gc" style={{padding:'10px 14px',marginBottom:10,border:'1px solid rgba(255,140,66,.35)',display:'flex',alignItems:'center',gap:8,fontSize:12.5,fontWeight:600,color:'#FF8C42'}}>⚠️ {lowStock.length} product low-stock par hai</div>}
           <div className="srow" style={{display:'flex',gap:8,marginBottom:14,overflowX:'auto'}}>
-            {[{id:'veg',l:'🥦 Veg'},{id:'fruit',l:'🍎 Fruit'},{id:'milk',l:'🥛 Dairy'},{id:'food',l:'🍛 Food'}].map(c=>(
+            {[{id:'veg',l:'🥦 Veg'},{id:'fruit',l:'🍎 Fruit'},{id:'milk',l:'🥛 Dairy'},{id:'food',l:'🍛 Food'},{id:'grocery',l:'🛒 Grocery'}].map(c=>(
               <div key={c.id} className={`cp ${pcTab===c.id?'on':''}`} onClick={()=>setPcTab(c.id)} style={{padding:'7px 14px',borderRadius:50,fontSize:12.5,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>{c.l}</div>
             ))}
           </div>
@@ -3997,9 +4125,19 @@ function ShopApp({shop,data,setData,onBack}) {
             <div style={{marginBottom:10}}>
               <div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:6}}>CATEGORY</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                {['veg','fruit','milk','food'].map(c=>(<div key={c} className={`cp ${npF.cat===c?'on':''}`} onClick={()=>setNpF(x=>({...x,cat:c}))} style={{padding:'7px 14px',borderRadius:50,fontSize:12.5,fontWeight:600,cursor:'pointer'}}>{c}</div>))}
+                {['veg','fruit','milk','food','grocery'].map(c=>(<div key={c} className={`cp ${npF.cat===c?'on':''}`} onClick={()=>setNpF(x=>({...x,cat:c,sub:''}))} style={{padding:'7px 14px',borderRadius:50,fontSize:12.5,fontWeight:600,cursor:'pointer'}}>{c}</div>))}
               </div>
             </div>
+            {(npF.cat==='food'||npF.cat==='grocery')&&<div style={{marginBottom:12,padding:12,borderRadius:14,background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.08)'}}>
+              <div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:6}}>{npF.cat==='food'?'MENU CATEGORY':'GROCERY CATEGORY'}</div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:npF.cat==='food'?10:0}}>
+                {(npF.cat==='food'?FOOD_SUBS:GROC_SUBS).map(c=><div key={c} className={`cp ${npF.sub===c?'on':''}`} onClick={()=>setNpF(x=>({...x,sub:c}))} style={{padding:'6px 12px',fontSize:12}}>{c}</div>)}
+              </div>
+              {npF.cat==='food'&&<div style={{display:'flex',gap:8}}>
+                <div className={`cp ${npF.veg!==false?'on':''}`} onClick={()=>setNpF(x=>({...x,veg:true}))} style={{flex:1,textAlign:'center'}}>🟢 Veg</div>
+                <div className={`cp ${npF.veg===false?'on':''}`} onClick={()=>setNpF(x=>({...x,veg:false}))} style={{flex:1,textAlign:'center'}}>🔴 Non-Veg</div>
+              </div>}
+            </div>}
             <div style={{marginBottom:12}}>
               <div style={{fontSize:10.5,fontWeight:700,color:'#8A9A8A',marginBottom:5}}>📝 ABOUT (optional)</div>
               <textarea className="dbi" placeholder="Fresh from local farm..." value={npF.about} onChange={e=>setNpF(x=>({...x,about:e.target.value}))} style={{minHeight:60,resize:'vertical'}} maxLength={300}/>
@@ -4313,9 +4451,10 @@ function AdminApp({data,setData,onBack}) {
 
   const regShop=async()=>{
     if(!nsF.name||!nsF.owner||!nsF.phone){alert('Name, owner aur phone required hai!');return;}
+    if(!nsF.category){alert('Shop category chuno (Fast Food / Grocery / Veggies / Dairy)!');return;}
     const idx=(data.shops||[]).length+1;
     const sid=`SHP${String(idx).padStart(3,'0')}`;
-    const s={id:sid,name:nsF.name,owner:nsF.owner,phone:nsF.phone,cuisine:nsF.cuisine,imgUrl:nsF.imgUrl||'',emoji:nsF.emoji||'🏪',badge:nsF.badge||'',deliveryTime:nsF.deliveryTime||'30-40 min',rating:parseFloat(nsF.rating)||4.5,active:true,totalOrders:0,totalRevenue:0,todayOrders:0,todayRevenue:0};
+    const s={id:sid,name:nsF.name,owner:nsF.owner,phone:nsF.phone,cuisine:nsF.cuisine,imgUrl:nsF.imgUrl||'',emoji:nsF.emoji||'🏪',badge:nsF.badge||'',deliveryTime:nsF.deliveryTime||'30-40 min',rating:parseFloat(nsF.rating)||4.5,category:nsF.category,active:true,totalOrders:0,totalRevenue:0,todayOrders:0,todayRevenue:0};
     try{
       await setDoc(doc(db,'shops',sid),s);
       const cj=await apiPost('/api/cred',{action:'set',kind:'shop',id:sid},true);
@@ -4596,7 +4735,7 @@ function AdminApp({data,setData,onBack}) {
                 <div style={{flex:1}}>
                   <label style={{display:'block',padding:'9px 14px',borderRadius:12,background:'rgba(61,255,122,.08)',border:'1.5px solid rgba(61,255,122,.3)',color:'#3DFF7A',fontWeight:700,fontSize:12,cursor:'pointer',textAlign:'center',marginBottom:6}}>
                     📷 Gallery se Upload
-                    <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setNpF(p=>({...p,imgUrl:ev.target.result}));r.readAsDataURL(f);}}}/>
+                    <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>pickImg(e,u=>setNpF(p=>({...p,imgUrl:u})))}/>
                   </label>
                   <input className="dbi" style={{fontSize:20,padding:'6px 10px',textAlign:'center'}} placeholder="या Emoji 🥦" value={npF.emoji} onChange={e=>setNpF(p=>({...p,emoji:e.target.value,imgUrl:''}))}/>
                 </div>
@@ -4671,6 +4810,12 @@ function AdminApp({data,setData,onBack}) {
                     <span style={{background:'rgba(61,255,122,.08)',border:'1px solid rgba(61,255,122,.15)',color:'#3DFF7A',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50}}>ID: {s.id}</span>
                     <span onClick={async()=>{if(!window.confirm('Naya password banayein?'))return;const cj=await apiPost('/api/cred',{action:'set',kind:'shop',id:s.id},true);if(cj.success)setCreds({type:'Shop',id:s.id,pass:cj.pass});else alert(cj.error||'Error');}} style={{background:'rgba(212,175,55,.08)',border:'1px solid rgba(212,175,55,.15)',color:'#D4AF37',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:50,cursor:'pointer'}}>🔑 Reset pass</span>
                   </div>
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
+                    {[['veggies','🥦 Veggies'],['food','🍔 Fast Food'],['grocery','🛒 Grocery'],['dairy','🥛 Dairy']].map(([cid,cl])=>(
+                      <span key={cid} onClick={async()=>{try{await updateDoc(doc(db,'shops',s.id),{category:cid});setData(d=>({...d,shops:d.shops.map(x=>x.id===s.id?{...x,category:cid}:x)}));}catch(e){alert('Category save nahi hui: '+e.message);}}} style={{fontSize:10,fontWeight:700,padding:'3px 9px',borderRadius:50,cursor:'pointer',border:'1px solid '+((s.category||'')===cid?'#D4AF37':'rgba(255,255,255,.15)'),background:(s.category||'')===cid?'rgba(212,175,55,.18)':'transparent',color:(s.category||'')===cid?'#D4AF37':'var(--t3)'}}>{cl}</span>
+                    ))}
+                    {!s.category&&<span style={{fontSize:10,color:'#FF6B6B',alignSelf:'center'}}>⚠️ category set karo</span>}
+                  </div>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                     <span style={{fontSize:11,color:'var(--t3)'}}>Orders:{s.totalOrders||0} · ₹{(s.totalRevenue||0).toLocaleString()}</span>
                     <Tog on={s.active} onClick={()=>toggleShop(s.id)}/>
@@ -4688,7 +4833,7 @@ function AdminApp({data,setData,onBack}) {
                 {nsF.imgUrl?<img src={nsF.imgUrl} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<div style={{textAlign:'center'}}><div style={{fontSize:22}}>🖼️</div><div style={{fontSize:11,color:'var(--t3)'}}>Tap to upload banner</div></div>}
               </div>
               {nsF.imgUrl&&<div onClick={()=>setNsF(p=>({...p,imgUrl:''}))} style={{fontSize:11,color:'#FF6B6B',cursor:'pointer',textAlign:'center',marginBottom:4}}>✕ Remove</div>}
-              <input id="shopImgUp" type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setNsF(p=>({...p,imgUrl:ev.target.result}));r.readAsDataURL(f);}}}/>
+              <input id="shopImgUp" type="file" accept="image/*" style={{display:'none'}} onChange={e=>pickImg(e,u=>setNsF(p=>({...p,imgUrl:u})))}/>
             </div>
             {[{l:'Shop Name',k:'name',ph:'e.g. Fresh Corner'},{l:'Owner Name',k:'owner',ph:'Full name'},{l:'Phone',k:'phone',ph:'10-digit'},{l:'Badge (optional)',k:'badge',ph:'e.g. Top Rated'},{l:'Delivery Time',k:'deliveryTime',ph:'e.g. 30-40 min'},{l:'Rating',k:'rating',ph:'e.g. 4.5'},{l:'Emoji (if no image)',k:'emoji',ph:'🏪'}].map(f=>(
               <div key={f.k} style={{marginBottom:10}}>
@@ -4699,7 +4844,7 @@ function AdminApp({data,setData,onBack}) {
             <div style={{marginBottom:12}}>
               <div style={{fontSize:10,color:'var(--t3)',marginBottom:6}}>SHOP CATEGORY <span style={{color:'#FF6B6B'}}>*</span></div>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                {[{id:'veggies',l:'🥦 Veggies+Fruits'},{id:'food',l:'🍱 Food'},{id:'dairy',l:'🥛 Dairy'}].map(c=>(
+                {[{id:'veggies',l:'🥦 Veggies+Fruits'},{id:'food',l:'🍔 Fast Food'},{id:'grocery',l:'🛒 Grocery/Kirana'},{id:'dairy',l:'🥛 Dairy'}].map(c=>(
                   <div key={c.id} onClick={()=>setNsF(p=>({...p,category:c.id}))} style={{padding:'8px 12px',borderRadius:50,fontSize:12,fontWeight:600,cursor:'pointer',border:`1.5px solid ${(nsF.category||'')==c.id?'rgba(212,175,55,.6)':'rgba(212,175,55,.2)'}`,background:(nsF.category||'')==c.id?'rgba(212,175,55,.15)':'transparent',color:(nsF.category||'')==c.id?'#D4AF37':'var(--t3)'}}>{c.l}</div>
                 ))}
               </div>
@@ -5086,7 +5231,7 @@ function AdminApp({data,setData,onBack}) {
                   : <div style={{textAlign:'center'}}><div style={{fontSize:26,marginBottom:4}}>🖼️</div><div style={{fontSize:11,color:'var(--t3)'}}>Tap to upload image / GIF</div></div>}
               </div>
               {editSlide.imgUrl&&<div onClick={()=>setEditSlide(p=>({...p,imgUrl:''}))} style={{fontSize:11,color:'#FF6B6B',cursor:'pointer',textAlign:'center',marginBottom:6}}>✕ Remove image</div>}
-              <input id="editSlideImg" type="file" accept="image/*,.gif" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setEditSlide(p=>({...p,imgUrl:ev.target.result}));r.readAsDataURL(f);}}}/>
+              <input id="editSlideImg" type="file" accept="image/*,.gif" style={{display:'none'}} onChange={e=>{const f=e.target.files[0];if(f&&/gif/i.test(f.type)&&f.size<900000){const r=new FileReader();r.onload=ev=>setEditSlide(p=>({...p,imgUrl:ev.target.result}));r.readAsDataURL(f);}else pickImg(e,u=>setEditSlide(p=>({...p,imgUrl:u})),1280,0.7);}}/>
             </div>
             {[{l:'Emoji (if no image)',k:'emoji'},{l:'Badge Text',k:'chip'},{l:'Title',k:'title'},{l:'Subtitle',k:'sub'},{l:'Button Text',k:'btn'},{l:'Link',k:'link'}].map(f=>(
               <div key={f.k} style={{marginBottom:10}}>
